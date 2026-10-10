@@ -22,13 +22,28 @@ export function BottomNav() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 rounded-md py-2.5 text-[11px] font-medium transition-colors ${
+                `relative flex flex-col items-center gap-1 rounded-md py-2.5 text-[11px] font-medium transition-colors motion-reduce:transition-none ${
                   isActive ? 'text-primary-soft' : 'text-muted hover:text-text'
                 }`
               }
             >
-              <Icon className="size-5" />
-              {label}
+              {({ isActive }) => (
+                <>
+                  {/*
+                   * The active tab must not be signalled by colour alone: that
+                   * cue disappears in greyscale and for colour-blind users. The
+                   * bar carries the same information without any colour.
+                   */}
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary-soft transition-opacity motion-reduce:transition-none ${
+                      isActive ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                  <Icon className="size-5" />
+                  {label}
+                </>
+              )}
             </NavLink>
           </li>
         ))}

@@ -14,4 +14,10 @@ describe('Skeleton', () => {
 
     expect(container.firstElementChild).toHaveClass('h-4', 'w-24', 'animate-pulse');
   });
+
+  it('stops pulsing for users who asked for reduced motion', () => {
+    const { container } = render(<Skeleton />);
+
+    expect(container.firstElementChild).toHaveClass('motion-reduce:animate-none');
+  });
 });

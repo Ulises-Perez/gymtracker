@@ -36,4 +36,20 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('link', { name: 'Entrenar' })).toHaveAttribute('aria-current', 'page');
   });
+
+  it('gives the active destination a cue that survives greyscale', () => {
+    renderAt('/history');
+
+    const indicatorOf = (label: string) => {
+      const link = screen.getByRole('link', { name: label });
+      const indicator = link.querySelector('span[aria-hidden="true"]');
+
+      return indicator?.className ?? '';
+    };
+
+    // Colour alone is not perceivable for every user, so the active tab also
+    // carries a bar whose visibility does not depend on hue.
+    expect(indicatorOf('Historial')).toContain('opacity-100');
+    expect(indicatorOf('Inicio')).toContain('opacity-0');
+  });
 });
