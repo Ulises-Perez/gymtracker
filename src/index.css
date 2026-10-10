@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+@theme {
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Design tokens — PLAN.md §5 */
+  --color-bg: #0a0a0f;
+  --color-surface: #14141f;
+  --color-primary: #6c5ce7;
+  --color-primary-soft: #a29bfe;
+  --color-accent: #00cec9;
+  --color-danger: #ff6b6b;
+  --color-text: #f0f0f5;
+  --color-muted: #8888a0;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 24px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100svh;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/*
+ * backdrop-filter is expensive on low-end Android, so it is allowed on these
+ * two fixed surfaces only. Never apply it to list items or inline content.
+ */
+.bottom-nav {
+  backdrop-filter: blur(12px);
+}
+
+.overlay {
+  backdrop-filter: blur(8px);
+}

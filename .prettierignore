@@ -1,0 +1,16 @@
+# Generated or vendored output
+dist/
+dev-dist/
+coverage/
+node_modules/
+playwright-report/
+test-results/
+
+# Lockfile is managed by npm
+package-lock.json
+
+# Product and planning docs are intentionally not reformatted
+PLAN.md
+README.md
+odd/
+supabase/
