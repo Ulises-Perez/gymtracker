@@ -143,6 +143,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | T0.7, T0.8 | `33e684d` `ci(setup): add the verification pipeline and SPA rewrites for Vercel` | `HUSKY=0 npm ci` (625 paquetes, lockfile sin drift) + typecheck + lint + 6/6 tests + build |
 | T0.7b | `d90b2ae`, `bd72725` `docs(setup): ship the environment template and close T0.7` | `env.example` presente, no ignorado por git, contrato documentado en `README.md` |
 | T2.4 | `29488d2` `feat(shell): add the router, app shell and bottom navigation` | typecheck + lint + 15/15 tests (rutas lazy, 404, orden y `aria-current` de la nav) + build + smoke test con `vite preview` sobre el artefacto real |
+| Revisión visual de T2.4 | `7112d49` `chore(review): add screenshot capture and objective UI audit` | 20 combinaciones ruta×viewport medidas: sin overflow horizontal, nav de 62px sin tapar contenido, target mínimo de 61px, contraste de texto muted 5.71:1 y del tab activo 8.14:1, Inter resuelta |
+| Hallazgo de la revisión visual | `66f74b4` `fix(a11y): signal the active tab without relying on colour` | Indicador visible verificado en browser real: exactamente uno por ruta y viewport, siempre el mismo que lleva `aria-current`; 17/17 tests |
 
 ### Desviaciones de Fase 0 (documentadas, no ocultas)
 
@@ -158,6 +160,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - **Iconos SVG en vez de emojis.** El plan §6 Fase 2 listaba `🏠 🏋️ 📊 👤`. Se usan SVG en línea: los emojis renderizan distinto según el sistema operativo y no heredan `currentColor`.
 - **Transiciones con Motion pospuestas.** T2.4 pedía transiciones; Motion queda fuera del bundle inicial y no había nada que animar todavía. Se retoma cuando exista navegación con contenido real.
 - **Dos defectos de infraestructura de tests, encontrados acá.** (1) Testing Library solo auto-registra su `cleanup` cuando los globals de test están habilitados; con `globals` apagado el DOM se acumulaba entre tests y las queries por rol empezaron a encontrar duplicados. Ahora `vitest.setup.ts` lo cablea explícitamente. (2) Los matchers de jest-dom estaban registrados en runtime pero eran invisibles para TypeScript, porque el setup pertenece al programa Node y los tests al programa de la app; `src/testing.d.ts` trae la augmentación al programa correcto.
+- **El agente no puede ver imágenes.** El modelo de esta sesión no procesa PNG, así que la revisión visual se hizo en dos frentes: `scripts/ui-audit.mjs` mide de forma objetiva (contraste WCAG desde los colores renderizados, tamaño de targets, solapamiento con la nav, overflow a 320/360/428/1280, si la fuente autoalojada ganó) y un subagente `gentle-ai-explore` con modelo que sí procesa imágenes describió las capturas de `scripts/capture-screens.mjs`. La combinación es la que encontró el defecto del estado activo; ninguna de las dos alcanzaba sola.
 
 ### Presupuesto de bundle — seguimiento medido
 
