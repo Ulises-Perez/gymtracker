@@ -85,10 +85,10 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 ### Fase 2 — Auth + Shell
 
-- [ ] **T2.1** `src/lib/supabase.ts` con `persistSession`.
-- [ ] **T2.2** `AuthContext` + `useAuth()` + `RequireAuth`.
-- [ ] **T2.3** Login / Register / Forgot Password (RHF + Zod, errores en español).
-- [ ] **T2.4** Shell + BottomNav (Home, Workout, History, Profile) + skeletons, sin spinners.
+- [ ] **T2.1** `src/lib/supabase.ts` con `persistSession`. **Bloqueado**: necesita `VITE_SUPABASE_URL` y la anon key del proyecto hosted (D2).
+- [ ] **T2.2** `AuthContext` + `useAuth()` + `RequireAuth`. **Bloqueado** por T2.1.
+- [ ] **T2.3** Login / Register / Forgot Password (RHF + Zod, errores en español). **Bloqueado** por T2.1.
+- [x] **T2.4** Shell + BottomNav + skeletons, sin spinners — **cerrada salvo las transiciones con Motion**, que se posponen para no meter la librería en el bundle inicial. Entregado: `src/app/routes.tsx` (React Router 8 con cada ruta en su propio chunk lazy), `src/app/router.tsx`, `src/App.tsx`, `AppShell` (columna única, skip-link, padding que reserva la nav fija), `BottomNav` (4 destinos, `aria-current` vía `NavLink`, `end` en la raíz), `Skeleton`, `PagePlaceholder` y los 5 placeholders de ruta. **Iconos SVG en línea en vez de los emojis del plan**: los emojis renderizan distinto en cada plataforma y no heredan el color del texto, así que no pueden formar parte de un sistema de diseño. Verificado: 15 tests en 4 archivos + smoke test del build servido (`/`, `/history`, `/profile`, `/sw.js`, `/manifest.webmanifest` → 200, y `/history` devuelve el shell HTML, que es el fallback SPA que `vercel.json` debe reproducir).
 
 ### Fase 3 — Workout Core (offline-first) ⭐
 
@@ -141,6 +141,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | T0.5 | `6cdd7c0` `feat(pwa): register an injectManifest service worker in prompt mode` | `npm run build` verde · manifiesto de precache inspeccionado dentro de `dist/sw.js` (8 entradas, sin duplicados, con fuentes latinas y sin `stats.html`) |
 | T0.6 | `3960d76` `feat(monitoring): load Sentry lazily and turn off its PII collection` | Dos builds comparados: sin DSN el SDK no existe en `dist/`; con DSN aparece en un chunk propio y el inicial casi no cambia |
 | T0.7, T0.8 | `33e684d` `ci(setup): add the verification pipeline and SPA rewrites for Vercel` | `HUSKY=0 npm ci` (625 paquetes, lockfile sin drift) + typecheck + lint + 6/6 tests + build |
+| T0.7b | `d90b2ae`, `bd72725` `docs(setup): ship the environment template and close T0.7` | `env.example` presente, no ignorado por git, contrato documentado en `README.md` |
+| T2.4 | `29488d2` `feat(shell): add the router, app shell and bottom navigation` | typecheck + lint + 15/15 tests (rutas lazy, 404, orden y `aria-current` de la nav) + build + smoke test con `vite preview` sobre el artefacto real |
 
 ### Desviaciones de Fase 0 (documentadas, no ocultas)
 
@@ -153,3 +155,18 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - **Sentry v11 cambió la API de privacidad.** La opción de la era de diseño, `sendDefaultPii`, ya no existe: v11 usa un objeto granular `dataCollection`. Lo atrapó el typecheck; en runtime habría sido un no-op silencioso y la app habría mandado más datos de los previstos.
 - **`.env.example` entregado como `env.example`.** La política de seguridad del harness bloquea la ruta con punto de forma incondicional, incluso después de que el usuario autorizara explícitamente el archivo con valores vacíos. Se usó el nombre sin punto; el archivo documenta el motivo.
 - **Advertencia interna del plugin PWA.** `vite-plugin-pwa` v2 emite un aviso de deprecación de Vite 8 sobre su propio uso de `inlineDynamicImports`. Es interno del plugin: no hay acción posible desde este repo.
+- **Iconos SVG en vez de emojis.** El plan §6 Fase 2 listaba `🏠 🏋️ 📊 👤`. Se usan SVG en línea: los emojis renderizan distinto según el sistema operativo y no heredan `currentColor`.
+- **Transiciones con Motion pospuestas.** T2.4 pedía transiciones; Motion queda fuera del bundle inicial y no había nada que animar todavía. Se retoma cuando exista navegación con contenido real.
+- **Dos defectos de infraestructura de tests, encontrados acá.** (1) Testing Library solo auto-registra su `cleanup` cuando los globals de test están habilitados; con `globals` apagado el DOM se acumulaba entre tests y las queries por rol empezaron a encontrar duplicados. Ahora `vitest.setup.ts` lo cablea explícitamente. (2) Los matchers de jest-dom estaban registrados en runtime pero eran invisibles para TypeScript, porque el setup pertenece al programa Node y los tests al programa de la app; `src/testing.d.ts` trae la augmentación al programa correcto.
+
+### Presupuesto de bundle — seguimiento medido
+
+El plan §7 fija 180 KB gzip para el bundle inicial, con la regla de **medir, no asumir** (A8). Serie medida hasta ahora:
+
+| Momento | JS inicial (gzip) | Qué entró |
+|---------|-------------------|-----------|
+| Scaffold (T0.1–T0.4) | 68.85 kB | React + ReactDOM + Tailwind |
+| PWA (T0.5) | 69.87 kB | registro del SW + `virtual:pwa-register` |
+| Router y shell (T2.4) | **100.37 kB** | **React Router 8: ~30.5 kB gzip** |
+
+Con 100.37 kB ya consumidos y **~79 kB de margen**, la Fase 2 (Zod + React Hook Form) y la Fase 3 (TanStack Query + Supabase) aprietan el techo: estimaciones gruesas las ponen en ~73 kB combinados. **Decisión pendiente para el usuario**: mantener 180 kB y mitificar (cargar los formularios de auth de forma diferida, diferir el cliente de Supabase detrás del login) o revisar el presupuesto con los números medidos. No se decide solo.
