@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { initMonitoring } from './lib/monitoring.ts';
 import { registerServiceWorker } from './lib/pwa.ts';
 import './index.css';
 
@@ -16,4 +17,5 @@ createRoot(rootElement).render(
   </StrictMode>,
 );
 
+initMonitoring();
 registerServiceWorker();
