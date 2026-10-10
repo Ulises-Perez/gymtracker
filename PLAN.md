@@ -2,7 +2,11 @@
 
 > Plan definitivo. Fusiona la claridad funcional de la v1 con las correcciones
 > técnicas de la v2, más 5 parches propios detectados en revisión.
-> Última actualización: 2026-10-09.
+>
+> **Seguimiento de tareas y evidencia: [`odd/tasks/gymtracker-mvp.md`](./odd/tasks/gymtracker-mvp.md).**
+> Los checklists de §6 son de diseño; el estado real vive en el documento ODD.
+>
+> Última actualización: 2026-10-10.
 
 ---
 

@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fase 0 en curso — T0.1–T0.4 y T0.8 cerradas en `813f501`. Faltan T0.5 (PWA/SW), T0.6 (Sentry) y T0.7 (CI + `vercel.json` + `.env.example`).
+**Estado:** Fase 0 cerrada salvo `.env.example` (bloqueado por la política de seguridad del harness). Fase 1 lista para arrancar en cuanto exista el proyecto hosted de Supabase.
 **Repo:** `C:\Users\ulise\develop\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera de OneDrive y del repo accidental del home).
 **Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
 **Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
@@ -67,10 +67,10 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T0.2** TS `strict` + `noUncheckedIndexedAccess`; ESLint 10 flat config (`typescript-eslint` + react-hooks + react-refresh) + Prettier + Husky v9 + lint-staged. El hook se probó en el propio commit `813f501` (lint-staged corrió `eslint --fix` y `prettier --write` y stageó los cambios).
 - [x] **T0.3** Tailwind v4 vía `@tailwindcss/vite` + tokens de diseño §5 en `src/index.css` (`@theme`); `backdrop-filter` restringido a `.bottom-nav` y `.overlay`.
 - [x] **T0.4** Dependencias completas, incluidas las faltantes de A7 (`uuid` 14 —`v7()` disponible—, Radix Dialog/Toast, `@playwright/test`, `@testing-library/jest-dom`, `jsdom`).
-- [ ] **T0.5** PWA `injectManifest` + `registerType: 'prompt'` + `src/sw.ts` (A7).
-- [ ] **T0.6** Sentry por import dinámico, solo `import.meta.env.PROD` (A8).
-- [ ] **T0.7** CI GitHub Actions `lint → typecheck → test → build` + `vercel.json` con rewrites (A7) + `.env.example`.
-- [x] **T0.8** Bundle inicial medido con `rollup-plugin-visualizer`: **JS 68.85 kB gzip** (219.99 kB raw), **CSS 3.34 kB gzip**, `index.html` 0.37 kB gzip, subsets de Inter servidos bajo demanda. Es el piso sin router, query, supabase ni Sentry en el grafo, no el presupuesto final; hay que re-medir en T0.7 cuando entren esas dependencias.
+- [x] **T0.5** PWA con `strategies: 'injectManifest'`, `src/sw.ts` propio y `registerType: 'prompt'`: el worker nuevo no se activa hasta que el usuario acepte (`SKIP_WAITING` explícito), así una actualización no recarga la app en medio de una serie. `tsconfig.sw.json` compila el worker con `lib: WebWorker` y `tsconfig.app.json` lo excluye, evitando el conflicto de identificadores duplicados entre DOM y WebWorker. **Dos defectos de precache encontrados al verificar el manifiesto generado**: `stats.html` (el reporte del visualizer) se estaba precacheando, y `woff2` no estaba en los globs por defecto, así que el shell habría renderizado offline con fuentes de fallback. Corregido: el reporte ahora se escribe en `stats/` (fuera de `dist/`) y los globs incluyen `woff2` y excluyen los subsets cirílico, griego y vietnamita. Precache final: 8 entradas / 366.18 KiB.
+- [x] **T0.6** Sentry por import dinámico, solo en `PROD` y solo si hay `VITE_SENTRY_DSN`, invocado después del primer render. Verificado por partida doble: **sin** DSN el SDK se elimina por completo del build (Vite inlinea la variable como `undefined`, el guard queda estáticamente verdadero y Rollup borra el import dinámico); **con** DSN queda en un chunk aparte de 30.78 kB gzip y el inicial crece apenas de 69.87 a 70.27 kB gzip. Además se desactivó la recolección de PII (`dataCollection`), porque la app guarda peso corporal e historial.
+- [x] **T0.7** CI en GitHub Actions (`lint → typecheck → test → build`, con caché de npm, `HUSKY=0` y grupo de concurrencia) + `vercel.json` con rewrite de todas las rutas a `/index.html` y `Cache-Control` de revalidación para `/sw.js` (un SW cacheado de más hace que el prompt de actualización nunca dispare). Pipeline validado ejecutando `HUSKY=0 npm ci` real: 625 paquetes desde el lockfile sin drift. **`.env.example` quedó bloqueado** por la política de seguridad del harness (bloquea escrituras a rutas `.env*`); el contrato de variables vive por ahora en `README.md` y requiere autorización explícita.
+- [x] **T0.8** Bundle final medido: **JS inicial 69.87 kB gzip** (222.63 kB raw), **CSS 3.36 kB gzip**, chunk aparte de `workbox-window` 2.20 kB gzip, `index.html` 0.39 kB gzip, y el SDK de Sentry (30.78 kB gzip) fuera del inicial cuando hay DSN. Precacheados solo los subsets latinos de Inter. Presupuesto de referencia 180 kB gzip: el margen se sostiene, pero todavía no entraron router, TanStack Query, Supabase ni los gráficos.
 
 ### Fase 1 — Schema + RLS + Seed
 
@@ -137,7 +137,10 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | Tarea | Commit | Verificación |
 |-------|--------|--------------|
 | Baseline (B1, A1, A3 + drift del plan y deps) | `2d03890` `chore(baseline): patch reviewed plan findings and isolate repo` | Estático: diff leído. **Pendiente**: ejecución real de las migraciones (requiere proyecto hosted o `supabase start`) |
-| T0.1–T0.4, T0.8 | `813f501` `feat(setup): scaffold Vite React app with strict TS, Tailwind v4 and tooling` | `npm run typecheck` limpio · `npm run lint` limpio · `npm test` 6/6 en verde · `npm run build` en 818 ms · hook pre-commit ejecutado y observado en el propio commit |
+| T0.1–T0.4 | `813f501` `feat(setup): scaffold Vite React app with strict TS, Tailwind v4 and tooling` | `npm run typecheck` limpio · `npm run lint` limpio · `npm test` 6/6 en verde · `npm run build` en 818 ms · hook pre-commit ejecutado y observado en el propio commit |
+| T0.5 | `6cdd7c0` `feat(pwa): register an injectManifest service worker in prompt mode` | `npm run build` verde · manifiesto de precache inspeccionado dentro de `dist/sw.js` (8 entradas, sin duplicados, con fuentes latinas y sin `stats.html`) |
+| T0.6 | `3960d76` `feat(monitoring): load Sentry lazily and turn off its PII collection` | Dos builds comparados: sin DSN el SDK no existe en `dist/`; con DSN aparece en un chunk propio y el inicial casi no cambia |
+| T0.7, T0.8 | `33e684d` `ci(setup): add the verification pipeline and SPA rewrites for Vercel` | `HUSKY=0 npm ci` (625 paquetes, lockfile sin drift) + typecheck + lint + 6/6 tests + build |
 
 ### Desviaciones de Fase 0 (documentadas, no ocultas)
 
@@ -147,3 +150,6 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - **Vitest sin `globals`**: los tests importan `describe/it/expect` de `vitest` para que el typecheck de producción no vea globals de test. Se aparta de "globals enabled" del brief original.
 - **`typecheck` es `tsc -b`** (project references con `noEmit` en cada tsconfig), no `tsc -b --noEmit`.
 - **`react-router-dom` → `react-router`**: el paquete canónico en v7+.
+- **Sentry v11 cambió la API de privacidad.** La opción de la era de diseño, `sendDefaultPii`, ya no existe: v11 usa un objeto granular `dataCollection`. Lo atrapó el typecheck; en runtime habría sido un no-op silencioso y la app habría mandado más datos de los previstos.
+- **`.env.example` bloqueado.** La política de seguridad del harness impide escribir rutas `.env*`, así que el archivo no se puede crear sin autorización explícita. El contrato de variables quedó documentado en `README.md` y en `src/vite-env.d.ts`.
+- **Advertencia interna del plugin PWA.** `vite-plugin-pwa` v2 emite un aviso de deprecación de Vite 8 sobre su propio uso de `inlineDynamicImports`. Es interno del plugin: no hay acción posible desde este repo.
