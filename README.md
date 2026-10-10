@@ -20,9 +20,17 @@ Supabase · Vitest · Playwright.
 
 ```bash
 npm install
-cp .env.example .env   # completar con las credenciales de Supabase
+cp env.example .env   # completar con las credenciales de Supabase
 npm run dev
 ```
+
+Variables (contrato tipado en `src/vite-env.d.ts`):
+
+| Variable                | Obligatoria        | Qué es                                                    |
+| ----------------------- | ------------------ | --------------------------------------------------------- |
+| `VITE_SUPABASE_URL`     | sí (desde Fase 1)  | Project URL del proyecto hosted                           |
+| `VITE_SUPABASE_ANON_KEY`| sí (desde Fase 1)  | anon/publishable key; viaja al cliente, RLS es la defensa |
+| `VITE_SENTRY_DSN`       | no                 | vacía ⇒ el build no incluye nada de Sentry                |
 
 ## Scripts
 
