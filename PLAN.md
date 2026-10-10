@@ -33,7 +33,7 @@ nada aquí y complica el offline. Vite + React basta.
 |------|-----------|---------|
 | Lenguaje | TypeScript `strict` | Tipos generados del schema real vía `supabase gen types` |
 | App | React 19 + Vite | SPA privada, ecosistema maduro |
-| Routing | React Router v7 (`react-router`) | Simple, estable; no TanStack Router (innecesario aquí) |
+| Routing | React Router v8 (`react-router`) | Simple, estable; no TanStack Router (innecesario aquí) |
 | Server state | TanStack Query + `persistQueryClient` (IndexedDB) | Caché, reintentos y cola offline; **la cola necesita `shouldDehydrateMutation`, ver §3** |
 | Client state | Zustand + `persist` (IndexedDB) | El workout activo sobrevive al cierre del browser |
 | Forms | React Hook Form + Zod | Schemas Zod compartidos formularios ↔ validación |
@@ -44,7 +44,7 @@ nada aquí y complica el offline. Vite + React basta.
 | Búsqueda | fuse.js sobre catálogo cacheado | Fuzzy search 100% offline |
 | Fechas | date-fns (imports por función, tree-shaken) | — |
 | Backend | Supabase (Postgres + Auth + Storage) | RLS, RPC, tipos, tier gratis |
-| PWA | vite-plugin-pwa 1.x, `injectManifest`, `registerType: 'prompt'` | Control del SW; updates sin romper sesión en curso |
+| PWA | vite-plugin-pwa 2.x, `injectManifest`, `registerType: 'prompt'` | Control del SW; updates sin romper sesión en curso |
 | Fuente | `@fontsource-variable/inter` autoalojada | Sin request externo ni bloqueo de render |
 | Tests | Vitest + Testing Library + Playwright + test RLS 2 usuarios | El flujo crítico (Fase 3) es un e2e, no revisión manual |
 | Errores | Sentry (tier gratis) | En móvil los errores son invisibles sin esto |
@@ -58,50 +58,63 @@ Región Supabase: **São Paulo** (menor latencia desde el cono sur).
 > política vigente en `supabase.com/pricing`. Mitigación: cron de health-check
 > o uso regular.
 
-### Dependencias de referencia (`package.json`)
+### Dependencias instaladas (`package.json`)
+
+> Estas son las versiones realmente resueltas e instaladas en Fase 0
+> (`813f501`), no las estimadas durante el diseño. `package-lock.json` es la
+> fuente de verdad para reproducir el árbol.
 
 ```json
 {
   "dependencies": {
-    "react": "^19",
-    "react-dom": "^19",
-    "react-router-dom": "^7",
-    "@supabase/supabase-js": "^2",
-    "@tanstack/react-query": "^5",
-    "@tanstack/react-query-persist-client": "^5",
-    "idb-keyval": "^6",
-    "zustand": "^5",
-    "react-hook-form": "^7",
-    "zod": "^3",
-    "@hookform/resolvers": "^3",
-    "date-fns": "^3",
-    "fuse.js": "^7",
-    "uuid": "^9",
-    "@radix-ui/react-dialog": "^1",
-    "@radix-ui/react-toast": "^1",
-    "uplot": "^1",
-    "@dnd-kit/core": "^6",
-    "@dnd-kit/sortable": "^10",
-    "motion": "^11",
-    "@fontsource-variable/inter": "^5",
-    "@sentry/react": "^8"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.4.0",
+    "@supabase/supabase-js": "^2.117.3",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-query-persist-client": "^5.104.1",
+    "idb-keyval": "^6.3.0",
+    "zustand": "^5.0.15",
+    "react-hook-form": "^7.89.0",
+    "zod": "^4.6.5",
+    "@hookform/resolvers": "^5.9.1",
+    "date-fns": "^4.4.0",
+    "fuse.js": "^7.5.0",
+    "uuid": "^14.0.3",
+    "@radix-ui/react-dialog": "^1.2.0",
+    "@radix-ui/react-toast": "^1.2.24",
+    "uplot": "^1.6.32",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "motion": "^14.1.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@sentry/react": "^11.6.0"
   },
   "devDependencies": {
-    "vite-plugin-pwa": "^1",
-    "@vitejs/plugin-react": "^5",
-    "@tailwindcss/vite": "^4",
-    "vitest": "^3",
-    "jsdom": "^26",
-    "@testing-library/react": "^16",
-    "@testing-library/jest-dom": "^6",
-    "@playwright/test": "^1",
-    "rollup-plugin-visualizer": "^5",
-    "tailwindcss": "^4",
-    "eslint": "^9",
-    "prettier": "^3",
-    "husky": "^9",
-    "lint-staged": "^15",
-    "supabase": "^2"
+    "vite": "^8.3.0",
+    "typescript": "~6.0.2",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-build": "^7.4.1",
+    "workbox-window": "^7.4.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vitest": "^5.0.3",
+    "jsdom": "^30.1.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@playwright/test": "^1.64.0",
+    "rollup-plugin-visualizer": "^7.1.1",
+    "eslint": "^10.12.0",
+    "@eslint/js": "^10.0.1",
+    "typescript-eslint": "^8.71.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "supabase": "^2.120.0"
   }
 }
 ```
@@ -851,7 +864,7 @@ gantt
 - [ ] TypeScript `strict` (+ `noUncheckedIndexedAccess`)
 - [ ] Instalar dependencias (tabla §2)
 - [ ] Tailwind v4 + tokens §5
-- [ ] ESLint 9 + Prettier + Husky + lint-staged (pre-commit)
+- [ ] ESLint 10 (flat config) + Prettier + Husky + lint-staged (pre-commit)
 - [ ] vite-plugin-pwa 1.x (`injectManifest`, `registerType: 'prompt'`) + `src/sw.ts` con `self.__WB_MANIFEST`
 - [ ] Sentry init (solo en prod, `enabled: import.meta.env.PROD`)
 - [ ] GitHub Actions: lint → typecheck (`tsc --noEmit`) → test → build

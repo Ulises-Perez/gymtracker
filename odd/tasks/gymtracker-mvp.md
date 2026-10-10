@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** decisiones D1–D4 cerradas. Baseline parcheado y commiteado. Primer incremento autorizado: **Fase 0 + Fase 1**.
+**Estado:** Fase 0 en curso — T0.1–T0.4 y T0.8 cerradas en `813f501`. Faltan T0.5 (PWA/SW), T0.6 (Sentry) y T0.7 (CI + `vercel.json` + `.env.example`).
 **Repo:** `C:\Users\ulise\develop\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera de OneDrive y del repo accidental del home).
 **Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
 **Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
@@ -63,14 +63,14 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 ### Fase 0 — Setup + CI
 
-- [ ] **T0.1** (D1) Repo aislado + `.gitignore` + `.gitattributes` **hechos** (repo propio en `develop/GymTracker`, rama `feat/gymtracker-mvp`). Falta el scaffold Vite React-TS **en el root existente** y borrar la carpeta vacía que quedó en OneDrive.
-- [ ] **T0.2** TS `strict` + `noUncheckedIndexedAccess`; ESLint 9 + Prettier + Husky + lint-staged.
-- [ ] **T0.3** Tailwind v4 (`@tailwindcss/vite`) + tokens de diseño §5 en `index.css`.
-- [ ] **T0.4** Dependencias completas, incluidas las faltantes de A7 (`uuid`, Radix, `@playwright/test`, `@testing-library/jest-dom`, `jsdom`).
+- [x] **T0.1** (D1) Repo aislado + `.gitignore` + `.gitattributes` + scaffold Vite 8 / React 19 / TS 6 **en el root del repo**. `create-vite` pide confirmación en un directorio no vacío, así que se generó en un directorio temporal fuera del repo y se copió: `PLAN.md`, `odd/`, `supabase/`, `.gitignore` y `.gitattributes` intactos. Sobrantes del template (oxlint, `icons.svg`, `App.css`, assets demo) eliminados. Verificado en `813f501`.
+- [x] **T0.2** TS `strict` + `noUncheckedIndexedAccess`; ESLint 10 flat config (`typescript-eslint` + react-hooks + react-refresh) + Prettier + Husky v9 + lint-staged. El hook se probó en el propio commit `813f501` (lint-staged corrió `eslint --fix` y `prettier --write` y stageó los cambios).
+- [x] **T0.3** Tailwind v4 vía `@tailwindcss/vite` + tokens de diseño §5 en `src/index.css` (`@theme`); `backdrop-filter` restringido a `.bottom-nav` y `.overlay`.
+- [x] **T0.4** Dependencias completas, incluidas las faltantes de A7 (`uuid` 14 —`v7()` disponible—, Radix Dialog/Toast, `@playwright/test`, `@testing-library/jest-dom`, `jsdom`).
 - [ ] **T0.5** PWA `injectManifest` + `registerType: 'prompt'` + `src/sw.ts` (A7).
 - [ ] **T0.6** Sentry por import dinámico, solo `import.meta.env.PROD` (A8).
 - [ ] **T0.7** CI GitHub Actions `lint → typecheck → test → build` + `vercel.json` con rewrites (A7) + `.env.example`.
-- [ ] **T0.8** Medición de bundle inicial con visualizer y registro del número real (A8).
+- [x] **T0.8** Bundle inicial medido con `rollup-plugin-visualizer`: **JS 68.85 kB gzip** (219.99 kB raw), **CSS 3.34 kB gzip**, `index.html` 0.37 kB gzip, subsets de Inter servidos bajo demanda. Es el piso sin router, query, supabase ni Sentry en el grafo, no el presupuesto final; hay que re-medir en T0.7 cuando entren esas dependencias.
 
 ### Fase 1 — Schema + RLS + Seed
 
@@ -136,4 +136,14 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 | Tarea | Commit | Verificación |
 |-------|--------|--------------|
-| Baseline (B1, A1, A3 + drift del plan y deps) | `chore(baseline): patch reviewed plan findings and isolate repo` | Estático: diff leído. **Pendiente**: ejecución real de las migraciones (requiere proyecto hosted o `supabase start`) |
+| Baseline (B1, A1, A3 + drift del plan y deps) | `2d03890` `chore(baseline): patch reviewed plan findings and isolate repo` | Estático: diff leído. **Pendiente**: ejecución real de las migraciones (requiere proyecto hosted o `supabase start`) |
+| T0.1–T0.4, T0.8 | `813f501` `feat(setup): scaffold Vite React app with strict TS, Tailwind v4 and tooling` | `npm run typecheck` limpio · `npm run lint` limpio · `npm test` 6/6 en verde · `npm run build` en 818 ms · hook pre-commit ejecutado y observado en el propio commit |
+
+### Desviaciones de Fase 0 (documentadas, no ocultas)
+
+- **Delegación no disponible.** El harness rechaza `repository_root` y `workspace_root` para este proyecto porque `C:\Users\ulise` sigue siendo un repo git (0 commits, sin remoto), así que GymTracker queda anidado. El usuario eligió no tocar el home: **T0.1–T0.4 se hicieron inline**, contra la preferencia de delegar. Queda como deuda de proceso hasta que se elimine ese `.git` o se mueva el proyecto.
+- **ESLint 10, no 9.** Se instaló el major vigente; `typescript-eslint` 8.71 y los plugins de React declaran soporte `^9 || ^10`. El plan §2 quedó corregido a 10.
+- **Majors más nuevos que los del plan original**: React Router 8 (era 7), zod 4 + `@hookform/resolvers` 5 (eran 3), `date-fns` 4, `motion` 14, `@sentry/react` 11, `vitest` 5, `vite-plugin-pwa` 2, Vite 8, TypeScript 6. El bloque de dependencias del plan ahora lista las versiones reales.
+- **Vitest sin `globals`**: los tests importan `describe/it/expect` de `vitest` para que el typecheck de producción no vea globals de test. Se aparta de "globals enabled" del brief original.
+- **`typecheck` es `tsc -b`** (project references con `noEmit` en cada tsconfig), no `tsc -b --noEmit`.
+- **`react-router-dom` → `react-router`**: el paquete canónico en v7+.
