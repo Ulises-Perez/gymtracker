@@ -30,4 +30,14 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // Maintenance scripts run in Node, but the bodies passed to
+    // page.evaluate() execute in the browser, so both global sets are legitimate.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
 );
