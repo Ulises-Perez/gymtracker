@@ -151,7 +151,7 @@ graph LR
 |---|-----------|----------------|
 | 1 | Workout activo vive en local | Zustand + persist IndexedDB; sync al finalizar (o por serie en background) |
 | 2 | IDs generados en cliente | `uuidv7()` de `uuid@^9` en cliente para workouts/sets/custom; `gen_random_uuid()` como default servidor (Postgres no genera v7 nativo). `crypto.randomUUID()` **no sirve: es v4** |
-| 3 | Cola de mutaciones real | `networkMode: 'offlineFirst'` **en queries y en `defaultOptions.mutations`** + `persistQueryClient` con persister IndexedDB **y `dehydrateOptions.shouldDehydrateMutation` explícito**: en TanStack Query v5 el default es `false`, o sea que sin esto se persisten las queries pero **no la cola de mutaciones** |
+| 3 | Cola de mutaciones real | `networkMode: 'offlineFirst'` **en queries y en `defaultOptions.mutations`** + **`retry` > 0** + `persistQueryClient` con persister IndexedDB y `dehydrateOptions.shouldDehydrateMutation`. Ojo: el default de ese predicado **no es `false`**, es `mutation.state.isPaused`, y una mutación solo llega a pausada mientras hay un retry pendiente → con `retry: 0` la escritura offline termina en error, no se persiste y se pierde al recargar |
 | 4 | Catálogo cacheado | TanStack Query + IndexedDB; búsqueda instantánea sin red con fuse.js |
 | 5 | Guardado atómico | Un solo RPC `save_workout(payload jsonb)`: workout + sets + PRs en una transacción |
 | 6 | Pesos siempre en kg | Columna `weight_kg`; conversión kg/lb **solo en UI**. Cambiar preferencia nunca toca el historial |
@@ -170,6 +170,8 @@ graph LR
 - **`ON CONFLICT DO UPDATE` no toca `date`:** un workout existente no puede re-fecharse vía `save_workout`.
 - **`body_measurements` no tiene `deleted_at`**, a diferencia del resto; unicidad `(user_id, date)` y borrado duro.
 - **Borrado de workout:** es soft delete (`deleted_at`); hoy ninguna fase expone la acción en UI.
+- **La cola offline necesita un dispatcher global.** `dehydrateMutation` persiste solo `mutationKey`, `state`, `scope` y `meta`. Las funciones no sobreviven la serialización, así que una mutación restaurada **no tiene `mutationFn` propio**, mientras que `Mutation.continue()` llega a `execute()`, que lo necesita. La cola solo es reanudable si el cliente aporta un `mutationFn` por defecto que despache según el payload. Y como `MutationFunction` recibe únicamente las variables (no la `mutationKey`), **el payload tiene que ser autodescriptivo**: unión discriminada con `kind`.
+- **Ventana de pérdida antes de que la escritura sea durable.** El retryer duerme el `retryDelay` **antes** de consultar si puede continuar y pausar, y el persister además tiene su propio throttle. Con el backoff por defecto (~2 s en el primer reintento) más el throttle (~1 s), una escritura offline tarda del orden de dos a tres segundos en quedar en disco: si el usuario cierra la pestaña en esa ventana, se pierde. Mitigación prevista: forzar un flush del persister en `pagehide`/`visibilitychange: hidden`.
 
 ---
 
@@ -1039,7 +1041,7 @@ URL pública sin errores en Sentry.
 | # | Hallazgo | Fix en este plan |
 |---|----------|------------------|
 | 11 | `recent_prs` con `LIMIT 5` inerte: `jsonb_agg` sin `GROUP BY` devuelve una fila y nunca recorta (B1) | Subconsulta con `ORDER BY … LIMIT 5` y recién después agregar (§4.3) |
-| 12 | `persistQueryClient` no persiste mutaciones por default: la cola offline se perdía al recargar (B2) | `dehydrateOptions.shouldDehydrateMutation` + `networkMode` en `defaultOptions.mutations` (§3) |
+| 12 | La cola offline no era durable con lo documentado (B2) | **Diagnóstico corregido tras leer la fuente de `@tanstack/query-core`**: el default de `shouldDehydrateMutation` es `mutation.state.isPaused` (no `false`); el verdadero agujero es que la pausa depende de que haya un retry pendiente, y que el `mutationFn` no se persiste. Fix real: `retry` > 0 + `offlineFirst` + predicado explícito + **dispatcher de reanudación** (§3) |
 | 13 | Zustand `persist` con IndexedDB necesita adaptador propio e hidratación asíncrona (B2) | `StateStorage` custom + `skipHydration` (§3) |
 | 14 | `uuidv7()` sin dependencia (`crypto.randomUUID()` es v4) (B3) | `uuid@^9` (§2, §3) |
 | 15 | Policy de Storage sobre `owner`, columna deprecada (A1) | `storage.foldername(name)[1]` + convención de path `<user_id>/<archivo>` (§4.2) |

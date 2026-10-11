@@ -26,7 +26,7 @@
 ### Bloqueantes (rompen algo real)
 
 - **B1 · `recent_prs` con `LIMIT` inerte.** `supabase/migrations/0002_rpcs.sql:186-198` (duplicado en `PLAN.md:606`). Un `SELECT jsonb_agg(...)` sin `GROUP BY` devuelve **una** fila, así que `LIMIT 5` nunca recorta nada: el dashboard recibe **todos** los PRs, no 5. Fix: subconsulta interna `ORDER BY pr.achieved_at DESC LIMIT 5` y recién después agregar.
-- **B2 · La cola offline NO persiste mutaciones.** `PLAN.md:37,131,963` afirman que `persistQueryClient` conserva la cola de mutaciones. En TanStack Query v5 `shouldDehydrateMutation` por defecto es `false`: se persisten queries, **no** mutaciones. Tal como está documentado, un workout guardado sin señal se pierde al recargar. Requiere `dehydrateOptions.shouldDehydrateMutation` explícito **y** `networkMode: 'offlineFirst'` en `defaultOptions.mutations` (no solo en queries). Además Zustand `persist` con IndexedDB necesita un `StateStorage` custom (el default es localStorage) y su hidratación es asíncrona → `skipHydration` + await antes del primer render.
+- **B2 · La cola offline no era durable como estaba documentada.** `PLAN.md:37,131` afirmaba que `persistQueryClient` conserva la cola de mutaciones y que solo faltaba `shouldDehydrateMutation`. **Diagnóstico corregido leyendo la fuente de `@tanstack/query-core`**: el default de ese predicado **no es `false`**, es `mutation.state.isPaused`, así que el agujero real es más fino — (a) una mutación solo llega a pausada mientras hay un retry pendiente, por lo que `retry: 0` la deja en error y no se persiste; (b) `resumePausedMutations()` filtra por `isPaused`, así que persistir otro estado deja una entrada muerta; (c) `dehydrateMutation` guarda solo `mutationKey`, `state`, `scope` y `meta`, y como el `mutationFn` no se serializa, una mutación restaurada **no tiene función que ejecutar**, mientras `Mutation.continue()` sí llama a `execute()`. La cola necesita un **dispatcher global** para ser reanudable. Además el retryer duerme el `retryDelay` **antes** de pausar: hay una ventana de ~2-3 s en la que la escritura offline todavía no está en disco. Zustand `persist` con IndexedDB sigue necesitando `StateStorage` propio e hidratación asíncrona.
 - **B3 · `uuidv7()` en cliente sin dependencia.** `PLAN.md:130`. `crypto.randomUUID()` genera v4. Falta `uuid@^9` (soporta v7) o un generador propio; sin esto el DDL "IDs generados en cliente" no se puede cumplir.
 - **B4 · Topología git rota.** `git rev-parse --show-toplevel` → `C:/Users/ulise`: el proyecto vive dentro del repo accidental del home (rama `master`, **0 commits**, sin remoto) y dentro de OneDrive, sin `.gitignore` para `node_modules/` ni `.supabase/`. Bloquea la disciplina de commits por work-unit y expone `.git` al sync de OneDrive.
 
@@ -92,9 +92,11 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 ### Fase 3 — Workout Core (offline-first) ⭐
 
-- [ ] **T3.1** `useWorkoutStore` (Zustand + `StateStorage` IndexedDB + `skipHydration`) con guard anti doble finish (**B2**).
-- [ ] **T3.2** QueryClient con `persistQueryClient` + `shouldDehydrateMutation` + `networkMode: 'offlineFirst'` en mutaciones (**B2**), verificado desconectando la red.
-- [ ] **T3.3** Generación de IDs v7 en cliente con `uuid` (**B3**).
+- [x] **T3.1** (parcial) `src/lib/storage.ts` con un `AsyncStorage` sobre IndexedDB compartido por el persister y —más adelante— Zustand, porque ambos contratos exponen los mismos tres miembros. Falta el `useWorkoutStore` en sí.
+- [x] **T3.2** QueryClient con `offlineFirst` en queries y mutaciones, `retry: 3`, predicado de persistencia explícito (solo pausadas) y persister en IndexedDB; `PersistQueryClientProvider` restaura antes de renderizar. **Verificado moviendo la conexión**, no desconectando la red a mano: una escritura offline se pausa, sobrevive a persistir y restaurar en un cliente nuevo, y se reanuda al volver la conexión recibiendo sus variables.
+- [ ] **T3.2b** **Dispatcher de reanudación** (`defaultOptions.mutations.mutationFn`), requisito que el plan no tenía: sin él la mutación restaurada no tiene función que ejecutar (`No mutationFn found`). El payload debe ser autodescriptivo (unión discriminada con `kind`) porque `MutationFunction` recibe solo las variables, nunca la `mutationKey`.
+- [ ] **T3.2c** Cerrar la ventana de pérdida: el retryer duerme el `retryDelay` antes de pausar, así que una escritura offline tarda ~2-3 s en quedar en disco y se pierde si el usuario cierra la pestaña antes. Flush del persister en `pagehide` / `visibilitychange: hidden`.
+- [x] **T3.3** Generación de IDs v7 en cliente (`src/lib/ids.ts`), con test de orden temporal por fake timers.
 - [ ] **T3.4** Catálogo en TQ + IndexedDB (`staleTime: Infinity`) + regla de mapeo de decimales (**A5**).
 - [ ] **T3.5** Selector modal Radix + fuse + filtro por grupo.
 - [ ] **T3.6** Inputs reps × peso con default = última serie (`last_weight_for_exercise`) + swipe-delete + reorder dnd-kit.
@@ -145,6 +147,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | T2.4 | `29488d2` `feat(shell): add the router, app shell and bottom navigation` | typecheck + lint + 15/15 tests (rutas lazy, 404, orden y `aria-current` de la nav) + build + smoke test con `vite preview` sobre el artefacto real |
 | Revisión visual de T2.4 | `7112d49` `chore(review): add screenshot capture and objective UI audit` | 20 combinaciones ruta×viewport medidas: sin overflow horizontal, nav de 62px sin tapar contenido, target mínimo de 61px, contraste de texto muted 5.71:1 y del tab activo 8.14:1, Inter resuelta |
 | Hallazgo de la revisión visual | `66f74b4` `fix(a11y): signal the active tab without relying on colour` | Indicador visible verificado en browser real: exactamente uno por ruta y viewport, siempre el mismo que lleva `aria-current`; 17/17 tests |
+| T3.1–T3.3 | `4a5551b` `feat(offline): give the query cache a durable, resumable mutation queue` | 25/25 tests en 6 archivos, con 5 dedicados a la cola: pausa offline, el caso `retry: 0` que no se persiste, supervivencia a persist+restore, reanudación al volver la conexión, y ausencia de `mutationFn` en la mutación restaurada |
 
 ### Desviaciones de Fase 0 (documentadas, no ocultas)
 
@@ -170,6 +173,7 @@ El plan §7 fija 180 KB gzip para el bundle inicial, con la regla de **medir, no
 |---------|-------------------|-----------|
 | Scaffold (T0.1–T0.4) | 68.85 kB | React + ReactDOM + Tailwind |
 | PWA (T0.5) | 69.87 kB | registro del SW + `virtual:pwa-register` |
-| Router y shell (T2.4) | **100.37 kB** | **React Router 8: ~30.5 kB gzip** |
+| Router y shell (T2.4) | 100.47 kB | React Router 8: ~30.5 kB gzip |
+| Cola offline (T3.1–T3.3) | **109.37 kB** | TanStack Query + persisters + idb-keyval: ~8.9 kB gzip |
 
-Con 100.37 kB ya consumidos y **~79 kB de margen**, la Fase 2 (Zod + React Hook Form) y la Fase 3 (TanStack Query + Supabase) aprietan el techo: estimaciones gruesas las ponen en ~73 kB combinados. **Decisión pendiente para el usuario**: mantener 180 kB y mitificar (cargar los formularios de auth de forma diferida, diferir el cliente de Supabase detrás del login) o revisar el presupuesto con los números medidos. No se decide solo.
+Con 109.37 kB consumidos y **~71 kB de margen**, Zod + React Hook Form + Supabase (~73 kB estimados) ya **no entran**: el presupuesto de 180 kB se va a exceder cuando llegue la Fase 2 de auth y la Fase 3 con datos. La decisión dejó de ser hipotética y hay que tomarla antes de escribir esas pantallas. Mitigaciones disponibles, medibles: cargar los formularios de auth de forma diferida, diferir el cliente de Supabase detrás del login, o revisar el presupuesto con estos números reales.
