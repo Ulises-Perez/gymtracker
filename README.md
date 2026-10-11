@@ -26,11 +26,11 @@ npm run dev
 
 Variables (contrato tipado en `src/vite-env.d.ts`):
 
-| Variable                | Obligatoria        | Qué es                                                    |
-| ----------------------- | ------------------ | --------------------------------------------------------- |
-| `VITE_SUPABASE_URL`     | sí (desde Fase 1)  | Project URL del proyecto hosted                           |
-| `VITE_SUPABASE_ANON_KEY`| sí (desde Fase 1)  | anon/publishable key; viaja al cliente, RLS es la defensa |
-| `VITE_SENTRY_DSN`       | no                 | vacía ⇒ el build no incluye nada de Sentry                |
+| Variable                        | Obligatoria       | Qué es                                                              |
+| ------------------------------- | ----------------- | ------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | sí (desde Fase 1) | Project URL del proyecto hosted                                     |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | sí (desde Fase 1) | Publishable key (la que antes se llamaba "anon"); viaja al cliente, RLS es la defensa |
+| `VITE_SENTRY_DSN`               | no                | vacía ⇒ el build no incluye nada de Sentry                          |
 
 ## Scripts
 

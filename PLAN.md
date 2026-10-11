@@ -830,7 +830,7 @@ GymTracker/            # root del repo (rama feat/gymtracker-mvp)
 ├── supabase/         # config.toml, migrations/, seed.sql
 ├── e2e/              # Playwright (flujo crítico)
 ├── vercel.json       # rewrites SPA → /index.html (deep links)
-├── .env.example      # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+├── .env.example      # VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
 └── vite.config.ts    # PWA injectManifest + visualizer
 ```
 
@@ -875,7 +875,7 @@ gantt
 - [ ] Sentry init (solo en prod, `enabled: import.meta.env.PROD`)
 - [ ] GitHub Actions: lint → typecheck (`tsc --noEmit`) → test → build
 - [ ] `vercel.json` con rewrite `/(.*)` → `/index.html` (sin esto los deep links de React Router dan 404)
-- [ ] `.env.example` con `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- [ ] `.env.example` con `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
 
 ### Fase 1 — Schema + RLS + Seed
 
