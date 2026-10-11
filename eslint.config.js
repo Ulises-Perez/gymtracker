@@ -28,6 +28,12 @@ export default tseslint.config(
     plugins: { 'react-refresh': reactRefresh },
     rules: {
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // A leading underscore is how this codebase marks deliberately unused
+      // parameters, e.g. a callback whose arity matters but whose argument does not.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
   {
