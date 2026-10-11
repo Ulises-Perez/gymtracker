@@ -85,9 +85,9 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 ### Fase 2 — Auth + Shell
 
-- [ ] **T2.1** `src/lib/supabase.ts` con `persistSession`. **Bloqueado**: necesita `VITE_SUPABASE_URL` y la anon key del proyecto hosted (D2).
+- [ ] **T2.1** `src/lib/supabase.ts` con `persistSession`. **Bloqueado**: necesita `VITE_SUPABASE_URL` y la anon key del proyecto hosted (D2). **Requisito de presupuesto**: debe exponerse como `getSupabase()` asíncrono con singleton perezoso — el cliente NO puede entrar al bundle inicial.
 - [ ] **T2.2** `AuthContext` + `useAuth()` + `RequireAuth`. **Bloqueado** por T2.1.
-- [ ] **T2.3** Login / Register / Forgot Password (RHF + Zod, errores en español). **Bloqueado** por T2.1.
+- [ ] **T2.3** Login / Register / Forgot Password (RHF + Zod, errores en español). **Bloqueado** por T2.1. **Requisito de presupuesto**: las tres pantallas son rutas diferidas, para que Zod y RHF queden en su propio chunk.
 - [x] **T2.4** Shell + BottomNav + skeletons, sin spinners — **cerrada salvo las transiciones con Motion**, que se posponen para no meter la librería en el bundle inicial. Entregado: `src/app/routes.tsx` (React Router 8 con cada ruta en su propio chunk lazy), `src/app/router.tsx`, `src/App.tsx`, `AppShell` (columna única, skip-link, padding que reserva la nav fija), `BottomNav` (4 destinos, `aria-current` vía `NavLink`, `end` en la raíz), `Skeleton`, `PagePlaceholder` y los 5 placeholders de ruta. **Iconos SVG en línea en vez de los emojis del plan**: los emojis renderizan distinto en cada plataforma y no heredan el color del texto, así que no pueden formar parte de un sistema de diseño. Verificado: 15 tests en 4 archivos + smoke test del build servido (`/`, `/history`, `/profile`, `/sw.js`, `/manifest.webmanifest` → 200, y `/history` devuelve el shell HTML, que es el fallback SPA que `vercel.json` debe reproducir).
 
 ### Fase 3 — Workout Core (offline-first) ⭐
@@ -176,4 +176,4 @@ El plan §7 fija 180 KB gzip para el bundle inicial, con la regla de **medir, no
 | Router y shell (T2.4) | 100.47 kB | React Router 8: ~30.5 kB gzip |
 | Cola offline (T3.1–T3.3) | **109.37 kB** | TanStack Query + persisters + idb-keyval: ~8.9 kB gzip |
 
-Con 109.37 kB consumidos y **~71 kB de margen**, Zod + React Hook Form + Supabase (~73 kB estimados) ya **no entran**: el presupuesto de 180 kB se va a exceder cuando llegue la Fase 2 de auth y la Fase 3 con datos. La decisión dejó de ser hipotética y hay que tomarla antes de escribir esas pantallas. Mitigaciones disponibles, medibles: cargar los formularios de auth de forma diferida, diferir el cliente de Supabase detrás del login, o revisar el presupuesto con estos números reales.
+Con 109.37 kB consumidos y **~71 kB de margen**, Zod + React Hook Form + Supabase (~73 kB estimados) ya **no entran**. **DECISIÓN TOMADA (2026-10-11): el presupuesto se mantiene en 180 kB y se mitiga.** Obligatorio a partir de acá: (1) los tres formularios de auth son rutas diferidas, con Zod y RHF en el chunk de cada pantalla; (2) **el cliente de Supabase no entra al bundle inicial** — se accede por un `getSupabase()` asíncrono con singleton perezoso, porque la primera pintura no lo necesita; (3) Sentry ya está fuera por import dinámico; (4) se vuelve a medir con el visualizer al cerrar cada fase y, si no entra, se reporta la cifra exacta antes de decidir otra cosa.

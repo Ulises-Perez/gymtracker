@@ -991,6 +991,17 @@ URL pública sin errores en Sentry.
 | SW no duplica caché de TQ | SW = assets estáticos; TQ = datos API |
 | Lighthouse CI en cada PR | 90+ Performance/Acc/BP/PWA |
 
+### Presupuesto: decisión del 2026-10-11 — se mantiene en 180 KB gzip
+
+Medición real de la serie: 68.85 kB (scaffold) → 69.87 kB (SW) → 100.47 kB (React Router 8, ~30.5 kB) → 109.37 kB (TanStack Query + persisters, ~8.9 kB). Con ~71 kB de margen y Zod + React Hook Form + Supabase estimados en ~73 kB, el techo se excede si esas dependencias entran al bundle inicial.
+
+Decisión: **el presupuesto no se toca.** Se mitiga, y las mitigaciones son obligatorias:
+
+1. **Los tres formularios de auth son rutas diferidas.** Zod y React Hook Form viajan en el chunk de cada pantalla, nunca en el inicial.
+2. **El cliente de Supabase no entra al bundle inicial.** Se accede por un `getSupabase()` asíncrono con singleton perezoso; la primera pintura no lo necesita y la comprobación de sesión puede esperarlo.
+3. **Sentry ya está fuera** por import dinámico (T0.6).
+4. **Se vuelve a medir al cerrar cada fase** con `rollup-plugin-visualizer`, y si el número no entra se reporta con la cifra exacta antes de tomar cualquier otra decisión.
+
 ---
 
 ## 8. PWA — gotchas que siempre rompen (resueltos de antemano)
