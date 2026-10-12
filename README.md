@@ -62,6 +62,36 @@ Variables (contrato tipado en `src/vite-env.d.ts`):
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | sí (desde Fase 1) | Publishable key (la que antes se llamaba "anon"); viaja al cliente, RLS es la defensa |
 | `VITE_SENTRY_DSN`               | no                | vacía ⇒ el build no incluye nada de Sentry                          |
 
+## Base de datos
+
+Las migraciones viven en `supabase/migrations/` y el catálogo (grupos musculares
++ ejercicios) en `supabase/seed.sql`. Contra el proyecto hosted:
+
+```bash
+npx supabase db push --linked --include-seed           # migraciones
+npx supabase db query --linked -f supabase/seed.sql    # seed (ver punto 1)
+npx supabase test db --linked                          # suite pgTAP (necesita Docker)
+```
+
+Tres cosas del harness que no son obvias y se descubrieron ejecutando:
+
+1. **`db push --include-seed` no ejecuta el seed**: solo registra el hash del
+   archivo. Para que un cambio de catálogo llegue al proyecto hosted hay que
+   correrlo explícitamente con `db query -f`. El seed es **idempotente**
+   (`ON CONFLICT DO NOTHING` contra `ux_exercises_global_name`, migración 0005),
+   así que re-correrlo agrega lo nuevo sin duplicar filas ni resetear nada.
+2. **El suite escala de rol.** `pg_prove` se conecta con `cli_login_postgres`, el
+   rol temporal que crea el CLI (su contraseña caduca a los 5 minutos) y que no
+   tiene privilegios sobre las tablas. El test arranca con `set local role
+   postgres`: la misma escalada que hace el CLI en sus propios queries. Sin eso,
+   toda lectura falla con `permission denied for table ...`.
+3. **pgTAP vive en el schema `extensions`** (lo instala el CLI) y el
+   `search_path` de la conexión es `"$user", public`, así que el test lo trae
+   explícitamente.
+
+`db query --linked` es además la vía para SQL suelto contra el proyecto
+linkeado: corre como `postgres` y no necesita Docker.
+
 ## Scripts
 
 | Script              | Qué hace                                        |
@@ -69,7 +99,7 @@ Variables (contrato tipado en `src/vite-env.d.ts`):
 | `npm run dev`       | Servidor de desarrollo en `:5173`               |
 | `npm run build`     | Typecheck + build de producción                 |
 | `npm run typecheck` | `tsc -b` sobre las referencias de proyecto      |
-| `npm run lint`      | ESLint 9 (flat config)                          |
+| `npm run lint`      | ESLint 10 (flat config)                         |
 | `npm run format`    | Prettier sobre código, no sobre docs            |
 | `npm test`          | Vitest en modo CI                               |
 | `npm run e2e`       | Playwright                                      |
@@ -81,3 +111,15 @@ Variables (contrato tipado en `src/vite-env.d.ts`):
 - Las columnas `DECIMAL` de Postgres llegan como **string** desde `supabase-js`:
   todo valor numérico pasa por `toNumber()`.
 - `backdrop-filter` está permitido únicamente en `.bottom-nav` y `.overlay`.
+
+## Limitaciones conocidas del MVP
+
+- **Un workout no se puede re-fechar.** `save_workout` hace `ON CONFLICT (id) DO
+  UPDATE` pero no actualiza `date`: editar la fecha de un entrenamiento existente
+  no tiene efecto (hallazgo M1).
+- **Dos dispositivos a la vez pierden datos.** La edición concurrente es
+  last-write-wins y `save_workout` reemplaza el set completo de series, sin
+  merge (hallazgo M6). El MVP asume un dispositivo por vez.
+- **Un PR no baja nunca.** Borrar o editar la serie que logró el récord deja el PR
+  viejo como mejor marca; el MVP lo documenta en vez de recalcularlo
+  (hallazgo A4).

@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fase 0 cerrada salvo `.env.example` (bloqueado por la política de seguridad del harness). Fase 1 lista para arrancar en cuanto exista el proyecto hosted de Supabase.
+**Estado:** Fase 0 cerrada (el template de entorno se entrega como `env.example` porque la política del harness bloquea rutas `.env*`; el `.env` lo crea el usuario). **Fase 1 cerrada salvo T1.7**: schema, RLS, GRANTs, catálogo, integridad y soft delete aplicados y verificados con pgTAP contra la base real (**21/21**). El harness de tests contra hosted quedó funcionando; ver "Hallazgos del harness".
 **Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera del repo accidental del home). `node_modules` es un **junction** a `C:\Users\ulise\develop\gymtracker-modules\node_modules` para no sincronizar 511 MB / 30.918 archivos.
 **Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
 **Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
@@ -56,6 +56,17 @@
 - **M6** Edición concurrente desde dos dispositivos = last-write-wins con reemplazo total de sets → pérdida silenciosa. Documentar como limitación MVP.
 - **M7** Sin ADR para las decisiones de stack; el Apéndice de parches es trazabilidad de bugs, no de decisiones.
 
+### Hallazgos del harness de tests contra hosted (2026-10-12)
+
+Ninguno era visible leyendo: aparecieron en la primera ejecución real de `supabase test db --linked`.
+
+- **H1 · El rol de `pg_prove` no puede leer tablas.** El CLI crea un rol temporal (`cli_login_postgres`, contraseña que caduca a los 5 minutos) y pg_prove se conecta con él. Es miembro de `postgres` **con `INHERIT FALSE`** (`pg_has_role(...,'member') = true`), así que no hereda privilegios y toda lectura falla con `permission denied for table ...`. Fix: el test arranca con `set local role postgres`, la misma escalada que el CLI hace en sus propios queries.
+- **H2 · pgTAP vive en `extensions` y el `search_path` no lo incluye.** El CLI ya instala la extensión ahí (dueño: `supabase_admin`) y el `search_path` de la conexión es `"$user", public`. Sin traer `extensions` explícitamente: `function plan(integer) does not exist`. El `GRANT USAGE` sobre `extensions` para el rol temporal resultó **innecesario** en cuanto el test escala a `postgres` (que sí tiene USAGE): se otorgó durante el diagnóstico, se revocó y el suite siguió en **21/21**. O sea que la base quedó sin privilegios fuera de las migraciones.
+- **H3 · `plan(14)` contra 15 aserciones.** Defecto propio del archivo de tests, invisible mientras nunca se ejecutaba.
+- **H4 · `db push --include-seed` NO ejecuta el seed.** El CLI solo registra el hash del archivo y lo deja marcado como aplicado ("Updating seed hash to supabase/seed.sql"); el catálogo siguió en 48 ejercicios después del push. Para aplicar catálogo al proyecto hosted hay que correrlo explícitamente: `supabase db query --linked -f supabase/seed.sql`. Por eso el seed es idempotente (migración 0005 + `ON CONFLICT DO NOTHING`).
+- **H5 · `db query --linked` no es oráculo del catálogo.** Corre como `postgres`, pero su `pg_proc` **no ve las funciones de pgTAP** (0 filas para `plan`, mientras la sesión de pg_prove ve 1 `plan` y 8 sobrecargas de `fk_ok`). Sirve para datos, `pg_constraint`, `pg_indexes` e `information_schema`; no para concluir "esa función no existe".
+- **H6 · `fk_ok` de pgTAP tiene 8 sobrecargas** y la llamada posicional `(schema, tabla, nombre_del_constraint, descripción)` cae en otra sobrecarga y falla. La aserción del FK compuesto se escribe con una consulta a `pg_constraint` que verifica la **forma** (columnas y columnas referenciadas): más fuerte que chequear el nombre, porque un FK simple contra `workouts(id)` volvería a dejar `user_id` libre, que es justo lo que A2 prohíbe.
+
 ---
 
 ## 2. Tareas
@@ -77,14 +88,16 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 - [x] **T1.1** (D3) B1 (`recent_prs`) y A3 (`REVOKE`) aplicados en el baseline y **verificados en vivo**: `save_workout` responde `42501 permission denied for function` a `anon`, o sea que el `REVOKE` hace efecto.
 - [x] **T1.2** (D3) A1 aplicado en el baseline. `0001_init.sql` corrió contra la base hosted **sin errores**, incluidos el `INSERT` en `storage.buckets` y la policy sobre `storage.objects`.
-- [ ] **T1.3** Guard de integridad A2 (`workout_sets.user_id` ≡ `workouts.user_id`). Sigue pendiente.
+- [x] **T1.3** Guard de integridad A2 (`workout_sets.user_id` ≡ `workouts.user_id`). Resuelto de forma declarativa en `0004_workout_sets_owner_integrity.sql`: `UNIQUE (id, user_id)` en `workouts` + FK compuesto `(workout_id, user_id) → workouts (id, user_id)`, que reemplaza al FK de una sola columna. El motor lo impone en todo INSERT/UPDATE, sin depender de que el camino pase por `save_workout`. Verificado en vivo y por aserción (forma del FK, no solo su nombre).
 - [x] **T1.4** (D2) `supabase init` hecho (`config.toml`), proyecto hosted linkeado (`wcurruszasxgxzimlbdk`, **región `sa-east-1`**, Postgres 17.11, `ACTIVE_HEALTHY`), `0001`+`0002`+`0003` aplicadas con el seed cargado, y **tipos generados** en `src/types/database.ts` (451 líneas, las 7 tablas y las 4 RPC; typecheck limpio).
-- [ ] **T1.5** Seed: cubrir `Glúteos` y `Cuerpo Completo` (M5). El test pgTAP ya lo asserta, falta correrlo.
-- [~] **T1.6** Harness pgTAP escrito en `supabase/tests/0001_schema_test.sql` (14 aserciones: seed, RLS habilitado, GRANTs de tabla y de función). **NO EJECUTADO**: `supabase test db --linked` necesita el daemon de Docker y está caído.
+- [x] **T1.5** Seed: cubrir `Glúteos` y `Cuerpo Completo` (M5). **Cerrada**: `Hip Thrust` movido de `Piernas` a `Glúteos` y 9 ejercicios nuevos (4 más de glúteos, 5 de cuerpo completo) → **57 globales**. El seed pasó a ser **idempotente** (`ON CONFLICT DO NOTHING` contra `ux_exercises_global_name`, migración 0005) y se aplicó con `db query -f` (ver H4). Verificado contra la base: 57 globales, 0 grupos vacíos, `Piernas` 8, `Cuerpo Completo` 5, un solo `Hip Thrust`.
+- [x] **T1.6** Suite pgTAP en `supabase/tests/0001_schema_test.sql`: **21 aserciones, ejecutadas contra la base real, 21/21 en verde**. Cubre seed (incluido M5), RLS habilitado en las 6 tablas, los GRANTs de tabla y de función (A9/A3), el FK compuesto (A2), `deleted_at` y el índice parcial (M4) y el índice único del catálogo (M5). Tres defectos que solo aparecían ejecutando (H1–H3) más dos hallazgos del CLI (H4–H6).
 - [ ] **T1.7** Tests de `save_workout`: idempotencia por UUID, ownership `Forbidden`, Epley, warmups excluidos, PR no baja (A4).
-- [ ] **T1.8** Documentar limitaciones M1/M6 y agregar `deleted_at` a `body_measurements` (M4).
+- [x] **T1.8** Documentar limitaciones M1/M6 y agregar `deleted_at` a `body_measurements` (M4). **Cerrada**: `0006_body_measurements_soft_delete.sql` agrega `deleted_at` y reemplaza `UNIQUE(user_id, date)` por un índice único **parcial** sobre filas vivas — sin ese detalle, borrar una medición bloquearía volver a cargar el mismo día. M1, M6 y A4 quedaron documentados en el README ("Limitaciones conocidas del MVP").
 
 **Aprendizaje operativo de la Fase 1**: `db push` y `gen types --linked` funcionan contra el proyecto hosted **sin Docker**, pero `test db --linked` y `db dump --linked` **lo requieren igual** (corren `pg_prove`/`pg_dump` en un contenedor). Elegir hosted en D2 no nos libra de necesitar el daemon para verificar RLS.
+
+**Agregado 2026-10-12**: `db query --linked` (SQL arbitrario como `postgres`) tampoco necesita Docker y es la vía tanto para DML suelto como para aplicar el seed. Y **no correr dos comandos del CLI contra la base en paralelo**: `test db` junto con `db query` se colgó (el CLI rota la contraseña del rol temporal en cada corrida); secuencial siempre.
 
 ### Fase 2 — Auth + Shell
 

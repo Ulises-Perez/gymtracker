@@ -37,6 +37,7 @@ export type Database = {
         Row: {
           created_at: string | null;
           date: string;
+          deleted_at: string | null;
           id: string;
           user_id: string;
           weight_kg: number | null;
@@ -44,6 +45,7 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           date: string;
+          deleted_at?: string | null;
           id?: string;
           user_id: string;
           weight_kg?: number | null;
@@ -51,6 +53,7 @@ export type Database = {
         Update: {
           created_at?: string | null;
           date?: string;
+          deleted_at?: string | null;
           id?: string;
           user_id?: string;
           weight_kg?: number | null;
@@ -239,11 +242,11 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'workout_sets_workout_id_fkey';
-            columns: ['workout_id'];
+            foreignKeyName: 'workout_sets_workout_owner_fkey';
+            columns: ['workout_id', 'user_id'];
             isOneToOne: false;
             referencedRelation: 'workouts';
-            referencedColumns: ['id'];
+            referencedColumns: ['id', 'user_id'];
           },
         ];
       };
