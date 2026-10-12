@@ -73,7 +73,7 @@ npx supabase db query --linked -f supabase/seed.sql    # seed (ver punto 1)
 npx supabase test db --linked                          # suite pgTAP (necesita Docker)
 ```
 
-Tres cosas del harness que no son obvias y se descubrieron ejecutando:
+Cuatro cosas del harness que no son obvias y se descubrieron ejecutando:
 
 1. **`db push --include-seed` no ejecuta el seed**: solo registra el hash del
    archivo. Para que un cambio de catálogo llegue al proyecto hosted hay que
@@ -91,6 +91,13 @@ Tres cosas del harness que no son obvias y se descubrieron ejecutando:
 
 `db query --linked` es además la vía para SQL suelto contra el proyecto
 linkeado: corre como `postgres` y no necesita Docker.
+
+4. **Los tests que necesitan `auth.uid()` impersonan dentro de un bloque `DO`**
+   (`set local role authenticated` + `set_config('request.jwt.claims', ...)`) y
+   dejan el resultado en GUCs de transacción para poder assertar ya de vuelta
+   como `postgres`, que es el único rol que ve las tablas. Así los tests de RLS y
+   de RPC no necesitan concederle nada a `authenticated` (ver
+   `supabase/tests/0002_save_workout_test.sql`).
 
 ## Scripts
 

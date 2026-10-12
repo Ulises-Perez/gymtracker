@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fase 0 cerrada (el template de entorno se entrega como `env.example` porque la política del harness bloquea rutas `.env*`; el `.env` lo crea el usuario). **Fase 1 cerrada salvo T1.7**: schema, RLS, GRANTs, catálogo, integridad y soft delete aplicados y verificados con pgTAP contra la base real (**21/21**). El harness de tests contra hosted quedó funcionando; ver "Hallazgos del harness".
+**Estado:** Fase 0 cerrada. **Fase 1 completa**: schema, RLS, GRANTs, catálogo, integridad, soft delete y la RPC `save_workout` aplicados y verificados con pgTAP contra la base real (**41/41**, dos archivos). El harness de tests contra hosted quedó funcionando; ver "Hallazgos del harness". **Bloqueante de Fase 2**: el archivo `env` (con las dos variables ya cargadas) tiene que llamarse `.env` — Vite lee `.env`, no `env`; `env.example` quedó restaurado como template en el repo.
 **Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera del repo accidental del home). `node_modules` es un **junction** a `C:\Users\ulise\develop\gymtracker-modules\node_modules` para no sincronizar 511 MB / 30.918 archivos.
 **Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
 **Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
@@ -17,7 +17,7 @@
 | D3 | Parchear baseline o resolver por fase | Baseline parcheado antes de codear (`PLAN.md` + los 3 SQL + deps) |
 | D4 | Primer incremento | **Fase 0 + Fase 1** (base verificable con review acotado) |
 
-**Pendiente operativo de D2:** el proyecto hosted necesita que el usuario cree el proyecto en Supabase y autorice el `supabase login` (token) o entregue el `service_role`/connection string para `db push` y `gen types`.
+**Resuelto**: el proyecto hosted existe (`wcurruszasxgxzimlbdk`), está linkeado, y el CLI opera **sin contraseña** con su rol temporal (`cli_login_postgres`, ver H1).
 
 ---
 
@@ -92,7 +92,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T1.4** (D2) `supabase init` hecho (`config.toml`), proyecto hosted linkeado (`wcurruszasxgxzimlbdk`, **región `sa-east-1`**, Postgres 17.11, `ACTIVE_HEALTHY`), `0001`+`0002`+`0003` aplicadas con el seed cargado, y **tipos generados** en `src/types/database.ts` (451 líneas, las 7 tablas y las 4 RPC; typecheck limpio).
 - [x] **T1.5** Seed: cubrir `Glúteos` y `Cuerpo Completo` (M5). **Cerrada**: `Hip Thrust` movido de `Piernas` a `Glúteos` y 9 ejercicios nuevos (4 más de glúteos, 5 de cuerpo completo) → **57 globales**. El seed pasó a ser **idempotente** (`ON CONFLICT DO NOTHING` contra `ux_exercises_global_name`, migración 0005) y se aplicó con `db query -f` (ver H4). Verificado contra la base: 57 globales, 0 grupos vacíos, `Piernas` 8, `Cuerpo Completo` 5, un solo `Hip Thrust`.
 - [x] **T1.6** Suite pgTAP en `supabase/tests/0001_schema_test.sql`: **21 aserciones, ejecutadas contra la base real, 21/21 en verde**. Cubre seed (incluido M5), RLS habilitado en las 6 tablas, los GRANTs de tabla y de función (A9/A3), el FK compuesto (A2), `deleted_at` y el índice parcial (M4) y el índice único del catálogo (M5). Tres defectos que solo aparecían ejecutando (H1–H3) más dos hallazgos del CLI (H4–H6).
-- [ ] **T1.7** Tests de `save_workout`: idempotencia por UUID, ownership `Forbidden`, Epley, warmups excluidos, PR no baja (A4).
+- [x] **T1.7** Tests de `save_workout` en `supabase/tests/0002_save_workout_test.sql`: **20 aserciones** contra la base real (41/41 con el archivo de schema). Cubre Epley (`100 kg × 5 → 116.67`), PR que no baja (A4), warmups excluidos del PR pero guardados en el historial, reintento con los mismos UUID sin duplicar, reemplazo completo de series (sin merge), `Forbidden` al pisar un workout ajeno — sin tocar sus datos —, `Not authenticated` sin claims, y **RLS real**: B no ve los workouts de A, que es el harness que pedía A6 (`authenticated` + claims, no `service_role`, que bypassea RLS). Todo dentro de una transacción con rollback: verificado que no quedan usuarios ni workouts de prueba en la base.
 - [x] **T1.8** Documentar limitaciones M1/M6 y agregar `deleted_at` a `body_measurements` (M4). **Cerrada**: `0006_body_measurements_soft_delete.sql` agrega `deleted_at` y reemplaza `UNIQUE(user_id, date)` por un índice único **parcial** sobre filas vivas — sin ese detalle, borrar una medición bloquearía volver a cargar el mismo día. M1, M6 y A4 quedaron documentados en el README ("Limitaciones conocidas del MVP").
 
 **Aprendizaje operativo de la Fase 1**: `db push` y `gen types --linked` funcionan contra el proyecto hosted **sin Docker**, pero `test db --linked` y `db dump --linked` **lo requieren igual** (corren `pg_prove`/`pg_dump` en un contenedor). Elegir hosted en D2 no nos libra de necesitar el daemon para verificar RLS.
@@ -166,6 +166,12 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | T3.1–T3.3 | `4a5551b` `feat(offline): give the query cache a durable, resumable mutation queue` | 25/25 tests en 6 archivos, con 5 dedicados a la cola: pausa offline, el caso `retry: 0` que no se persiste, supervivencia a persist+restore, reanudación al volver la conexión, y ausencia de `mutationFn` en la mutación restaurada |
 | Mudanza a OneDrive | `641043c` `chore(repo): move the project to OneDrive with node_modules kept out of sync` | SHA-256 de 313 archivos idénticos antes de borrar el origen; typecheck, lint, 25/25 tests y build verdes desde la ruta nueva |
 | T1.1/T1.2/T1.4 + A9 | `aplicado a la base hosted` | `db push --linked --include-seed` aplicó `0001`, `0002` y el seed sin errores · **A9 detectado en vivo** (`42501`) y corregido con `0003_grants.sql` · `gen types --linked` generó 451 líneas y el typecheck quedó limpio · `anon` no puede ejecutar `save_workout` (A3 verificado en vivo) |
+| T1.3 | `14ad965` `feat(db): guard workout_sets ownership with a composite foreign key` | FK compuesto verificado en vivo contra `pg_constraint` y por aserción que compara `conkey`/`confkey` (no el nombre) · suite 21/21 · typecheck, lint, 25/25 tests de app y build verdes |
+| T1.5 | `176b5a6` `feat(db): fill the empty muscle groups and make the seed idempotent` | 57 ejercicios globales, 0 grupos vacíos, `Piernas` 8, un solo `Hip Thrust` · el seed se re-corrió contra la base y no duplicó nada |
+| T1.8 | `d884544` `feat(db): put body_measurements under the soft-delete convention` | `has_column` + `has_index` sobre el índice parcial en la suite · limitaciones M1/M6/A4 documentadas en el README |
+| T1.6 | `8260fb5` `test(db): run the schema suite against the hosted project` | **21/21** contra la base real · RED previo observado (14/15, fallando M5) y RED del conteo (48 vs 57) al cambiar el catálogo |
+| Tipos generados + docs | `3d5fa74` `docs(db): regenerate database types and document the hosted harness` | diff real de 9 líneas (la columna nueva y el FK compuesto en la metadata de relaciones) · typecheck ✓ lint ✓ 25/25 ✓ build ✓ |
+| T1.7 | `16432c4` `test(db): cover save_workout with an impersonation harness` | **41/41** con los dos archivos · verificado que la base queda sin usuarios ni workouts de prueba |
 
 ### Desviaciones de Fase 0 (documentadas, no ocultas)
 
