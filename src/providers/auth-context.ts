@@ -18,6 +18,10 @@ export type AuthContextValue = {
     fullName: string,
   ) => Promise<{ session: Session | null }>;
   signOut: () => Promise<void>;
+  /** Sends the recovery email; the link comes back to `/reset-password`. */
+  sendPasswordReset: (email: string) => Promise<void>;
+  /** Sets a new password for the signed-in session (recovery or change). */
+  updatePassword: (password: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

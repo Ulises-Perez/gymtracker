@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 
-import { Skeleton } from '../components/ui/Skeleton.tsx';
+import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 
 /**
@@ -17,14 +17,7 @@ export function RequireAuth() {
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div role="status" aria-busy="true" className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-        <span className="sr-only">Cargando tu sesión…</span>
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="mt-6 h-28 w-full" />
-        <Skeleton className="mt-3 h-28 w-full" />
-      </div>
-    );
+    return <PageSkeleton label="Cargando tu sesión…" />;
   }
 
   if (!user) {

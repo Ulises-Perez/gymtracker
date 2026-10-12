@@ -13,7 +13,7 @@ import type { Database } from '../types/database.ts';
  */
 type AuthEventCallback = (event: string, session: Session | null) => void;
 
-type AuthResponse<T> = { data: T; error: { message: string } | null };
+type AuthResponse<T> = { data: T; error: { message: string; code?: string } | null };
 
 export function fakeUser(overrides: Partial<User> = {}): User {
   return {
@@ -66,6 +66,14 @@ export function createFakeSupabase(initialSession: Session | null = null) {
       }),
     ),
     signOut: vi.fn(async (): Promise<{ error: { message: string } | null }> => ({ error: null })),
+    resetPasswordForEmail: vi.fn(async (): Promise<AuthResponse<Record<string, never>>> => ({
+      data: {},
+      error: null,
+    })),
+    updateUser: vi.fn(async (): Promise<AuthResponse<{ user: User | null }>> => ({
+      data: { user: current?.user ?? null },
+      error: null,
+    })),
   };
 
   return {

@@ -149,4 +149,27 @@ describe('AuthProvider', () => {
 
     expect(fake.auth.signOut).toHaveBeenCalledTimes(1);
   });
+
+  it('sends the recovery email back to the reset screen', async () => {
+    const { result } = await renderResolvedAuth();
+
+    await result.current.sendPasswordReset('atleta@example.test');
+
+    expect(fake.auth.resetPasswordForEmail).toHaveBeenCalledWith('atleta@example.test', {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+  });
+
+  it('updates the password and surfaces the Supabase error', async () => {
+    const { result } = await renderResolvedAuth();
+    fake.auth.updateUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'New password should be different from the old password.' },
+    });
+
+    await expect(result.current.updatePassword('nueva12345')).rejects.toMatchObject({
+      message: 'New password should be different from the old password.',
+    });
+    expect(fake.auth.updateUser).toHaveBeenCalledWith({ password: 'nueva12345' });
+  });
 });

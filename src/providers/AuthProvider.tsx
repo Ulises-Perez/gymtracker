@@ -95,6 +95,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw error;
         }
       },
+      sendPasswordReset: async (email) => {
+        const supabase = await getSupabase();
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          // The link has to land on the screen that can set the new password.
+          // That URL must also be in the project's redirect allow-list, which
+          // is a dashboard setting, not something this code can grant itself.
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+
+        if (error) {
+          throw error;
+        }
+      },
+      updatePassword: async (password) => {
+        const supabase = await getSupabase();
+        const { error } = await supabase.auth.updateUser({ password });
+
+        if (error) {
+          throw error;
+        }
+      },
     }),
     [session, loading],
   );

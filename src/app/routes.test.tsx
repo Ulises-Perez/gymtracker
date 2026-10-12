@@ -56,3 +56,16 @@ describe('app routes', () => {
     expect(await screen.findByRole('heading', { name: /no encontrada/i })).toBeInTheDocument();
   });
 });
+
+describe('auth routes', () => {
+  it('serves the login screen to a signed-out visitor instead of bouncing them', async () => {
+    const signedOut = createFakeSupabase();
+
+    vi.mocked(getSupabase).mockResolvedValue(signedOut.client);
+
+    renderAt('/login');
+
+    expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
