@@ -44,6 +44,7 @@
   - `injectManifest` exige un `src/sw.ts` propio con `self.__WB_MANIFEST` y `precacheAndRoute`; §5 no lo lista.
   - Falta `vercel.json` con rewrite a `/index.html`: sin eso los deep links de React Router dan 404 en Vercel.
 - **A8 · Presupuesto 180 KB gzip optimista** con Supabase + Zod + RR7 + RHF + Sentry + Inter de por medio. Medir en Fase 0 con `rollup-plugin-visualizer` antes de fijarlo, y cargar Sentry por import dinámico post-paint.
+- **A9 · Las tablas no tenían `GRANT` (nuevo, detectado contra la base hosted).** Al aplicar `0001`/`0002` por primera vez, toda lectura falló con **`42501 permission denied for table ...`**. La causa: las migraciones crean policies de RLS pero **nunca otorgan privilegios de tabla**, y RLS filtra filas *dentro* de los privilegios del rol, no los sustituye. Supabase expone tablas nuevas por un default de plataforma que depende de `[api] auto_expose_new_tables`, y **ese default no se aplica en `db push`** (solo en el stack local). Fix: `0003_grants.sql` con GRANTs explícitos, para que las migraciones sean autosuficientes y no dependan de un default que puede cambiar. **Ninguna cantidad de revisión estática de 588 líneas lo iba a encontrar**: hacía falta una base real.
 
 ### Medios
 
@@ -74,14 +75,16 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 ### Fase 1 — Schema + RLS + Seed
 
-- [ ] **T1.1** (D3) B1 (`recent_prs`) y A3 (`REVOKE`) **aplicados en el baseline** en `0002_rpcs.sql`. Falta verificar la ejecución real contra la base.
-- [ ] **T1.2** (D3) A1 **aplicado en el baseline**: `owner_id` vía `storage.foldername(name)[1]`, comentario y `public = true` coherentes, convención de path `<user_id>/<archivo>`. Falta verificación real.
-- [ ] **T1.3** Guard de integridad A2 (`workout_sets.user_id` ≡ `workouts.user_id`).
-- [ ] **T1.4** (D2) `supabase init` + `start` + `db reset` + `gen types` → `src/types/database.ts`.
-- [ ] **T1.5** Seed: cubrir `Glúteos` y `Cuerpo Completo` (M5).
-- [ ] **T1.6** Harness de test RLS real (A6) + casos: A no lee/crea/edita datos de B; A no toca ejercicios globales; A sí crea custom propios.
+- [x] **T1.1** (D3) B1 (`recent_prs`) y A3 (`REVOKE`) aplicados en el baseline y **verificados en vivo**: `save_workout` responde `42501 permission denied for function` a `anon`, o sea que el `REVOKE` hace efecto.
+- [x] **T1.2** (D3) A1 aplicado en el baseline. `0001_init.sql` corrió contra la base hosted **sin errores**, incluidos el `INSERT` en `storage.buckets` y la policy sobre `storage.objects`.
+- [ ] **T1.3** Guard de integridad A2 (`workout_sets.user_id` ≡ `workouts.user_id`). Sigue pendiente.
+- [x] **T1.4** (D2) `supabase init` hecho (`config.toml`), proyecto hosted linkeado (`wcurruszasxgxzimlbdk`, **región `sa-east-1`**, Postgres 17.11, `ACTIVE_HEALTHY`), `0001`+`0002`+`0003` aplicadas con el seed cargado, y **tipos generados** en `src/types/database.ts` (451 líneas, las 7 tablas y las 4 RPC; typecheck limpio).
+- [ ] **T1.5** Seed: cubrir `Glúteos` y `Cuerpo Completo` (M5). El test pgTAP ya lo asserta, falta correrlo.
+- [~] **T1.6** Harness pgTAP escrito en `supabase/tests/0001_schema_test.sql` (14 aserciones: seed, RLS habilitado, GRANTs de tabla y de función). **NO EJECUTADO**: `supabase test db --linked` necesita el daemon de Docker y está caído.
 - [ ] **T1.7** Tests de `save_workout`: idempotencia por UUID, ownership `Forbidden`, Epley, warmups excluidos, PR no baja (A4).
 - [ ] **T1.8** Documentar limitaciones M1/M6 y agregar `deleted_at` a `body_measurements` (M4).
+
+**Aprendizaje operativo de la Fase 1**: `db push` y `gen types --linked` funcionan contra el proyecto hosted **sin Docker**, pero `test db --linked` y `db dump --linked` **lo requieren igual** (corren `pg_prove`/`pg_dump` en un contenedor). Elegir hosted en D2 no nos libra de necesitar el daemon para verificar RLS.
 
 ### Fase 2 — Auth + Shell
 
@@ -148,6 +151,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | Revisión visual de T2.4 | `7112d49` `chore(review): add screenshot capture and objective UI audit` | 20 combinaciones ruta×viewport medidas: sin overflow horizontal, nav de 62px sin tapar contenido, target mínimo de 61px, contraste de texto muted 5.71:1 y del tab activo 8.14:1, Inter resuelta |
 | Hallazgo de la revisión visual | `66f74b4` `fix(a11y): signal the active tab without relying on colour` | Indicador visible verificado en browser real: exactamente uno por ruta y viewport, siempre el mismo que lleva `aria-current`; 17/17 tests |
 | T3.1–T3.3 | `4a5551b` `feat(offline): give the query cache a durable, resumable mutation queue` | 25/25 tests en 6 archivos, con 5 dedicados a la cola: pausa offline, el caso `retry: 0` que no se persiste, supervivencia a persist+restore, reanudación al volver la conexión, y ausencia de `mutationFn` en la mutación restaurada |
+| Mudanza a OneDrive | `641043c` `chore(repo): move the project to OneDrive with node_modules kept out of sync` | SHA-256 de 313 archivos idénticos antes de borrar el origen; typecheck, lint, 25/25 tests y build verdes desde la ruta nueva |
+| T1.1/T1.2/T1.4 + A9 | `aplicado a la base hosted` | `db push --linked --include-seed` aplicó `0001`, `0002` y el seed sin errores · **A9 detectado en vivo** (`42501`) y corregido con `0003_grants.sql` · `gen types --linked` generó 451 líneas y el typecheck quedó limpio · `anon` no puede ejecutar `save_workout` (A3 verificado en vivo) |
 
 ### Desviaciones de Fase 0 (documentadas, no ocultas)
 
