@@ -13,6 +13,10 @@ export default tseslint.config(
       'node_modules/**',
       'playwright-report/**',
       'test-results/**',
+      // Generated evidence: bundle reports, screen captures and one-off
+      // verification scripts. The directory is gitignored, so it is not code
+      // under review and must not break the lint gate.
+      'stats/**',
     ],
   },
   js.configs.recommended,

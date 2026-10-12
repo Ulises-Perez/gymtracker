@@ -20,7 +20,20 @@ const viewports = [
   { name: '1280px', width: 1280, height: 800 },
 ];
 
-const routes = ['/', '/workout', '/history', '/profile', '/ruta-inventada'];
+// Without a session every gated route lands on the login screen, so the auth
+// screens are measured here too. /reset-password bounces to /forgot-password,
+// which is exactly what a visitor without a recovery link should see.
+const routes = [
+  '/',
+  '/workout',
+  '/history',
+  '/profile',
+  '/ruta-inventada',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+];
 
 /** WCAG relative luminance / contrast, so nothing is eyeballed. */
 function srgbToLinear(channel) {
