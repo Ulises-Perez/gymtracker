@@ -1,7 +1,7 @@
 # GymTracker MVP — Tareas ODD
 
 **Estado:** Fase 0 cerrada salvo `.env.example` (bloqueado por la política de seguridad del harness). Fase 1 lista para arrancar en cuanto exista el proyecto hosted de Supabase.
-**Repo:** `C:\Users\ulise\develop\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera de OneDrive y del repo accidental del home).
+**Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera del repo accidental del home). `node_modules` es un **junction** a `C:\Users\ulise\develop\gymtracker-modules\node_modules` para no sincronizar 511 MB / 30.918 archivos.
 **Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
 **Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
 **No-objetivos (MVP):** social, rutinas con IA, push como dependencia, pagos, i18n.
@@ -12,7 +12,7 @@
 
 | ID | Decisión | Resuelto como |
 |----|----------|---------------|
-| D1 | Ubicación y repo | Movido a `develop/GymTracker` + `git init` propio, rama `feat/gymtracker-mvp` |
+| D1 | Ubicación y repo | `git init` propio, rama `feat/gymtracker-mvp`. **Revisada el 2026-10-11**: el proyecto volvió a OneDrive por convención del usuario, pero `node_modules` queda fuera con un junction a un store local |
 | D2 | Fase 1 local (Docker) o hosted | Proyecto **hosted** de dev en Supabase (región São Paulo); Docker queda como opción futura |
 | D3 | Parchear baseline o resolver por fase | Baseline parcheado antes de codear (`PLAN.md` + los 3 SQL + deps) |
 | D4 | Primer incremento | **Fase 0 + Fase 1** (base verificable con review acotado) |

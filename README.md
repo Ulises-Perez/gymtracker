@@ -16,6 +16,36 @@ Supabase · Vitest · Playwright.
 - Node 24+
 - npm 11+
 
+## Layout: por qué `node_modules` no viaja con el proyecto
+
+El proyecto vive en OneDrive, pero `node_modules` (**511 MB en 30.918 archivos**) queda **fuera del sync**: es un *junction* a una carpeta local.
+
+```
+C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker
+└── node_modules  →  junction  →  C:\Users\ulise\develop\gymtracker-modules\node_modules
+```
+
+Si clonás el repo en otra máquina, creá el junction antes de instalar (PowerShell, sin permisos de administrador):
+
+```powershell
+mkdir C:\develop\gymtracker-modules          # o donde prefieras
+mkdir C:\ruta\al\proyecto\node_modules        # carpeta vacía
+rmdir C:\ruta\al\proyecto\node_modules        # se borra la vacía...
+New-Item -ItemType Junction -Path C:\ruta\al\proyecto\node_modules `
+                          -Target C:\develop\gymtracker-modules\node_modules
+npm install
+```
+
+> **El detalle que rompe todo si se ignora**: la carpeta destino tiene que llamarse literalmente `node_modules`. Node y TypeScript resuelven la *ruta real* y buscan subiendo por el árbol de directorios **solo carpetas llamadas `node_modules`**; si el store se llama distinto, un paquete no encuentra a sus hermanos y el error que ves es desconcertante:
+>
+> ```
+> Cannot find package 'react' imported from ...\store\@tanstack\react-query\build\modern\QueryClientProvider.js
+> ```
+>
+> y el typecheck falla con «has no exported member» en decenas de imports que vienen por `export *`.
+
+Sin junction, `npm install` funciona igual: simplemente OneDrive empieza a sincronizar 511 MB.
+
 ## Setup local
 
 ```bash
