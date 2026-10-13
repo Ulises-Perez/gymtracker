@@ -76,9 +76,21 @@ export function createFakeSupabase(initialSession: Session | null = null) {
     })),
   };
 
+  /**
+   * Unstubbed RPC calls resolve with no data. A test that cares about one stubs
+   * it, the same way it stubs `auth` above.
+   */
+  const rpc = vi.fn(
+    async (): Promise<{ data: unknown; error: { message: string; code?: string } | null }> => ({
+      data: null,
+      error: null,
+    }),
+  );
+
   return {
-    client: { auth } as unknown as SupabaseClient<Database>,
+    client: { auth, rpc } as unknown as SupabaseClient<Database>,
     auth,
+    rpc,
     unsubscribe,
     /** Simulates an auth event, the way a login, logout or token refresh would. */
     emit(event: string, session: Session | null): void {

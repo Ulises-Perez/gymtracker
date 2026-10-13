@@ -1,6 +1,7 @@
 import type { DehydrateOptions, Mutation, MutationFunction } from '@tanstack/react-query';
 import { QueryClient } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { dispatchQueuedMutation } from './queued-mutations.ts';
 import { indexedDbStorage } from './storage.ts';
 
 export const QUERY_CACHE_KEY = 'gymtracker.query-cache.v1';
@@ -81,9 +82,10 @@ export const persistOptions = {
 /**
  * The application client.
  *
- * It is created without a resume dispatcher on purpose: there are no mutations
- * yet, and the dispatcher has to be the real `save_workout` call, which cannot
- * exist before the schema does. Fase 3 (task T3.2b) supplies it — until then a
- * persisted mutation would hydrate and never run.
+ * The dispatcher is supplied at the one place the app builds a client, so a
+ * restored mutation is runnable from the first paint. It is passed here rather
+ * than set in `defaultOptions` above because a restored mutation has no
+ * `mutationFn` of its own and this default is what fills that hole; keeping it
+ * as an explicit argument also lets tests build a client with a spy instead.
  */
-export const queryClient = createQueryClient();
+export const queryClient = createQueryClient(dispatchQueuedMutation);
