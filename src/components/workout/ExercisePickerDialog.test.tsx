@@ -1,9 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../../lib/queryClient.ts';
 import { getSupabase } from '../../lib/supabase.ts';
+import type { CatalogExercise } from '../../lib/catalog-api.ts';
 import { createFakeSupabase } from '../../testing/fake-supabase.ts';
 import { ExercisePickerDialog } from './ExercisePickerDialog.tsx';
 
@@ -48,24 +50,53 @@ let client: ReturnType<typeof createQueryClient>;
 type PickerOptions = {
   open?: boolean;
   userId?: string;
+  localExercises?: CatalogExercise[];
 };
 
-function renderPicker({ open = true, userId = USER_ID }: PickerOptions = {}) {
+function renderPicker({
+  open: initiallyOpen = true,
+  userId = USER_ID,
+  localExercises,
+}: PickerOptions = {}) {
   const onSelect = vi.fn();
   const onOpenChange = vi.fn();
+  const onCreateCustom = vi.fn();
+
+  /*
+   * Genuinely controlled, with a way back in. A stub that only records the call would
+   * let the dialog stay open after a choice, and the state it keeps while hidden —
+   * the thing the reset below is about — could never be observed.
+   */
+  function Harness() {
+    const [open, setOpen] = useState(initiallyOpen);
+
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          Reabrir
+        </button>
+        <ExercisePickerDialog
+          open={open}
+          onOpenChange={(next) => {
+            onOpenChange(next);
+            setOpen(next);
+          }}
+          userId={userId}
+          onSelect={onSelect}
+          onCreateCustom={onCreateCustom}
+          localExercises={localExercises}
+        />
+      </>
+    );
+  }
 
   render(
     <QueryClientProvider client={client}>
-      <ExercisePickerDialog
-        open={open}
-        onOpenChange={onOpenChange}
-        userId={userId}
-        onSelect={onSelect}
-      />
+      <Harness />
     </QueryClientProvider>,
   );
 
-  return { onSelect, onOpenChange };
+  return { onSelect, onOpenChange, onCreateCustom };
 }
 
 const search = () => screen.getByLabelText('Buscar');
@@ -232,5 +263,152 @@ describe('ExercisePickerDialog', () => {
     const alert = await screen.findByRole('alert');
 
     expect(alert).toHaveTextContent('No pudimos cargar los ejercicios');
+  });
+});
+
+const CREATE_TOGGLE = 'Nuevo ejercicio';
+const NAME_LABEL = 'Nombre del ejercicio';
+const GROUP_LABEL = 'Grupo muscular';
+
+async function openCreateForm() {
+  fireEvent.click(await screen.findByRole('button', { name: CREATE_TOGGLE }));
+}
+
+describe('inventing an exercise the catalogue does not have', () => {
+  it('keeps the form out of the way until it is asked for', async () => {
+    renderPicker();
+    await offeredNames();
+
+    expect(screen.queryByLabelText(NAME_LABEL)).not.toBeInTheDocument();
+
+    await openCreateForm();
+
+    expect(screen.getByLabelText(NAME_LABEL)).toBeInTheDocument();
+  });
+
+  it('hands over the name and the chosen muscle group', async () => {
+    const { onCreateCustom, onOpenChange } = renderPicker();
+    await offeredNames();
+    await openCreateForm();
+
+    fireEvent.change(screen.getByLabelText(NAME_LABEL), {
+      target: { value: '  Press con banda  ' },
+    });
+    fireEvent.change(screen.getByLabelText(GROUP_LABEL), { target: { value: 'mg-pecho' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+    // Trimmed here and not downstream: the schema and 0008 both refuse a blank name,
+    // and padding around a real one would otherwise be stored as typed.
+    expect(onCreateCustom).toHaveBeenCalledWith('Press con banda', 'mg-pecho');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('creates it with no group when none is chosen', async () => {
+    const { onCreateCustom } = renderPicker();
+    await offeredNames();
+    await openCreateForm();
+
+    fireEvent.change(screen.getByLabelText(NAME_LABEL), { target: { value: 'Press con banda' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+    expect(onCreateCustom).toHaveBeenCalledWith('Press con banda', null);
+  });
+
+  it('refuses to create one without a name', async () => {
+    const { onCreateCustom } = renderPicker();
+    await offeredNames();
+    await openCreateForm();
+
+    const create = screen.getByRole('button', { name: 'Crear' });
+    expect(create).toBeDisabled();
+
+    // Whitespace is not a name. This is the only place that can stop an unsavable
+    // exercise from reaching the draft, where the user would meet it at "Finalizar".
+    fireEvent.change(screen.getByLabelText(NAME_LABEL), { target: { value: '   ' } });
+    fireEvent.click(create);
+
+    expect(onCreateCustom).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Creating is local. The catalogue is the server's copy, and needing it reachable
+   * in order to invent an exercise would remove the one thing the app promises when
+   * offline -- which is exactly when a catalogue request fails.
+   */
+  it('still allows one when the catalogue could not be loaded', async () => {
+    fake.setTableResult('exercises', { data: null, error: { message: 'permission denied' } });
+    const { onCreateCustom } = renderPicker();
+    await screen.findByRole('alert');
+    await openCreateForm();
+
+    fireEvent.change(screen.getByLabelText(NAME_LABEL), { target: { value: 'Press con banda' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+    expect(onCreateCustom).toHaveBeenCalledWith('Press con banda', null);
+  });
+
+  it('forgets the half-typed exercise when the picker is dismissed', async () => {
+    renderPicker();
+    await offeredNames();
+    await openCreateForm();
+    fireEvent.change(screen.getByLabelText(NAME_LABEL), { target: { value: 'Press con banda' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reabrir' }));
+
+    // The dialog is hidden, not unmounted, so that name would otherwise still be
+    // there on reopening — one tap away from creating the same exercise twice.
+    expect(screen.queryByLabelText(NAME_LABEL)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: CREATE_TOGGLE })).toBeInTheDocument();
+  });
+});
+
+describe('exercises invented earlier in this session', () => {
+  const BANDA: CatalogExercise = {
+    id: 'local-1',
+    name: 'Press con banda',
+    muscleGroupId: 'mg-pecho',
+    isCustom: true,
+  };
+
+  /**
+   * A custom exercise only reaches the server when the workout that uses it is saved.
+   * Until then the catalogue has never heard of it, so the picker has to be told by
+   * the draft -- otherwise one created a minute ago is invisible for the rest of the
+   * session, and the user cannot add it twice.
+   */
+  it('offers them even though the catalogue has never heard of them', async () => {
+    renderPicker({ localExercises: [BANDA] });
+
+    expect(await offeredNames()).toContain('Press con banda');
+  });
+
+  it('lets one be picked like any other', async () => {
+    const { onSelect, onOpenChange } = renderPicker({ localExercises: [BANDA] });
+    await offeredNames();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Press con banda' }));
+
+    expect(onSelect).toHaveBeenCalledWith(BANDA);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('finds them through the search too', async () => {
+    renderPicker({ localExercises: [BANDA] });
+    await offeredNames();
+
+    fireEvent.change(search(), { target: { value: 'banda' } });
+
+    // Asserted as "is in the results" and not as the exact set: fuse's 0.34 tolerance
+    // also brings "Press Banca" along for this query, which is the same behaviour that
+    // makes "press bnaca" find it above. That is the search working, not a local
+    // exercise leaking into the catalogue.
+    await waitFor(async () => {
+      expect(await offeredNames()).toContain('Press con banda');
+    });
   });
 });

@@ -27,20 +27,37 @@ type ExercisePickerDialogProps = {
   onOpenChange: (open: boolean) => void;
   userId: string;
   onSelect: (exercise: CatalogExercise) => void;
+  onCreateCustom: (name: string, muscleGroupId: string | null) => void;
+  /**
+   * Exercises invented earlier in this session, which the catalogue has never heard
+   * of: a custom exercise only reaches the server when the workout using it is saved.
+   */
+  localExercises?: CatalogExercise[];
 };
 
 /** How far fuse is allowed to stray. Loose enough for a typo, tight enough to stay useful. */
 const FUZZINESS = 0.34;
+
+/**
+ * Stable empty list, so the default for `localExercises` does not build a new array
+ * on every render and throw away the fuse index with it.
+ */
+const NO_LOCAL_EXERCISES: CatalogExercise[] = [];
 
 export function ExercisePickerDialog({
   open,
   onOpenChange,
   userId,
   onSelect,
+  onCreateCustom,
+  localExercises,
 }: ExercisePickerDialogProps) {
   const catalog = useCatalog(userId);
   const [query, setQuery] = useState('');
   const [groupId, setGroupId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newGroupId, setNewGroupId] = useState<string | null>(null);
 
   /*
    * Held in memos so their identity is stable across a keystroke. Without this
@@ -48,7 +65,11 @@ export function ExercisePickerDialog({
    * depend on it — including the fuse index — would be thrown away and rebuilt
    * on every character typed.
    */
-  const exercises = useMemo(() => catalog.data?.exercises ?? [], [catalog.data]);
+  const local = localExercises ?? NO_LOCAL_EXERCISES;
+  const exercises = useMemo(
+    () => [...local, ...(catalog.data?.exercises ?? [])],
+    [catalog.data, local],
+  );
   const muscleGroups = useMemo(() => catalog.data?.muscleGroups ?? [], [catalog.data]);
 
   /*
@@ -97,14 +118,41 @@ export function ExercisePickerDialog({
   }, [fuse, query, scoped]);
 
   const hasQuery = query.trim() !== '';
+  const trimmedName = newName.trim();
 
   function choose(exercise: CatalogExercise) {
     onSelect(exercise);
     onOpenChange(false);
   }
 
+  function create() {
+    // Whitespace is not a name. The schema and `save_workout` refuse it too, but by
+    // then the exercise is already in the draft and the user meets it at "Finalizar".
+    if (trimmedName === '') {
+      return;
+    }
+
+    onCreateCustom(trimmedName, newGroupId);
+    onOpenChange(false);
+  }
+
+  /*
+   * The dialog is hidden, not unmounted, so state set here outlives closing. Clearing
+   * the half-typed exercise on the way out is what stops a reopened picker from
+   * showing the previous name one tap away from a duplicate.
+   */
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setIsCreating(false);
+      setNewName('');
+      setNewGroupId(null);
+    }
+
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="overlay fixed inset-0 bg-black/60" />
         <Dialog.Content
@@ -143,6 +191,73 @@ export function ExercisePickerDialog({
               </GroupChip>
             ))}
           </div>
+
+          {/*
+            Creating is local, so this sits outside the catalogue's pending and error
+            branches on purpose: needing the server reachable to invent an exercise
+            would remove the one thing the app promises when offline — which is exactly
+            when a catalogue request fails.
+          */}
+          {isCreating ? (
+            <form
+              className="ring-white/15 mt-3 space-y-3 rounded-md p-3 ring-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                create();
+              }}
+            >
+              <Input
+                label="Nombre del ejercicio"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                placeholder="Press con banda"
+                autoComplete="off"
+              />
+
+              <div className="space-y-1.5">
+                <label htmlFor="new-exercise-group" className="block text-sm font-medium">
+                  Grupo muscular
+                </label>
+                <select
+                  id="new-exercise-group"
+                  value={newGroupId ?? ''}
+                  onChange={(event) =>
+                    setNewGroupId(event.target.value === '' ? null : event.target.value)
+                  }
+                  className="bg-bg ring-white/15 focus-visible:ring-primary min-h-12 w-full rounded-md px-3 text-base ring-1 outline-none focus-visible:ring-2"
+                >
+                  <option value="">Sin grupo</option>
+                  {/*
+                    Every group, not only the ones that already hold something: a new
+                    exercise may well be the first one in its group, which is the case
+                    the filter chips above deliberately hide (M5).
+                  */}
+                  {muscleGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* A submitting form, so the phone keyboard's go key creates it. */}
+              <button
+                type="submit"
+                disabled={trimmedName === ''}
+                className="bg-primary min-h-12 w-full rounded-md px-4 font-medium text-white disabled:opacity-50"
+              >
+                Crear
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsCreating(true)}
+              className="ring-white/15 hover:bg-bg mt-3 min-h-12 w-full rounded-md px-4 text-sm ring-1"
+            >
+              Nuevo ejercicio
+            </button>
+          )}
 
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
             {catalog.isPending ? (
