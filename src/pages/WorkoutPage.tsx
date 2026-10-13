@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 
 import { ExercisePickerDialog } from '../components/workout/ExercisePickerDialog.tsx';
 import { PersonalRecords } from '../components/workout/PersonalRecords.tsx';
-import { WorkoutExerciseCard } from '../components/workout/WorkoutExerciseCard.tsx';
 import { Input } from '../components/ui/Input.tsx';
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
+import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
 import { useRestTimer } from '../hooks/useRestTimer.ts';
@@ -36,6 +36,21 @@ import { useWorkoutStore } from '../stores/workout-store.ts';
  */
 const REST_SECONDS = 120;
 
+/**
+ * The exercise list, with its two gestures, loaded on demand.
+ *
+ * dnd-kit and Motion are the heaviest dependencies this route touches and the list is the only
+ * thing that needs them, so they sit behind one `import()` and travel in their own chunk. That is
+ * what the plan's code-splitting table asks for, and it is why the list and not the card owns the
+ * gestures: a card that imported them would put both back in the chunk the first card costs.
+ */
+const SortableExerciseList = lazy(async () => {
+  const { SortableExerciseList: List } =
+    await import('../components/workout/SortableExerciseList.tsx');
+
+  return { default: List };
+});
+
 export function WorkoutPage() {
   const { user } = useAuth();
 
@@ -46,6 +61,7 @@ export function WorkoutPage() {
   const addExercise = useWorkoutStore((state) => state.addExercise);
   const addCustomExercise = useWorkoutStore((state) => state.addCustomExercise);
   const removeExercise = useWorkoutStore((state) => state.removeExercise);
+  const reorderExercises = useWorkoutStore((state) => state.reorderExercises);
   const addSet = useWorkoutStore((state) => state.addSet);
   const updateSet = useWorkoutStore((state) => state.updateSet);
   const removeSet = useWorkoutStore((state) => state.removeSet);
@@ -213,20 +229,21 @@ export function WorkoutPage() {
       {draft.exercises.length === 0 ? (
         <p className="text-muted mt-6 text-sm">Todavía no agregaste ejercicios.</p>
       ) : (
-        <ul aria-label="Ejercicios del entrenamiento" className="mt-6 space-y-3">
-          {draft.exercises.map((card) => (
-            <li key={card.id}>
-              <WorkoutExerciseCard
-                name={names.get(card.exerciseId) ?? 'Ejercicio'}
-                card={card}
-                onAddSet={(seed) => addSet(card.id, seed)}
-                onUpdateSet={(setId, patch) => updateSet(card.id, setId, patch)}
-                onRemoveSet={(setId) => removeSet(card.id, setId)}
-                onRemoveExercise={() => removeExercise(card.id)}
-              />
-            </li>
-          ))}
-        </ul>
+        <Suspense fallback={<ExerciseListSkeleton />}>
+          <SortableExerciseList
+            cards={draft.exercises}
+            names={names}
+            /*
+             * The store's own actions, passed straight through: their signatures are already the
+             * ones the list calls, and a wrapper would only be somewhere for them to drift.
+             */
+            onReorder={reorderExercises}
+            onAddSet={addSet}
+            onUpdateSet={updateSet}
+            onRemoveSet={removeSet}
+            onRemoveExercise={removeExercise}
+          />
+        </Suspense>
       )}
 
       <div className="mt-4 flex gap-2">
@@ -269,6 +286,23 @@ export function WorkoutPage() {
         onCreateCustom={(name, muscleGroupId) => addCustomExercise(name, muscleGroupId)}
         localExercises={localExercises}
       />
+    </div>
+  );
+}
+
+/**
+ * Blocks and not a spinner, like every other wait in the app. The list arrives as one piece and
+ * takes about as long as two cards do, so that is what the placeholder shows.
+ */
+function ExerciseListSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Cargando los ejercicios del entrenamiento"
+      className="mt-6 space-y-3"
+    >
+      <Skeleton className="h-28 w-full" />
+      <Skeleton className="h-28 w-full" />
     </div>
   );
 }

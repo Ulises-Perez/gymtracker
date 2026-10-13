@@ -9,8 +9,20 @@
  */
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
+
+/*
+ * Finding an element waits five seconds and not the default one.
+ *
+ * The workout screen loads its exercise list on demand, because that is where dnd-kit and Motion
+ * live, so several of its assertions are waiting on a dynamic `import()` rather than on a render.
+ * Under a full parallel run that chunk took over three seconds to arrive — measured, not
+ * guessed — and the spec passed on its own while failing in the suite. The wait is not hiding a
+ * hang: it is the shape of the app now, and a timeout belongs in one place instead of being
+ * widened in whichever test happened to notice.
+ */
+configure({ asyncUtilTimeout: 5000 });
 
 /*
  * Testing Library only auto-registers its cleanup when the test globals are
