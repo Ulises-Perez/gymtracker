@@ -11,6 +11,26 @@ export function lbToKg(lb: number): number {
 }
 
 /**
+ * Folds a string for search: no accents, no case, no stray spaces.
+ *
+ * `fuse.js` matches characters, so it has no way to know that "extension" and
+ * "Extensión" are the same word. The catalogue is Spanish and nobody types the
+ * accent on a phone keyboard in the middle of a set, so the indexed names and the
+ * query both go through here before they meet.
+ *
+ * NFD splits an accented letter into the letter plus a combining mark, and the
+ * combining-marks block is what gets stripped. It is idempotent, so normalising an
+ * already-normalised value is safe.
+ */
+export function normalizeForSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
  * Today's calendar date, as the user would write it.
  *
  * Built from the local getters, never from `toISOString()`. The two look

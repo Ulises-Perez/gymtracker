@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { kgToLb, lbToKg, localIsoDate, toNumber } from './utils';
+import { kgToLb, lbToKg, localIsoDate, normalizeForSearch, toNumber } from './utils';
 
 describe('toNumber', () => {
   it('parses the DECIMAL strings returned by supabase-js', () => {
@@ -70,5 +70,32 @@ describe('localIsoDate', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('normalizeForSearch', () => {
+  /*
+   * Foldea acentos y mayúsculas para que la búsqueda del catálogo no dependa de
+   * que el usuario escriba las tildes. Nadie busca "Extensión en Polea" con
+   * tilde en un teclado de teléfono a mitad de una serie.
+   */
+  it('strips the accents', () => {
+    expect(normalizeForSearch('Extensión en Polea')).toBe('extension en polea');
+    expect(normalizeForSearch('Pájaros')).toBe('pajaros');
+    expect(normalizeForSearch('Cuádriceps')).toBe('cuadriceps');
+  });
+
+  it('lowercases and trims', () => {
+    expect(normalizeForSearch('  Press Banca  ')).toBe('press banca');
+  });
+
+  it('is idempotent, so a normalized value can be normalized again', () => {
+    const once = normalizeForSearch('Búlgaro');
+
+    expect(normalizeForSearch(once)).toBe(once);
+  });
+
+  it('leaves text without accents alone', () => {
+    expect(normalizeForSearch('Sentadilla')).toBe('sentadilla');
   });
 });
