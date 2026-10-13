@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router';
 import { BottomNav } from './BottomNav.tsx';
+import { SyncBadge } from './SyncBadge.tsx';
 
 /**
  * Application shell.
@@ -21,6 +22,10 @@ export function AppShell() {
       <main id="contenido" className="flex-1 px-4 pt-6 pb-28">
         <Outlet />
       </main>
+
+      {/* Above the nav and below the content: it can appear at any moment, while the
+          user is anywhere in the app. */}
+      <SyncBadge />
 
       <BottomNav />
     </div>

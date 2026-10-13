@@ -4,10 +4,11 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../lib/queryClient.ts';
+import { SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
-import { SAVE_WORKOUT_MUTATION_KEY, useSaveWorkout } from './useSaveWorkout.ts';
+import { useSaveWorkout } from './useSaveWorkout.ts';
 
 vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 

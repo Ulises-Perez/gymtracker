@@ -1,8 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../lib/queryClient.ts';
+import { installSaveSync } from '../lib/save-sync.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
@@ -30,6 +31,7 @@ const MUSCLE_GROUPS = [{ id: 'mg-pecho', name: 'Pecho', icon: null }];
 
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
+let uninstallSaveSync: () => void;
 
 function renderPage() {
   return render(
@@ -67,6 +69,18 @@ beforeEach(() => {
 
   client = createQueryClient();
   client.setDefaultOptions({ queries: { retry: false } });
+
+  /*
+   * Installed here because the app installs it at startup (`main.tsx`) and the screen's
+   * correctness depends on it: it is what clears the draft the moment a write lands, and
+   * therefore what makes a finished draft with an empty queue mean "it did not save" rather
+   * than "it may or may not have".
+   */
+  uninstallSaveSync = installSaveSync(client);
+});
+
+afterEach(() => {
+  uninstallSaveSync();
 });
 
 describe('WorkoutPage', () => {
@@ -142,19 +156,23 @@ describe('WorkoutPage', () => {
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Empuje' } });
     await addPressBanca();
 
+    // Read before finishing, because a successful write clears the draft: reading it back
+    // afterwards would compare the payload against nothing.
+    const workoutId = draft()?.workoutId;
+
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
-    expect(draft()?.status).toBe('finished');
-    expect(draft()?.endedAt).not.toBeNull();
-
-    // Through the queue and the real dispatcher: this is the same path an offline write
-    // takes, not a shortcut to the RPC.
+    // Through the queue and the real dispatcher: the same path an offline write takes, not a
+    // shortcut to the RPC.
     await vi.waitFor(() => {
       expect(fake.rpc).toHaveBeenCalledWith('save_workout', {
         payload: expect.objectContaining({
-          id: draft()?.workoutId,
+          id: workoutId,
           title: 'Empuje',
           sets: [],
+          // Zero rather than null is the proof the payload came from the frozen draft:
+          // `finish()` is what sets `endedAt`, and the duration is measured from it.
+          duration_minutes: 0,
         }),
       });
     });
@@ -212,5 +230,64 @@ describe('WorkoutPage', () => {
     // A session that beat nothing gets no celebration: a card that says "0 récords" is
     // worse than no card at all.
     expect(screen.queryByRole('status', { name: 'Récords nuevos' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * The other half of the same fact, and the reason the test above is not enough on its own:
+   * a successful write clears the draft, so the screen that reports a failure and the screen
+   * that reports nothing are different screens. Asserting only that the records appeared would
+   * pass just as happily with "no pudimos guardar" written underneath them.
+   */
+  it('clears the draft once the write lands, instead of reporting a failure', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    await vi.waitFor(() => {
+      expect(draft()).toBeNull();
+    });
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nuevo workout' })).toBeInTheDocument();
+  });
+
+  /**
+   * Defect D2, in the state it actually happened in: the app was reopened after the write
+   * failed, so nothing in the queue knows about it any more. The draft is the only witness
+   * left, and it has to be enough.
+   */
+  it('reports a finished workout that nothing is writing, the way a reload leaves it', () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA.id);
+    store.finish();
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('No pudimos guardar el entrenamiento');
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+  });
+
+  it('queues the frozen workout again when the retry is asked for', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA.id);
+    store.finish();
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    // The same payload sent again is safe: `save_workout` replaces the workout's sets rather
+    // than appending to them, which is what makes the retry worth offering.
+    await vi.waitFor(() => {
+      expect(fake.rpc).toHaveBeenCalledWith(
+        'save_workout',
+        expect.objectContaining({ payload: expect.objectContaining({ sets: [] }) }),
+      );
+    });
   });
 });

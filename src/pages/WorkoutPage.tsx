@@ -8,6 +8,7 @@ import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
 import { useRestTimer } from '../hooks/useRestTimer.ts';
+import { useSaveSync } from '../hooks/useSaveSync.ts';
 import { useSaveWorkout } from '../hooks/useSaveWorkout.ts';
 import { useWakeLock } from '../hooks/useWakeLock.ts';
 import type { CatalogExercise } from '../lib/catalog-api.ts';
@@ -50,7 +51,7 @@ export function WorkoutPage() {
   const removeSet = useWorkoutStore((state) => state.removeSet);
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [recordsDismissed, setRecordsDismissed] = useState(false);
+  const [dismissedSave, setDismissedSave] = useState<string | null>(null);
 
   const catalog = useCatalog(user?.id ?? '');
   const rest = useRestTimer(REST_SECONDS);
@@ -59,21 +60,26 @@ export function WorkoutPage() {
   const customs = draft?.customExercises;
   const isOpen = draft?.status === 'draft';
 
-  /**
-   * The records of *this* session, and only while they have not been dismissed.
+  /*
+   * How many writes are queued and not yet on the server.
    *
-   * `save.data` outlives the workout that produced it, so the result is matched to the
-   * draft by id. Without that, finishing a second workout would show the first one's
-   * records until the new write settles, which is the kind of wrong that looks plausible.
-   *
-   * The `save.data &&` is not decoration: two absent values compare equal, so without it
-   * the empty screen would compare `undefined` with `undefined`, call it a match and read
-   * `new_prs` off nothing.
+   * Read from the queue and not from `save.status`, which is a fact about this hook instance:
+   * a write resumed after a reload lands with no hook mounted to hear it, and the screen would
+   * sit on "guardando" forever over a workout that was saved minutes ago.
    */
+  const waiting = useSaveSync();
+
+  /**
+   * The records of the save that landed, and only while they have not been dismissed.
+   *
+   * Keyed to the workout the server reported and not to the draft, because a successful write
+   * clears the draft (`installSaveSync`) and the news would be cleared along with it. The
+   * dismissal is remembered per saved workout, so a celebration the user has already read does
+   * not come back the next time this screen renders.
+   */
+  const savedWorkoutId = save.data?.workout_id ?? null;
   const records =
-    save.data && !recordsDismissed && save.data.workout_id === draft?.workoutId
-      ? save.data.new_prs
-      : [];
+    savedWorkoutId && savedWorkoutId !== dismissedSave ? (save.data?.new_prs ?? []) : [];
 
   // Held while a workout is open: the phone locking mid-set is the thing this exists for.
   useWakeLock(isOpen === true);
@@ -123,8 +129,7 @@ export function WorkoutPage() {
    * `finishAndQueue` refuses a draft that is no longer open — correctly, since `finish()`
    * is what sets `endedAt` — so a retry rebuilds the payload from the same finished draft.
    * That is safe because `save_workout` replaces the workout's sets rather than appending
-   * to them. The badge that distinguishes "waiting" from "failed" is T3.9c's work; this is
-   * only here so that a failed save is not a dead end.
+   * to them.
    */
   function retrySave(): void {
     const finished = useWorkoutStore.getState().draft;
@@ -145,45 +150,44 @@ export function WorkoutPage() {
       <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
         <h1 className="text-2xl font-semibold">Entrenar</h1>
 
-        {draft?.status === 'finished' ? (
-          <div className="mt-4 space-y-3">
-            {records.length > 0 ? (
-              <PersonalRecords
-                records={records}
-                names={names}
-                onDismiss={() => setRecordsDismissed(true)}
-              />
-            ) : save.status === 'error' ? (
-              <>
-                {/* Said out loud: the session is still on the device, and a screen that
-                    stayed quiet would look like the workout had been lost. */}
-                <p role="alert" className="text-danger text-sm">
-                  No pudimos guardar el entrenamiento. Sigue en el teléfono.
-                </p>
-                <button
-                  type="button"
-                  onClick={retrySave}
-                  className="ring-white/15 hover:bg-bg min-h-12 w-full rounded-md px-4 ring-1"
-                >
-                  Reintentar
-                </button>
-              </>
-            ) : (
-              <p className="text-muted text-sm">
-                Guardando el entrenamiento. Si no hay conexión, se sincroniza solo cuando vuelva.
-              </p>
-            )}
-          </div>
+        {records.length > 0 ? (
+          <PersonalRecords
+            records={records}
+            names={names}
+            onDismiss={() => setDismissedSave(savedWorkoutId)}
+          />
+        ) : null}
+
+        {/*
+          "Waiting" and "failed" are told apart by the queue, and that is the whole reason
+          D2 existed: a paused write and a write whose retries ran out both used to look like
+          a finished draft. A finished draft with nothing queued can only mean it never
+          landed, because `installSaveSync` clears the draft the moment a write succeeds.
+        */}
+        {waiting > 0 ? (
+          <p className="text-muted mt-4 text-sm">
+            Guardando el entrenamiento. Si no hay conexión, se sincroniza solo cuando vuelva.
+          </p>
+        ) : draft?.status === 'finished' ? (
+          <>
+            {/* Said out loud: the session is still on the device, and a screen that stayed
+                quiet would look like the workout had been lost. */}
+            <p role="alert" className="text-danger mt-4 text-sm">
+              No pudimos guardar el entrenamiento. Sigue en el teléfono.
+            </p>
+            <button
+              type="button"
+              onClick={retrySave}
+              className="ring-white/15 hover:bg-bg mt-3 min-h-12 w-full rounded-md px-4 ring-1"
+            >
+              Reintentar
+            </button>
+          </>
         ) : null}
 
         <button
           type="button"
-          onClick={() => {
-            // The records belong to the workout that just ended, so starting the next one
-            // puts them away rather than leaving them over an empty screen.
-            setRecordsDismissed(false);
-            start();
-          }}
+          onClick={start}
           className="bg-primary mt-6 min-h-12 w-full rounded-md px-4 font-medium text-white"
         >
           Nuevo workout

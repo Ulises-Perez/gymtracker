@@ -25,6 +25,16 @@ const KINDS = ['save-workout'] as const;
 
 export type QueuedMutationKind = (typeof KINDS)[number];
 
+/**
+ * The key every queued save is filed under.
+ *
+ * It lives here, next to the kinds, and not in the hook that creates the mutations. That
+ * placement is load-bearing: this module is reachable from the initial bundle and imports
+ * nothing at runtime, so the badge that counts pending writes can share the key without
+ * dragging the workout store and the payload builder into the first download.
+ */
+export const SAVE_WORKOUT_MUTATION_KEY = ['save-workout'] as const;
+
 /** The union of everything that can sit in the persisted queue. */
 export type QueuedMutationVariables = SaveWorkoutVariables;
 

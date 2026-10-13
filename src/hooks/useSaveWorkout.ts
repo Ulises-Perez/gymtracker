@@ -1,20 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { dispatchQueuedMutation } from '../lib/queued-mutations.ts';
+import { dispatchQueuedMutation, SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
 import type { QueuedMutationVariables } from '../lib/queued-mutations.ts';
 import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
 import type { SaveWorkoutResult } from '../schemas/workout.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
-
-/**
- * The key every queued save is filed under.
- *
- * A restored write does not need it — the client's default mutation function is what
- * makes it runnable again — but it is what makes the queue inspectable: the sync badge
- * counts pending writes by this key, and `save_workout` is the only thing the queue
- * carries today.
- */
-export const SAVE_WORKOUT_MUTATION_KEY = ['save-workout'] as const;
 
 /**
  * Finishing a workout, and the one place the order of it is written down.
