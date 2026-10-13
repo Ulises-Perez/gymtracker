@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { dispatchQueuedMutation } from '../lib/queued-mutations.ts';
 import type { QueuedMutationVariables } from '../lib/queued-mutations.ts';
@@ -20,6 +20,8 @@ export const SAVE_WORKOUT_MUTATION_KEY = ['save-workout'] as const;
  * Finishing a workout, and the one place the order of it is written down.
  */
 export function useSaveWorkout() {
+  const queryClient = useQueryClient();
+
   const mutation = useMutation<SaveWorkoutResult, Error, QueuedMutationVariables>({
     mutationKey: SAVE_WORKOUT_MUTATION_KEY,
     /*
@@ -30,6 +32,22 @@ export function useSaveWorkout() {
      * the schema again would pull Zod into a screen chunk to re-check the same bytes.
      */
     mutationFn: async (variables) => (await dispatchQueuedMutation(variables)) as SaveWorkoutResult,
+    /**
+     * Defect D3: the catalogue is stale the moment the write lands, and only then.
+     *
+     * `save_workout` is what creates the custom exercises the session used, and the
+     * catalogue query is cached with `staleTime: Infinity` behind a 7-day `maxAge` — so
+     * without this, an exercise the user invented and saved stays invisible to the picker
+     * for the rest of that window, and the write looks like it was lost.
+     *
+     * It waits for success rather than firing when the user taps finish, because a save
+     * made offline has not changed anything yet. Marked without refetching, so it is the
+     * picker's next mount that refreshes it: a background request deciding the moment
+     * could turn a cached catalogue into an error screen while the user is offline.
+     */
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['catalog'], refetchType: 'none' });
+    },
   });
 
   /**

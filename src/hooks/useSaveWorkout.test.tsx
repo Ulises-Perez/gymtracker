@@ -158,3 +158,53 @@ describe('finishing a workout', () => {
     expect(queued()).toHaveLength(0);
   });
 });
+
+/**
+ * Defect D3.
+ *
+ * The catalogue is cached with `staleTime: Infinity` and a seven-day `maxAge`, and
+ * `save_workout` is what creates the custom exercises the session used. So without an
+ * invalidation, an exercise the user invented and saved stays invisible to the picker
+ * for a week — the write succeeds and the app looks like it lost it.
+ */
+describe('what a finished save changes', () => {
+  it('marks the catalogue stale, because the write is what creates the custom exercises', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA);
+
+    client.setQueryData(['catalog', 'user-1'], { exercises: [], muscleGroups: [] });
+
+    const { result } = renderHook(() => useSaveWorkout(), { wrapper });
+
+    result.current.finishAndQueue();
+
+    await waitFor(() => {
+      expect(client.getQueryState(['catalog', 'user-1'])?.isInvalidated).toBe(true);
+    });
+  });
+
+  it('leaves the catalogue alone when the write is still pending', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA);
+
+    client.setQueryData(['catalog', 'user-1'], { exercises: [], muscleGroups: [] });
+
+    // Never resolves: the write is in flight for the whole test, the way it is for the
+    // whole time a user is offline.
+    fake.rpc.mockImplementation(() => new Promise(() => {}));
+
+    const { result } = renderHook(() => useSaveWorkout(), { wrapper });
+
+    result.current.finishAndQueue();
+
+    await waitFor(() => {
+      expect(queued()).toHaveLength(1);
+    });
+
+    expect(client.getQueryState(['catalog', 'user-1'])?.isInvalidated).toBe(false);
+  });
+});

@@ -52,6 +52,19 @@ describe('useCatalog', () => {
   });
 
   /**
+   * The screen sits behind the auth gate, so an empty id means the gate has not
+   * resolved yet — not a user with no exercises. A request keyed by it can only be
+   * refused, and it would be made on every render of a screen that is about to be
+   * replaced by the skeleton anyway.
+   */
+  it('asks the server for nothing while there is no user to ask for', () => {
+    const { result } = renderHook(() => useCatalog(''), { wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(fake.from).not.toHaveBeenCalled();
+  });
+
+  /**
    * The cache lives in IndexedDB and outlives a session. If the entry were keyed
    * by 'catalog' alone, a second account signing in on the same device would be
    * served the first one's catalogue — custom exercises included — without a
