@@ -87,10 +87,21 @@ export function createFakeSupabase(initialSession: Session | null = null) {
     }),
   );
 
+  const tableResults: Record<string, { data: unknown; error: unknown }> = {};
+
+  const from = vi.fn((table: string) =>
+    createQueryBuilder(tableResults[table] ?? { data: [], error: null }),
+  );
+
   return {
-    client: { auth, rpc } as unknown as SupabaseClient<Database>,
+    client: { auth, rpc, from } as unknown as SupabaseClient<Database>,
     auth,
     rpc,
+    from,
+    /** What `from(table)` will resolve with on the next query. */
+    setTableResult(table: string, result: { data: unknown; error: unknown }): void {
+      tableResults[table] = result;
+    },
     unsubscribe,
     /** Simulates an auth event, the way a login, logout or token refresh would. */
     emit(event: string, session: Session | null): void {
@@ -101,3 +112,55 @@ export function createFakeSupabase(initialSession: Session | null = null) {
 }
 
 export type FakeSupabase = ReturnType<typeof createFakeSupabase>;
+
+/** Records the builder calls a single PostgREST query made, and resolves once. */
+export type QueryBuilderStub = {
+  calls: string[];
+  select: (columns: string) => QueryBuilderStub;
+  is: (column: string, value: unknown) => QueryBuilderStub;
+  or: (filter: string) => QueryBuilderStub;
+  eq: (column: string, value: unknown) => QueryBuilderStub;
+  order: (column: string) => Promise<{ data: unknown; error: unknown }>;
+};
+
+/**
+ * Stand-in for PostgREST's chainable query builder.
+ *
+ * It records every step so a test can assert the *shape* of the query —the
+ * soft-delete filter, the owner scoping— rather than only its result, which is
+ * where the mistakes actually live. Every step returns the same builder and only
+ * `order` settles, because that is how this project writes its queries: the last
+ * call is the one that is awaited.
+ */
+export function createQueryBuilder(result: { data: unknown; error: unknown }): QueryBuilderStub {
+  const builder: QueryBuilderStub = {
+    calls: [],
+    select(columns) {
+      builder.calls.push(`select ${columns}`);
+
+      return builder;
+    },
+    is(column, value) {
+      builder.calls.push(`is ${column} ${String(value)}`);
+
+      return builder;
+    },
+    or(filter) {
+      builder.calls.push(`or ${filter}`);
+
+      return builder;
+    },
+    eq(column, value) {
+      builder.calls.push(`eq ${column} ${String(value)}`);
+
+      return builder;
+    },
+    order(column) {
+      builder.calls.push(`order ${column}`);
+
+      return Promise.resolve(result);
+    },
+  };
+
+  return builder;
+}
