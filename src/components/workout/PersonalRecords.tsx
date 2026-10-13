@@ -32,8 +32,15 @@ export function PersonalRecords({ records, names, onDismiss }: PersonalRecordsPr
       <h2 className="text-lg font-semibold">🎉 Récords nuevos</h2>
 
       <ul className="mt-2 space-y-2">
-        {records.map((record) => (
-          <li key={record.exercise_id}>
+        {records.map((record, index) => (
+          /*
+           * Keyed by position and not by the exercise, because the same lift appears more than
+           * once: every set that beat the previous best is a record, so one session can return a
+           * ladder for a single exercise. Keying by the id collided, and React said so the moment
+           * a real browser produced three records for Press Banca. The index is safe here because
+           * the list is rendered once and is never reordered or filtered.
+           */
+          <li key={index}>
             <span className="font-medium">{names.get(record.exercise_id) ?? 'Ejercicio'}</span>
             <span className="text-muted block text-sm">{comparison(record)}</span>
           </li>

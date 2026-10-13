@@ -84,6 +84,26 @@ describe('PersonalRecords', () => {
     expect(screen.getByText('Sentadilla')).toBeInTheDocument();
   });
 
+  /**
+   * The case a real browser produced and the tests above could not: one session, one lift, three
+   * records.
+   *
+   * Every set that beat the previous best is a record, so the server answers with a ladder — 40 kg
+   * for 10, then 100 for 5, then 105 for 5, each a new best on the way up. Rendering it was never
+   * the problem; keying it by the exercise id was, and only this shape shows it.
+   */
+  it('shows a ladder of records for the same lift, in order', () => {
+    renderRecords([
+      record({ old_1rm: null, new_1rm: 53.3, weight: 40, reps: 10 }),
+      record({ old_1rm: 53.3, new_1rm: 116.7, weight: 100, reps: 5 }),
+      record({ old_1rm: 116.7, new_1rm: 122.5, weight: 105, reps: 5 }),
+    ]);
+
+    expect(screen.getByText('primera marca: 53.3 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('antes 53.3 kg → 116.7 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('antes 116.7 kg → 122.5 kg de 1RM')).toBeInTheDocument();
+  });
+
   it('says nothing when there is nothing to celebrate', () => {
     renderRecords([]);
 
