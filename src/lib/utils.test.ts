@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  durationMinutes,
   kgToLb,
   lbToKg,
   localIsoDate,
@@ -141,5 +142,37 @@ describe('parseDecimalInput', () => {
   it('returns null for what is not a number', () => {
     expect(parseDecimalInput('abc')).toBeNull();
     expect(parseDecimalInput('7a')).toBeNull();
+  });
+});
+
+describe('durationMinutes', () => {
+  const START = new Date('2026-10-13T10:00:00.000Z').getTime();
+
+  /*
+   * Hallazgo M3: la duración no se calculaba en ningún punto desde el `startTime`
+   * del store, así que `duration_minutes` nunca se llenaba. Vive acá y no en el
+   * componente para que el cálculo sea el mismo en cualquier camino que lo pida.
+   */
+  it('counts the whole minutes between the two ends', () => {
+    expect(durationMinutes(START, START + 52 * 60_000)).toBe(52);
+  });
+
+  it('rounds to the nearest minute', () => {
+    expect(durationMinutes(START, START + 52 * 60_000 + 35_000)).toBe(53);
+    expect(durationMinutes(START, START + 52 * 60_000 + 20_000)).toBe(52);
+  });
+
+  it('reports a session that lasted seconds as zero minutes', () => {
+    expect(durationMinutes(START, START + 20_000)).toBe(0);
+  });
+
+  it('says nothing when the clock went backwards', () => {
+    // A negative duration is not a duration; inventing one would write a wrong
+    // number into the workout the user is saving.
+    expect(durationMinutes(START, START - 60_000)).toBeNull();
+  });
+
+  it('treats a workout that started and ended at once as zero, not as unknown', () => {
+    expect(durationMinutes(START, START)).toBe(0);
   });
 });

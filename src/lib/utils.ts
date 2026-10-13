@@ -11,6 +11,26 @@ export function lbToKg(lb: number): number {
 }
 
 /**
+ * How long a workout lasted, in whole minutes.
+ *
+ * Finding M3: the duration was not computed anywhere from the store's `startedAt`,
+ * so `duration_minutes` was never filled in. It lives here rather than in the
+ * screen so every path that needs it computes it the same way.
+ *
+ * Rounded, not truncated: 52 minutes and 40 seconds is a 53-minute workout to the
+ * person who did it. A window that runs backwards returns null — a negative
+ * duration is not a duration, and inventing one would write a wrong number into the
+ * workout being saved.
+ */
+export function durationMinutes(startedAt: number, endedAt: number): number | null {
+  if (endedAt < startedAt) {
+    return null;
+  }
+
+  return Math.round((endedAt - startedAt) / 60_000);
+}
+
+/**
  * Folds a string for search: no accents, no case, no stray spaces.
  *
  * `fuse.js` matches characters, so it has no way to know that "extension" and
