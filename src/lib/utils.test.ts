@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { kgToLb, lbToKg, toNumber } from './utils';
+import { describe, expect, it, vi } from 'vitest';
+import { kgToLb, lbToKg, localIsoDate, toNumber } from './utils';
 
 describe('toNumber', () => {
   it('parses the DECIMAL strings returned by supabase-js', () => {
@@ -37,5 +37,38 @@ describe('kg/lb conversion', () => {
   it('round trips within a small epsilon', () => {
     expect(lbToKg(kgToLb(70))).toBeCloseTo(70, 10);
     expect(kgToLb(lbToKg(154.324))).toBeCloseTo(154.324, 10);
+  });
+});
+
+describe('localIsoDate', () => {
+  /*
+   * The date a workout belongs to is the one on the user's wall clock, not the
+   * UTC instant. `new Date().toISOString().slice(0, 10)` looks equivalent and is
+   * not: in Argentina a 22:00 session would be filed under tomorrow's date, and
+   * the mistake only shows up in the evening and only west of UTC.
+   */
+  it('reads the calendar date from the local clock', () => {
+    // Built from local components, so the expectation holds in every timezone.
+    expect(localIsoDate(new Date(2026, 9, 13, 22, 0))).toBe('2026-10-13');
+  });
+
+  it('pads single-digit months and days', () => {
+    expect(localIsoDate(new Date(2026, 0, 5, 9, 30))).toBe('2026-01-05');
+  });
+
+  it('keeps a late-December local date in its own year', () => {
+    expect(localIsoDate(new Date(2026, 11, 31, 23, 59))).toBe('2026-12-31');
+  });
+
+  it('defaults to now', () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date(2026, 9, 13, 8, 0));
+
+      expect(localIsoDate()).toBe('2026-10-13');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
