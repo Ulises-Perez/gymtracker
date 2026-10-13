@@ -42,6 +42,31 @@ export type WorkoutExerciseDraft = {
   sets: WorkoutSetDraft[];
 };
 
+/**
+ * An exercise the user invented, held here until the workout is saved.
+ *
+ * It has to live in the draft and not only in the catalogue, because the catalogue
+ * is the server's copy and this row does not exist on the server yet. The payload
+ * carries it, and `save_workout` creates it before the sets that reference it
+ * (migration 0008).
+ */
+export type CustomExerciseDraft = {
+  id: string;
+  name: string;
+  muscleGroupId: string | null;
+};
+
+/**
+ * The draft as an older build wrote it, before custom exercises existed.
+ *
+ * Typed separately on purpose: the whole reason the migration exists is that this
+ * field may not be there, and typing it as a full `WorkoutDraft` would be a lie the
+ * compiler believes.
+ */
+type LegacyDraft = Omit<WorkoutDraft, 'customExercises'> & {
+  customExercises?: CustomExerciseDraft[];
+};
+
 export type WorkoutStatus = 'draft' | 'finished';
 
 export type WorkoutDraft = {
@@ -54,6 +79,7 @@ export type WorkoutDraft = {
   endedAt: number | null;
   status: WorkoutStatus;
   exercises: WorkoutExerciseDraft[];
+  customExercises: CustomExerciseDraft[];
 };
 
 type WorkoutStore = {
@@ -72,6 +98,7 @@ type WorkoutStore = {
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
   addExercise: (exerciseId: string) => void;
+  addCustomExercise: (name: string, muscleGroupId: string | null) => void;
   removeExercise: (cardId: string) => void;
   reorderExercises: (from: number, to: number) => void;
   addSet: (cardId: string, seed?: WorkoutSetPatch) => void;
@@ -90,6 +117,7 @@ function createDraft(now: Date = new Date()): WorkoutDraft {
     endedAt: null,
     status: 'draft',
     exercises: [],
+    customExercises: [],
   };
 }
 
@@ -184,6 +212,33 @@ export const useWorkoutStore = create<WorkoutStore>()(
             })) ?? state,
         ),
 
+      /**
+       * Creates the definition and its card in one action, and that is the point:
+       * they have to agree. Two separate actions would allow a card whose definition
+       * was never recorded — a workout that cannot be saved, discovered only when the
+       * user taps "Finalizar".
+       *
+       * An empty name is not refused here. Both the payload schema and `save_workout`
+       * refuse it, with a message meant for a person and a test each; repeating the
+       * rule in a third place is how the three drift apart.
+       */
+      addCustomExercise: (name, muscleGroupId) =>
+        set(
+          (state) =>
+            edit(state, (draft) => {
+              const exerciseId = newId();
+
+              return {
+                ...draft,
+                customExercises: [
+                  ...draft.customExercises,
+                  { id: exerciseId, name: name.trim(), muscleGroupId },
+                ],
+                exercises: [...draft.exercises, { id: newId(), exerciseId, sets: [] }],
+              };
+            }) ?? state,
+        ),
+
       removeExercise: (cardId) =>
         set(
           (state) =>
@@ -271,6 +326,29 @@ export const useWorkoutStore = create<WorkoutStore>()(
       // Only the draft: the actions are functions that JSON would drop anyway,
       // and `hydrated` says something about this instance, not about the data.
       partialize: (state) => ({ draft: state.draft }),
+      /**
+       * The draft's shape changed with custom exercises, so the format is versioned
+       * and old entries are migrated instead of misread.
+       *
+       * This matters more than a normal migration: a draft written by the previous
+       * build has no `customExercises` key, and reading it back as `undefined` would
+       * throw on the first `map` over it — losing the workout the user had in
+       * progress, which is the one thing this store exists to protect. The stored
+       * draft is spread last so a draft that already has the field keeps it.
+       */
+      version: 1,
+      migrate: (persisted) => {
+        const stored = persisted as { draft?: LegacyDraft | null } | undefined;
+        const draft = stored?.draft;
+
+        if (!draft) {
+          return { draft: null };
+        }
+
+        // The default is written after the spread, not before: a default that the
+        // spread always overwrites is not a default, and the compiler says so.
+        return { draft: { ...draft, customExercises: draft.customExercises ?? [] } };
+      },
       // The read is asynchronous, so the first render must not assume the draft
       // is absent (PLAN section 3, principle 8).
       skipHydration: true,

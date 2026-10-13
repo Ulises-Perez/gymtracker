@@ -278,6 +278,83 @@ describe('surviving a reload', () => {
     // zustand's envelope, exactly: the partialised state and a format version.
     // No action can show up here, because a function does not survive JSON —
     // which is also why the queue needs a dispatcher to be resumable.
-    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 0 });
+    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 1 });
+  });
+});
+
+describe('custom exercises created on the device', () => {
+  const NAME = 'Press Banca con banda';
+
+  it('adds the definition and its card in one action', () => {
+    store().start();
+
+    store().addCustomExercise(NAME, null);
+
+    // Two writes that have to agree: the card the user sees and the definition the
+    // payload will carry. Splitting them into two actions would allow one without
+    // the other, which is a workout that cannot be saved.
+    expect(draft()?.customExercises).toHaveLength(1);
+    expect(draft()?.customExercises[0]?.name).toBe(NAME);
+    expect(draft()?.exercises).toHaveLength(1);
+    expect(draft()?.exercises[0]?.exerciseId).toBe(draft()?.customExercises[0]?.id);
+    expect(draft()?.exercises[0]?.sets).toEqual([]);
+  });
+
+  it('gives the custom exercise a version 7 id, like every other client id', () => {
+    store().start();
+
+    store().addCustomExercise(NAME, '01920000-0000-7000-8000-000000000020');
+
+    expect(draft()?.customExercises[0]?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
+    expect(draft()?.customExercises[0]?.muscleGroupId).toBe('01920000-0000-7000-8000-000000000020');
+  });
+
+  it('refuses to add one to a workout that is already finished', () => {
+    store().start();
+    store().finish();
+    const finished = draft();
+
+    store().addCustomExercise(NAME, null);
+
+    expect(draft()).toEqual(finished);
+  });
+
+  /**
+   * The shape of the persisted draft changed, and a draft written by the previous
+   * build has no `customExercises` key. Without a migration it would come back
+   * `undefined` and the first `map` over it would throw — losing the workout the
+   * user had in progress, which is the one thing this store exists to protect.
+   */
+  it('fills the new field in for a draft persisted by the previous build', async () => {
+    /*
+     * Nothing is written to the store before the rehydrate, and that is deliberate:
+     * `persist` writes on every state change, so a `setState` to "clear" the draft
+     * would overwrite the very fixture this test needs to read back. `beforeEach`
+     * already leaves the in-memory draft empty, and rehydrate replaces it from
+     * storage anyway.
+     */
+    await indexedDbStorage.setItem(
+      WORKOUT_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          draft: {
+            workoutId: '01920000-0000-7000-8000-0000000000ff',
+            date: '2026-10-01',
+            title: 'Viejo',
+            notes: '',
+            startedAt: 1,
+            endedAt: null,
+            status: 'draft',
+            exercises: [],
+          },
+        },
+        version: 0,
+      }),
+    );
+
+    await useWorkoutStore.persist.rehydrate();
+
+    expect(draft()?.customExercises).toEqual([]);
+    expect(draft()?.title).toBe('Viejo');
   });
 });

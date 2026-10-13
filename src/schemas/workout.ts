@@ -27,6 +27,22 @@ export const workoutSetPayloadSchema = z.object({
 });
 
 /**
+ * An exercise the user invented, which only exists on this device until the
+ * workout that uses it is saved.
+ *
+ * It travels with the payload because 0008 creates the row before the sets that
+ * reference it: `workout_sets.exercise_id` is a foreign key, so without this the
+ * whole workout cannot be written at all.
+ */
+export const customExercisePayloadSchema = z.object({
+  id: z.uuid(),
+  // Trimmed first, then required: 0008 refuses a blank name with a message meant
+  // for a person, and this refuses it before the request is even sent.
+  name: z.string().trim().min(1),
+  muscle_group_id: z.uuid().nullish(),
+});
+
+/**
  * `id` and `date` are required, and that is the interesting part of this schema.
  *
  * The RPC would happily fill both in — `gen_random_uuid()` and `CURRENT_DATE` —
@@ -43,6 +59,16 @@ export const saveWorkoutPayloadSchema = z.object({
   notes: z.string().nullish(),
   duration_minutes: z.number().int().nonnegative().nullish(),
   sets: z.array(workoutSetPayloadSchema),
+  /**
+   * Optional, and deliberately **not** nullable.
+   *
+   * Optional because 0008 reads the key with a `COALESCE`, so a payload written
+   * before custom exercises existed has to keep working. Not nullable because a
+   * JSON `null` survives that `COALESCE` — `->` returns JSON null, which is not SQL
+   * NULL — and `jsonb_array_elements` would then be handed a null. This schema is
+   * the only place that can stop that from reaching the database.
+   */
+  custom_exercises: z.array(customExercisePayloadSchema).optional(),
 });
 
 /** A queued `save-workout` entry: the routing `kind` plus the payload. */
@@ -65,6 +91,7 @@ export const saveWorkoutResultSchema = z.object({
 });
 
 export type SaveWorkoutPayload = z.infer<typeof saveWorkoutPayloadSchema>;
+export type CustomExercisePayload = z.infer<typeof customExercisePayloadSchema>;
 export type SaveWorkoutVariables = z.infer<typeof saveWorkoutVariablesSchema>;
 export type SaveWorkoutResult = z.infer<typeof saveWorkoutResultSchema>;
 export type NewPersonalRecord = SaveWorkoutResult['new_prs'][number];
