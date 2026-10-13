@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fases 0, 1 y 2 cerradas. **Fase 3 en curso**: T3.2b, T3.2c, T3.1b/c, T3.2d, T3.4 y T1.9 cerradas (126/126 tests en 21 archivos, bundle inicial 113.84 kB de 180). La verificación independiente de la durabilidad corrió y su defecto alto quedó corregido (`L10`); la policy de lectura de `exercises` quedó acotada y aplicada al proyecto hosted (`L11`). D2 se resuelve dentro de T3.9. T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
+**Estado:** Fases 0, 1 y 2 cerradas. **Fase 3 en curso**: T3.2b, T3.2c, T3.1b/c, T3.2d, T3.4, T3.5 y T1.9 cerradas (143/143 tests en 22 archivos, bundle inicial 113.84 kB de 180). La verificación independiente de la durabilidad corrió y su defecto alto quedó corregido (`L10`); la policy de lectura de `exercises` quedó acotada y aplicada al proyecto hosted (`L11`). D2 se resuelve dentro de T3.9. T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
 **Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp`, repo propio. `node_modules` es un junction a `C:\Users\ulise\develop\gymtracker-modules\node_modules`.
 **Specs:** los `S#` citan **verbatim** `PLAN.md` §1, §3, §6, §7 y §9, que es la fuente de requisitos declarada en `L1`. Los pedidos del usuario, las decisiones y la evidencia están en el `## Log`, al final.
 
@@ -87,7 +87,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T3.2c · ventana de pérdida: pausa inmediata + flush sin timers | S17 | inline | `f4c7abd` |
 | T3.3 · IDs v7 en cliente | S12 | inline | `4a5551b` |
 | T3.4 · catálogo en TQ + IndexedDB + mapeo de decimales | S15, S6 | inline | `e1187e5` |
-| T3.5 · selector modal Radix + fuse + filtro por grupo | S6 | pendiente | — |
+| T3.5 · selector modal Radix + fuse + filtro por grupo | S6 | inline | `4d1a8bd` |
 | T3.6 · inputs reps × peso + swipe-delete + reorder dnd-kit | S6 | pendiente | — |
 | T3.7 · timer por `endTimestamp` + Wake Lock + `duration_minutes` | S6 | pendiente | — |
 | T3.8 · ejercicio custom local → sync en `save_workout` | S6 | pendiente | — |
@@ -166,7 +166,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T3.2d** **La cola restaurada se tiene que reanudar aunque la conexión ya estuviera arriba.** **Cerrada** (`0fe09be`), hallazgo **D1** de la verificación independiente (ver `L10`). `hydrate()` no reanuda nunca y `QueryClient.mount()` reanuda **solo dentro** de sus suscripciones de foco y de red, y ningún manager emite al suscribirse: solo registran listeners. Una escritura restaurada por una carga de página con la conexión sana quedaba pausada **indefinidamente**: durable en disco y sin guardar. Fix: `resumeQueuedMutations()` en `queryClient.ts` y `onSuccess` en `PersistQueryClientProvider`, el único momento que sabe que una cola acaba de volver del disco. El test fija las dos mitades — montar solo la deja pausada, el push la ejecuta — así que la razón del fix queda en la suite y no solo en un comentario.
 - [x] **T3.3** Generación de IDs v7 en cliente (`src/lib/ids.ts`), con test de orden temporal por fake timers.
 - [x] **T3.4** Catálogo en TQ + IndexedDB (`staleTime: Infinity`) + regla de mapeo de decimales (**A5**). **Cerrada** (`e1187e5`). `staleTime: Infinity` porque el selector tiene que abrirse al instante y sin señal: la query la persiste el persister que ya existía, y su `maxAge` de 7 días es lo que tarde o temprano la refresca — no un refetch al navegar. **La clave lleva el `userId`**, y eso es load-bearing: el catálogo incluye los ejercicios custom del usuario y el caché sobrevive a la sesión, así que en un dispositivo compartido una segunda cuenta no puede recibir la lista de la primera. `src/lib/catalog-api.ts` es el **límite de lectura**: ahí se renombran las columnas a camelCase y, sobre todo, ahí `DECIMAL` pasa a número (A5) — `weight_kg` vuelve como string desde supabase-js, así que la conversión se hace una vez, en el punto de lectura, en vez de confiar en que cada consumidor se acuerde. 12 tests nuevos, incluida la forma de la query (filtro de soft delete, alcance por dueño, orden), que no tiene otro observable. **Incluye `useLastSets`** sobre `last_weight_for_exercise`, que es el consumidor concreto que hace verificable A5 en vez de una promesa: solapa a propósito con T3.6, que ahora solo lo consume.
-- [ ] **T3.5** Selector modal Radix + fuse + filtro por grupo.
+- [x] **T3.5** Selector modal Radix + fuse + filtro por grupo. **Cerrada** (`4d1a8bd`). `ExercisePickerDialog` sobre Radix Dialog + fuse.js, alimentado por el catálogo que T3.4 ya cachea, así que abrirlo sin señal es instantáneo; Radix aporta foco atrapado, escape, `aria-modal` y el portal, que es la razón de que sea dependencia. **La búsqueda foldea acentos**: `fuse.js` matchea caracteres, así que no sabe que "extension" y "Extensión" son la misma palabra, y nadie escribe la tilde a mitad de una serie en el teléfono; `normalizeForSearch()` se aplica a los dos lados. **El índice de fuse se construye sobre la lista ya filtrada por grupo**, no sobre el catálogo entero: es lo que impide que el filtro y el texto se contradigan — "press" dentro de Tríceps tiene que volver vacío, no traer Press Banca por la ventana de la búsqueda. **Los estados no se pueden confundir con "vacío"**: cargando son esqueletos con `role="status"` (nunca spinner), fallado es `role="alert"` en español (una lista vacía y una query denegada se ven idénticos en pantalla), y sin resultados y catálogo vacío tienen mensajes distintos. Los grupos **sin ejercicios no se ofrecen como filtro** — un chip que lleva a una lista vacía es peor que ningún chip, y la pantalla no le cree al dato (M5). El filtro activo va con `aria-pressed`, no solo color: la misma lección del tab activo de T2.4. 15 tests nuevos, RED observado. **Deuda de tooling**: `user-event` no está instalado y no se agregó a mitad de fase; los tests usan `fireEvent`.
 - [ ] **T3.6** Inputs reps × peso con default = última serie (`last_weight_for_exercise`) + swipe-delete + reorder dnd-kit.
 - [ ] **T3.7** Timer por `endTimestamp` + Wake Lock; `duration_minutes` al finalizar (**M3**).
 - [ ] **T3.8** Ejercicio custom local → sync en `save_workout`.
@@ -433,3 +433,17 @@ La sonda aborta con `raise exception` si cualquiera de las condiciones falla, as
 **Deuda declarada**: el archivo pgTAP existe y declara `plan(8)` con 8 aserciones, pero nadie lo ejecutó todavía. La primera vez que haya Docker hay que correr `npx supabase test db --linked` y confirmar 8/8 antes de confiar en él.
 
 **Efecto en el código**: el recorte que `fetchCatalog` hace en el cliente pasó a ser redundante. Se deja: es barato y documenta la intención donde se lee.
+
+---
+
+### L12 · El selector de ejercicios (2026-10-13)
+
+T3.5 cerrada (`4d1a8bd`). Tres decisiones del componente valen la pena, porque ninguna es la obvia:
+
+1. **La búsqueda foldea acentos, y foldea los dos lados.** `fuse.js` matchea caracteres: no sabe que "extension" y "Extensión" son la misma palabra, y nadie escribe la tilde en el teclado del teléfono a mitad de una serie. `normalizeForSearch()` (NFD + strip del bloque de marcas combinantes U+0300–U+036F) se aplica a los nombres indexados **y** a la consulta. Tiene test de idempotencia, porque normalizar algo ya normalizado tiene que ser seguro.
+2. **El índice de fuse se construye sobre la lista ya filtrada por grupo.** Es lo que hace que el filtro y el texto no puedan contradecirse: "press" dentro de Tríceps tiene que volver **vacío**, no traer Press Banca de vuelta por la ventana de la búsqueda. Sin esto el filtro sería decorativo, y el test lo fija.
+3. **Los arrays del catálogo van en `useMemo` con dependencias estables.** No es cosmético: con el `?? []` suelto, la caída por defecto es un array nuevo en cada render y **el índice de fuse se reconstruye en cada tecla**. Lo marcó el lint (`react-hooks/exhaustive-deps`) y el arreglo correcto fue el memo, no apagar la regla.
+
+**Accesibilidad**: el filtro activo se marca con `aria-pressed`, no solo con color — la misma lección que dejó el defecto del tab activo en T2.4. Chips y filas usan `min-h-12`, el estándar de target que ya usa `Button`. **T7.4 tiene que medir estos controles**, porque el audit de hoy solo mira texto y nav.
+
+15 tests nuevos (11 del modal, 4 de `normalizeForSearch`), RED observado antes de implementar. **Deuda de tooling**: `user-event` no está instalado y no se agregó a mitad de fase; los tests usan `fireEvent`.
