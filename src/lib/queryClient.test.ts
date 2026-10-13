@@ -13,6 +13,7 @@ import {
   flushQueryCache,
   persistOptions,
   queryClient,
+  resumeQueuedMutations,
   shouldDehydrateMutation,
 } from './queryClient.ts';
 
@@ -204,6 +205,44 @@ describe('how long an offline write waits before it can pause', () => {
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(attempts).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('handing the restored queue a push', () => {
+  /**
+   * Mounting is not enough, and that is the whole point of this test.
+   *
+   * `QueryClient.mount()` resumes paused mutations only *inside* its focus and
+   * online subscriptions, and neither manager fires when it subscribes — they only
+   * register listeners. So a write restored by a page load that happened while the
+   * connection was already healthy sat paused indefinitely, waiting for a network
+   * transition that was never going to come. The flush makes the bytes durable;
+   * this is what makes them run.
+   */
+  it('runs a write restored on a connection that was already up', async () => {
+    const queued = await queueOfflineMutation(3, failing, 'paused');
+
+    await persistQueryClientSave({ queryClient: queued, ...persistOptions });
+
+    // Up before the app starts, so no `online` transition will ever fire for it.
+    onlineManager.setOnline(true);
+
+    const dispatcher = vi.fn(async (_variables: unknown) => ({ ok: true }));
+    const revived = createQueryClient(dispatcher);
+
+    await persistQueryClientRestore({ queryClient: revived, ...persistOptions });
+    revived.mount();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Still dormant: mounting on its own did not touch it.
+    expect(onlyMutation(revived).state.isPaused).toBe(true);
+
+    await resumeQueuedMutations(revived);
+
+    await vi.waitFor(() => {
+      expect(dispatcher).toHaveBeenCalledTimes(1);
+    });
+    expect(dispatcher.mock.calls[0]?.[0]).toEqual(VARIABLES);
   });
 });
 

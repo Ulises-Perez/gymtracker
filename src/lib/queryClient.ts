@@ -119,6 +119,27 @@ export const persistOptions = {
 export const queryClient = createQueryClient(dispatchQueuedMutation);
 
 /**
+ * Hands a just-restored queue a push.
+ *
+ * `QueryClient.mount()` resumes paused mutations only *inside* its focus and
+ * online subscriptions, and neither manager fires when it subscribes — they only
+ * register listeners. So a write restored by a page load that happened while the
+ * connection was already healthy stayed paused until a network transition or a tab
+ * switch, and when neither came it never ran at all: the bytes were durable and
+ * the workout was still not saved. `PersistQueryClientProvider` calls this
+ * immediately after restoring, which is the only moment that knows a queue has
+ * just come back from disk.
+ *
+ * It takes the client as an argument so the behaviour can be pinned without
+ * rebuilding the application singleton.
+ */
+export async function resumeQueuedMutations(client: QueryClient = queryClient): Promise<void> {
+  // Returns immediately while offline, so the online subscription keeps owning
+  // that case; this only covers the connection that was already up.
+  await client.resumePausedMutations();
+}
+
+/**
  * Writes the cache to disk now, without waiting.
  *
  * It mirrors `persistQueryClientSave` — same dehydrate options, same envelope —
