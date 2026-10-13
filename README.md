@@ -111,6 +111,62 @@ linkeado: corre como `postgres` y no necesita Docker.
 | `npm test`          | Vitest en modo CI                               |
 | `npm run e2e`       | Playwright                                      |
 
+## Deploy
+
+El destino es **Vercel** con el preset de Vite: build `npm run build`, salida
+`dist/`. `engines.node` está fijado en `24.x` porque es la misma major con la que
+construye CI; sin declararlo, Vercel elige la suya.
+
+`vercel.json` ya tiene las dos cosas que no son obvias y que rompen en silencio:
+
+- El **rewrite de todas las rutas a `/index.html`**. Sin él cada deep link de
+  React Router (`/history`, `/workout`) da 404. Los archivos reales se sirven
+  desde disco antes de aplicar el rewrite, así que `/sw.js` y `/assets/*` no se
+  ven afectados.
+- El **`Cache-Control` de revalidación sobre `/sw.js`**. Con un service worker
+  cacheado de más, el aviso de "nueva versión" nunca aparece y los usuarios
+  quedan clavados en un build viejo.
+
+### 1 · Variables de entorno en Vercel
+
+Ninguna vive en el repo: `.env` está ignorado por git y el contrato está en
+`env.example`. Hay que cargarlas en el proyecto de Vercel para **Production y
+Preview**:
+
+| Variable                         | Obligatoria | Si falta                                                                     |
+| -------------------------------- | ----------- | ---------------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`              | Sí          | El **build pasa igual** y la app rompe en runtime al primer uso de Supabase   |
+| `VITE_SUPABASE_PUBLISHABLE_KEY`  | Sí          | Ídem                                                                          |
+| `VITE_SENTRY_DSN`                | No          | Sentry queda fuera del bundle, que es el comportamiento por defecto           |
+
+**El detalle que muerde**: Vite inlinea estas variables en tiempo de *build*, así
+que un deploy sin ellas compila sin chistar y publica una app rota. El error
+recién aparece en el navegador, como `VITE_SUPABASE_URL is missing`. Si el deploy
+dice "listo" pero la app no carga datos, es esto y no Supabase.
+
+### 2 · Después del primer deploy: Supabase tiene que conocer el dominio
+
+Mientras el único dominio autorizado sea `localhost:5173`, el login funciona en
+desarrollo y **el registro no**: los links de confirmación y de recuperación
+vuelven a una URL que Supabase no autoriza. En el dashboard del proyecto, en
+**Authentication → URL Configuration**:
+
+- **Site URL**: la URL de producción.
+- **Redirect URLs**: agregar la de producción y, opcionalmente, el patrón de
+  previews (`https://*-<scope>.vercel.app/**`). Sin el patrón, los previews
+  quedan afuera del login.
+
+Es un cambio del lado del servidor: no hace falta redeployar.
+
+### 3 · Checklist antes de dar una URL por buena
+
+- [ ] `npm run build` verde (es lo mismo que corre CI: lint → typecheck → test → build).
+- [ ] Las variables cargadas en Vercel, para Production **y** Preview.
+- [ ] `/`, `/workout`, `/history` y `/profile` cargan y hacen deep link sin 404.
+- [ ] `/sw.js` responde con `Cache-Control: public, max-age=0, must-revalidate`.
+- [ ] Login con un usuario real de la base (el **registro** depende del email, ver T2.5).
+- [ ] El prompt de instalación aparece (los iconos definitivos son T7.1).
+
 ## Convenciones
 
 - Los pesos se guardan **siempre en kg** (`weight_kg`); la conversión a lb es
