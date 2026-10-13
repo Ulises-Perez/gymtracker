@@ -53,3 +53,33 @@
 .overlay {
   backdrop-filter: blur(8px);
 }
+
+/*
+ * A record arriving. Short and small on purpose: it has to be noticed without making
+ * the user wait for an animation before they can read a number.
+ */
+@keyframes pr-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pr-arrive {
+  animation: pr-arrive 320ms ease-out;
+}
+
+/*
+ * Skipped rather than shortened: for someone who asked for less motion the point of the
+ * animation is lost either way, and half of it is only a flicker.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pr-arrive {
+    animation: none;
+  }
+}

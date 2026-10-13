@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { ExercisePickerDialog } from '../components/workout/ExercisePickerDialog.tsx';
+import { PersonalRecords } from '../components/workout/PersonalRecords.tsx';
 import { WorkoutExerciseCard } from '../components/workout/WorkoutExerciseCard.tsx';
 import { Input } from '../components/ui/Input.tsx';
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
@@ -49,6 +50,7 @@ export function WorkoutPage() {
   const removeSet = useWorkoutStore((state) => state.removeSet);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [recordsDismissed, setRecordsDismissed] = useState(false);
 
   const catalog = useCatalog(user?.id ?? '');
   const rest = useRestTimer(REST_SECONDS);
@@ -56,6 +58,22 @@ export function WorkoutPage() {
 
   const customs = draft?.customExercises;
   const isOpen = draft?.status === 'draft';
+
+  /**
+   * The records of *this* session, and only while they have not been dismissed.
+   *
+   * `save.data` outlives the workout that produced it, so the result is matched to the
+   * draft by id. Without that, finishing a second workout would show the first one's
+   * records until the new write settles, which is the kind of wrong that looks plausible.
+   *
+   * The `save.data &&` is not decoration: two absent values compare equal, so without it
+   * the empty screen would compare `undefined` with `undefined`, call it a match and read
+   * `new_prs` off nothing.
+   */
+  const records =
+    save.data && !recordsDismissed && save.data.workout_id === draft?.workoutId
+      ? save.data.new_prs
+      : [];
 
   // Held while a workout is open: the phone locking mid-set is the thing this exists for.
   useWakeLock(isOpen === true);
@@ -129,7 +147,13 @@ export function WorkoutPage() {
 
         {draft?.status === 'finished' ? (
           <div className="mt-4 space-y-3">
-            {save.status === 'error' ? (
+            {records.length > 0 ? (
+              <PersonalRecords
+                records={records}
+                names={names}
+                onDismiss={() => setRecordsDismissed(true)}
+              />
+            ) : save.status === 'error' ? (
               <>
                 {/* Said out loud: the session is still on the device, and a screen that
                     stayed quiet would look like the workout had been lost. */}
@@ -154,7 +178,12 @@ export function WorkoutPage() {
 
         <button
           type="button"
-          onClick={start}
+          onClick={() => {
+            // The records belong to the workout that just ended, so starting the next one
+            // puts them away rather than leaving them over an empty screen.
+            setRecordsDismissed(false);
+            start();
+          }}
           className="bg-primary mt-6 min-h-12 w-full rounded-md px-4 font-medium text-white"
         >
           Nuevo workout

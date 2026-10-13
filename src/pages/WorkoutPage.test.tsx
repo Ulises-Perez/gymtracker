@@ -169,4 +169,48 @@ describe('WorkoutPage', () => {
     // Anchored on the colon so it is the countdown and not the button that matched.
     expect(screen.getByText(/^Descanso: /)).toBeInTheDocument();
   });
+
+  it('celebrates the records the server found', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+
+    // Stubbed once the draft exists so the result carries the id of the workout that is
+    // really sent: the screen shows a result only when it belongs to this session.
+    fake.rpc.mockResolvedValue({
+      data: {
+        workout_id: draft()?.workoutId,
+        new_prs: [
+          { exercise_id: PRESS_BANCA.id, old_1rm: 110, new_1rm: 116.7, weight: 100, reps: 5 },
+        ],
+      },
+      error: null,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    expect(await screen.findByText('antes 110.0 kg → 116.7 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('Press Banca')).toBeInTheDocument();
+  });
+
+  it('says nothing about records when the server found none', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+
+    fake.rpc.mockResolvedValue({
+      data: { workout_id: draft()?.workoutId, new_prs: [] },
+      error: null,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    await vi.waitFor(() => {
+      expect(fake.rpc).toHaveBeenCalled();
+    });
+
+    // A session that beat nothing gets no celebration: a card that says "0 récords" is
+    // worse than no card at all.
+    expect(screen.queryByRole('status', { name: 'Récords nuevos' })).not.toBeInTheDocument();
+  });
 });
