@@ -1,7 +1,9 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { queryClient } from '../lib/queryClient.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { AuthProvider } from '../providers/AuthProvider.tsx';
 import { createFakeSupabase, fakeSession } from '../testing/fake-supabase.ts';
@@ -24,9 +26,20 @@ function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
   return render(
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>,
+    /*
+     * The cache has to be above the router, because the screens are real ones now: the
+     * workout route reads the catalogue, and without a client React Router renders its
+     * error boundary instead of the screen.
+     *
+     * Only the cache, not the persistence the app adds on top of it (`App.tsx`). The
+     * subject here is the route table, and restoring a cache from IndexedDB would put a
+     * second, unrelated way for these tests to fail in front of it.
+     */
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>,
   );
 }
 
