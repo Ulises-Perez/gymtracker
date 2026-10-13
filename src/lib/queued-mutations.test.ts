@@ -2,6 +2,7 @@ import { MutationObserver, onlineManager } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
+import { queuedSaveWorkout, saveWorkoutPayloadFixture } from '../testing/workout-fixtures.ts';
 import type { QueuedMutationVariables } from './queued-mutations.ts';
 import { dispatchQueuedMutation, UnknownQueuedMutationError } from './queued-mutations.ts';
 import { queryClient } from './queryClient.ts';
@@ -9,32 +10,7 @@ import { getSupabase } from './supabase.ts';
 
 vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
 
-/**
- * A payload in the shape `save_workout(payload jsonb)` reads from. The `id` and
- * the `date` are both present on purpose: the schema below requires them, so
- * this fixture is also what pins that requirement.
- */
-const PAYLOAD = {
-  id: '01920000-0000-7000-8000-000000000001',
-  date: '2026-10-13',
-  title: 'Empuje',
-  notes: null,
-  duration_minutes: 52,
-  sets: [
-    {
-      id: '01920000-0000-7000-8000-000000000002',
-      exercise_id: '01920000-0000-7000-8000-000000000003',
-      set_number: 1,
-      reps: 5,
-      weight_kg: 100,
-      rpe: null,
-      is_warmup: false,
-      notes: null,
-    },
-  ],
-};
-
-const VARIABLES: QueuedMutationVariables = { kind: 'save-workout', payload: PAYLOAD };
+const VARIABLES: QueuedMutationVariables = queuedSaveWorkout();
 
 let fake: ReturnType<typeof createFakeSupabase>;
 
@@ -85,14 +61,17 @@ describe('the queued mutation dispatcher', () => {
   });
 
   it('calls the save_workout RPC with the payload the server reads', async () => {
-    fake.rpc.mockResolvedValue({ data: { workout_id: PAYLOAD.id, new_prs: [] }, error: null });
+    fake.rpc.mockResolvedValue({
+      data: { workout_id: saveWorkoutPayloadFixture.id, new_prs: [] },
+      error: null,
+    });
 
     await expect(dispatchQueuedMutation(VARIABLES)).resolves.toEqual({
-      workout_id: PAYLOAD.id,
+      workout_id: saveWorkoutPayloadFixture.id,
       new_prs: [],
     });
 
-    expect(fake.rpc).toHaveBeenCalledWith('save_workout', { payload: PAYLOAD });
+    expect(fake.rpc).toHaveBeenCalledWith('save_workout', { payload: saveWorkoutPayloadFixture });
   });
 
   it('refuses a payload the server contract would reject', async () => {
@@ -126,7 +105,7 @@ describe('the application client', () => {
         throw new Error('Network request failed');
       }
 
-      return { data: { workout_id: PAYLOAD.id, new_prs: [] }, error: null };
+      return { data: { workout_id: saveWorkoutPayloadFixture.id, new_prs: [] }, error: null };
     });
 
     // No `mutationFn` here on purpose: the client default is what is under test.
@@ -152,6 +131,6 @@ describe('the application client', () => {
       expect(queryClient.getMutationCache().getAll().at(-1)?.state.status).toBe('success');
     });
 
-    expect(fake.rpc).toHaveBeenCalledWith('save_workout', { payload: PAYLOAD });
+    expect(fake.rpc).toHaveBeenCalledWith('save_workout', { payload: saveWorkoutPayloadFixture });
   });
 });

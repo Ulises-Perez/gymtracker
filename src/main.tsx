@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { initMonitoring } from './lib/monitoring.ts';
+import { installPersistFlush } from './lib/persist-flush.ts';
 import { registerServiceWorker } from './lib/pwa.ts';
 import './index.css';
 
@@ -19,3 +20,6 @@ createRoot(rootElement).render(
 
 initMonitoring();
 registerServiceWorker();
+// Outlives the render tree on purpose: a queue that is only flushed by a
+// component would stop being flushed the moment that component unmounts.
+installPersistFlush();
