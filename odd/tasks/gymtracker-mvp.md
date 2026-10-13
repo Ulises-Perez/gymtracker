@@ -99,7 +99,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T3.9b · La pantalla de entrenamiento (`WorkoutPage` real) | S6 | cliente | `2020766` |
 | T3.9c · Badge de sync: pendiente vs falló + reintento (D2) | S6 | pendiente | — |
 | T3.9d · PRs: lista y animación tras guardar | S5, S6 | cliente | `d4c2d95` |
-| T3.10 · E2E Playwright del flujo crítico | S5 | pendiente | — |
+| T3.10 · E2E Playwright del flujo crítico (contra Supabase local) | S5 | pendiente | — |
 | T4.1 · lista `useInfiniteQuery` con paginación keyset | S7 | pendiente | — |
 | T4.2 · detalle de workout y de ejercicio | S7 | pendiente | — |
 | T4.3 · uPlot lazy sobre `exercise_progress` | S7, S11 | pendiente | — |
@@ -185,7 +185,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T3.9b** La pantalla de entrenamiento: `WorkoutPage` real que cablea el picker, las tarjetas, el timer y el wake lock. **Cerrada** (`2020766`), 7 tests nuevos. No era "cablear componentes": era que **todo lo construido entre T3.4 y T3.9a no tenía ningún consumidor** y era inalcanzable. Dos estados que se parecen se mantienen separados: que el draft guardado todavía no se leyó, y que no haya draft — renderizar uno nuevo durante el primero reemplazaría la sesión restaurada debajo de las manos del usuario. **Rompió el test de rutas, y por el motivo correcto**: su harness montaba las rutas sin `QueryClientProvider` y no se notaba porque hasta hoy todas eran placeholders sin un solo hook; ahora recibe la caché y **no** la persistencia que la app le pone encima (`App.tsx`), porque el sujeto de ese test es la tabla de rutas. Un fallo de escritura no es un callejón sin salida: el reintento reconstruye el payload desde el mismo draft congelado, seguro porque `save_workout` reemplaza los sets. El descanso se arranca a mano —automatizarlo es una decisión de producto que no estaba pedida—.
 - [ ] **T3.9c** Badge de sync: distinguir "pendiente" de "falló" y dar reintento manual. Es donde se resuelve **D2**. **La trampa está medida, no supuesta** (leída en `src/lib/queryClient.ts` antes de diseñar): `shouldDehydrateMutation` persiste **sólo lo pausado** (`mutation.state.isPaused`), así que una escritura que agota sus reintentos **sale de la cola persistida en silencio**; y una mutación restaurada **no trae su `onSuccess`** —de una mutación se serializan estado, scope y meta, nada más—. Consecuencia: **"guardado" no se puede detectar desde el hook**, porque `save.status` es un hecho en memoria y por montaje que no sobrevive un reload. Hace falta una **suscripción al `mutationCache` instalada al arranque** (al estilo de `installPersistFlush`) que, al ver un `save-workout` exitoso, **descarte el draft**; recién con eso "draft terminado sin entrada viva en la cola" significa de verdad "no se guardó", el fallo queda durable sin cambiar la forma del draft, y el badge puede leer `useIsMutating` para lo pendiente. Reintento **manual** y no auto-requeue a propósito: ante un rechazo determinista del servidor, reencolar en cada montaje sería una tormenta de reintentos.
 - [x] **T3.9d** PRs: la lista y la animación después de guardar. **Cerrada** (`d4c2d95`), 8 tests nuevos. La tarea es del servidor y no del cliente: el PR no lo puede calcular la pantalla, porque `save_workout` compara las series nuevas contra los récords guardados **dentro de la misma transacción** que las escribe. **Dos trampas, las dos marcadas por el typecheck**: `old_1rm` es `nullish` y no `null` —una clave que llegó nula y una que nunca llegó significan lo mismo, y guardar sólo contra `null` dejaba la otra camino a `toFixed`, o sea **afirmar "0.0 kg", un número que nadie levantó**—; y la peor, para el registro: **`undefined === undefined` es `true`**. Guardar el resultado contra el draft por id para no mostrar los PRs del entrenamiento anterior hacía que el primer render —sin draft y sin resultado— los comparara, los diera por iguales y leyera `new_prs` de `undefined`: **los 9 tests de la pantalla fallaron en 2 ms**, que es la firma de un crash y no de una aserción. La animación es un `@keyframes` propio que bajo `prefers-reduced-motion` se **saltea** en vez de acortarse.
-- [ ] **T3.10** E2E Playwright: login → workout → 3 series → guardar → historial.
+- [ ] **T3.10** E2E Playwright: login → workout → 3 series → guardar → historial. **Backend decidido por el usuario** (`L24`): Supabase **local** (`supabase start` + `seed.sql`), en local y en el CI. El entorno ya está listo —`@playwright/test` en devDependencies y Chromium en la caché— y sólo faltan `playwright.config.ts` y `e2e/`. La parte del DoD de S5 que la hace valer —"registrado con wifi apagado, sincronizado al volver la red"— se prueba con `context.setOffline(true)`, que es lo que la convierte en una prueba del sistema y no de la UI.
 
 #### Fase 4 — Historial + Progreso
 
@@ -636,16 +636,38 @@ Cerrada en `d4c2d95`. 8 tests nuevos, **242/242 en 30 archivos**.
 1. **`old_1rm` es `nullish`, no `null`.** El schema lo declara así, o sea `number | null | undefined`: una clave que llegó nula y una clave que nunca llegó significan lo mismo acá. Yo había guardado sólo contra `null`, y el typechecker marcó que la otra ausencia seguía camino a `toFixed`. Habría impreso "0.0 kg", que **no es un error de formato: es afirmar un número que nadie levantó**. Quedó con test para las dos formas.
 2. **El peor, y por eso vale contarlo: `undefined === undefined` es `true`.** Guardé el resultado contra el draft por id, para no mostrar los PRs del entrenamiento anterior al terminar el siguiente. El primer render —sin draft y sin resultado— comparaba `undefined` con `undefined`, lo daba por coincidencia y leía `new_prs` de `undefined`. **Los 9 tests de la pantalla fallaron en 2 ms**, que es la firma de un crash al renderizar y no de una aserción. El `save.data &&` del arreglo no es decoración, y el comentario en el código lo dice con esas palabras para que nadie lo "simplifique".
 
-**La animación**: un `@keyframes` propio, y bajo `prefers-reduced-motion` se **saltea** en vez de acortarse. Para quien pidió menos movimiento, el punto de la animación se pierde igual y la mitad de ella es sólo un parpadeo. El test fija que la clase esté **pegada al elemento** —no lo que dice el CSS—, porque una clase que desaparece se lleva la animación sin que nada más lo note.
+**La animación**: un `@keyframes` propio, y bajo `prefers-reduced-motion` se **saltea** en vez de acortarse. Para quien pidió menos movimiento, el punto de la animación se pierde igual y la mitad de ella es sólo un parpadeo. El test fija que la clase esté **pegada al elemento** —no lo que dice el CSS—, porque una clase que desaparece se lleva la animación sin que nada más lo note.
+
+
+
+---
+
+
+
+### L23 · Medición interina del bundle: 109.38 kB de 180 (2026-10-13)
+
+
+
+Antes de empezar T3.6b (dnd-kit, una dependencia nueva) medí el bundle inicial, porque el presupuesto de S11 es un tope duro y **agregar una dependencia sin el número delante es cómo se pasa el tope sin enterarse**.
+
+
+
+**El número: 109.38 kB gzip de 180**, con el mismo método que antes (build de Vite + gzip level 9 sobre los chunks que `index.html` referencia). Son tres: `index` (83.30), `hooks` (22.86) y `useAuth` (3.22).
+
+
+
+**Dónde está el entrenamiento, que es lo que me importaba saber**: en `WorkoutPage-*.js`, **31.7 kB**, un chunk diferido que `index.html` **no** referencia. Ahí adentro viajan también **zustand y el store del draft**: hasta T3.9b nada fuera de la ruta de entrenamiento los importaba, así que la ruta diferida se los llevó. Consecuencia directa para T3.6b: **dnd-kit no toca el bundle inicial**, engorda el chunk de ruta, y la cifra que S11 presupuesta no se mueve.
+
+
+
+**La parte incómoda, que prefiero dejar escrita.** La medición anterior decía **113.84 kB** y esta dice **109.38**: bajó 4.46 kB después de agregar toda la pantalla, el picker, las tarjetas y la persistencia. **No lo puedo atribuir con lo que tengo.** Nada de lo que agregué entró al bundle inicial —todo lo nuevo está en el chunk de ruta—, así que la diferencia viene del **reparto de chunks** y no de que el código haya encogido, y no voy a reportar una mejora que no sé explicar. Comprobarlo exige reconstruir el commit de T3.2c, y un worktree no puede reusar el junction de `node_modules` de este repo, así que sale caro. Queda para `T3.close`, que es donde el número tiene que ser el correcto y no una foto intermedia.
 
 ---
 
-### L23 · Medición interina del bundle: 109.38 kB de 180 (2026-10-13)
+### L24 · Decisión del usuario: la E2E corre contra Supabase local, también en el CI (2026-10-13)
 
-Antes de empezar T3.6b (dnd-kit, una dependencia nueva) medí el bundle inicial, porque el presupuesto de S11 es un tope duro y **agregar una dependencia sin el número delante es cómo se pasa el tope sin enterarse**.
+**Decisión, textual de la opción elegida**: "Supabase local en CI y en local" — `supabase start` + `seed.sql` en el workflow.
 
-**El número: 109.38 kB gzip de 180**, con el mismo método que antes (build de Vite + gzip level 9 sobre los chunks que `index.html` referencia). Son tres: `index` (83.30), `hooks` (22.86) y `useAuth` (3.22).
+**Por qué se preguntó y no lo decidí solo.** T3.10 es la compuerta explícita del DoD de S5 ("E2E Playwright en verde") y el entorno ya estaba listo —`@playwright/test@^1.64.0` en devDependencies y Chromium en la caché (`chromium-1248`)—, pero **el CI no tiene ni Docker ni Supabase**: `.github/workflows/ci.yml` corre sólo `npm ci`, lint, typecheck, test y build. Las salidas posibles tenían consecuencias distintas y reales: la local agrega Docker y minutos de runner; la hosted **escribe entrenamientos de prueba en la base real del usuario** y depende de un usuario ya confirmado, que es justo lo que T2.5 tiene trabado; correr sólo a mano deja el flujo crítico sin protección; y stubear el RPC prueba la cola pero no el sistema. Es una decisión de costo y de alcance sobre recursos del usuario, no una preferencia técnica mía.
 
-**Dónde está el entrenamiento, que es lo que me importaba saber**: en `WorkoutPage-*.js`, **31.7 kB**, un chunk diferido que `index.html` **no** referencia. Ahí adentro viajan también **zustand y el store del draft**: hasta T3.9b nada fuera de la ruta de entrenamiento los importaba, así que la ruta diferida se los llevó. Consecuencia directa para T3.6b: **dnd-kit no toca el bundle inicial**, engorda el chunk de ruta, y la cifra que S11 presupuesta no se mueve.
-
-**La parte incómoda, que prefiero dejar escrita.** La medición anterior decía **113.84 kB** y esta dice **109.38**: bajó 4.46 kB después de agregar toda la pantalla, el picker, las tarjetas y la persistencia. **No lo puedo atribuir con lo que tengo.** Nada de lo que agregué entró al bundle inicial —todo lo nuevo está en el chunk de ruta—, así que la diferencia viene del **reparto de chunks** y no de que el código haya encogido, y no voy a reportar una mejora que no sé explicar. Comprobarlo exige reconstruir el commit de T3.2c, y un worktree no puede reusar el junction de `node_modules` de este repo, así que sale caro. Queda para `T3.close`, que es donde el número tiene que ser el correcto y no una foto intermedia.
+**Lo que implica**: `supabase start` + seed antes de la suite, en local y en el workflow; el `.env` de la E2E apunta al stack local y no al proyecto hosted; y la parte del DoD que la hace valer —"workout completo registrado con wifi apagado, sincronizado al volver la red"— se prueba con `context.setOffline(true)` de Playwright.
