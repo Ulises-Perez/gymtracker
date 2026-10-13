@@ -1,79 +1,118 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fase 0 cerrada. **Fase 1 completa**: schema, RLS, GRANTs, catálogo, integridad, soft delete y la RPC `save_workout` aplicados y verificados con pgTAP contra la base real (**41/41**, dos archivos). El harness de tests contra hosted quedó funcionando; ver "Hallazgos del harness". **Fase 2 completa**: T2.1, T2.2 y T2.3 cerradas. El cliente de Supabase se crea perezoso y queda fuera del bundle inicial (**111.03 kB** de 180), la app está detrás de un gate de sesión y las cuatro pantallas de auth son rutas diferidas. El flujo quedó verificado **en navegador real a 360px** contra el servidor: credenciales incorrectas en español, login, ruta protegida, recarga y logout sin dejar token. **Única milla sin cerrar**: el registro contra el servidor real necesita un email entregable (el proyecto exige confirmarlo; ver T2.3). El `.env` ya está con el nombre correcto y **verificado contra la API real**: `anon` recibe `42501 permission denied for table muscle_groups`, o sea que la URL y la publishable key son válidas y `anon` sigue afuera de las tablas. **Fase 3 en curso (2026-10-13)**: la base de la durabilidad offline quedó cerrada — el dispatcher de reanudación (T3.2b, `1ef4b8a`) y el cierre de la ventana de pérdida (T3.2c, `f4c7abd`), las dos tareas que el plan original no tenía. El bundle inicial pasó a **113.84 kB** de 180 con **cero** código de Zod, SDK de Supabase, uPlot, fuse o dnd-kit en el chunk inicial, verificado sobre el build, y el draft del entrenamiento ya vive en un store persistido (T3.1b, `19573de`).
-**Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera del repo accidental del home). `node_modules` es un **junction** a `C:\Users\ulise\develop\gymtracker-modules\node_modules` para no sincronizar 511 MB / 30.918 archivos.
-**Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
-**Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
-**No-objetivos (MVP):** social, rutinas con IA, push como dependencia, pagos, i18n.
+**Estado:** Fases 0, 1 y 2 cerradas. **Fase 3 en curso**: T3.2b, T3.2c y T3.1b/c cerradas (112/112 tests, bundle inicial 113.84 kB de 180). T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
+**Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp`, repo propio. `node_modules` es un junction a `C:\Users\ulise\develop\gymtracker-modules\node_modules`.
+**Specs:** los `S#` citan **verbatim** `PLAN.md` §1, §3, §6, §7 y §9, que es la fuente de requisitos declarada en `L1`. Los pedidos del usuario, las decisiones y la evidencia están en el `## Log`, al final.
 
 ---
 
-## 0. Gate de decisiones — cerrado
+## Specs
 
-| ID | Decisión | Resuelto como |
-|----|----------|---------------|
-| D1 | Ubicación y repo | `git init` propio, rama `feat/gymtracker-mvp`. **Revisada el 2026-10-11**: el proyecto volvió a OneDrive por convención del usuario, pero `node_modules` queda fuera con un junction a un store local |
-| D2 | Fase 1 local (Docker) o hosted | Proyecto **hosted** de dev en Supabase (región São Paulo); Docker queda como opción futura |
-| D3 | Parchear baseline o resolver por fase | Baseline parcheado antes de codear (`PLAN.md` + los 3 SQL + deps) |
-| D4 | Primer incremento | **Fase 0 + Fase 1** (base verificable con review acotado) |
+Cada `S#` es una cita textual del requisito: no se resume, no se parafrasea y no
+se agrega nada que el usuario no haya pedido. Un cambio de requisito agrega su
+entrada verbatim al `## Log`, reescribe **solo** los `S#` afectados y reabre
+**solo** su tarea.
 
-**Resuelto**: el proyecto hosted existe (`wcurruszasxgxzimlbdk`), está linkeado, y el CLI opera **sin contraseña** con su rol temporal (`cli_login_postgres`, ver H1).
+### Alcance
 
----
+- **S1 · Qué es y qué no es.** "GymTracker es una PWA mobile-first multi-usuario para: 1. Registrar entrenamientos diarios (ejercicios × series × reps × peso), **incluso sin señal**. 2. Detectar PRs automáticamente (1RM estimado Epley). 3. Visualizar progreso por ejercicio (peso máx, volumen, 1RM)." No-objetivos, textuales: "Social / compartir / amigos. Rutinas generadas con IA. Push notifications como dependencia funcional. Pagos / suscripciones. i18n".
+- **S16 · Idioma de la interfaz.** "errores en español" (Fase 2) y "Skeletons + errores claros en español" (checklist go-live). Skeletons, nunca spinners.
 
-## 1. Hallazgos de la revisión
+### Definiciones de terminado, por fase
 
-### Bloqueantes (rompen algo real)
+- **S2 · Fase 0.** "DoD: `npm run dev` corre en `:5173`, CI verde, `.env.example` presente."
+- **S3 · Fase 1.** "DoD: `supabase db reset` levanta local con catálogo, tipos generados, test RLS en verde."
+- **S4 · Fase 2.** "DoD: registro → login → ruta protegida → logout funciona en 360px."
+- **S5 · Fase 3 — la prueba que la define.** "DoD: workout completo registrado **con wifi apagado**, sincronizado al volver la red, con animación de PR. E2E Playwright en verde."
+- **S7 · Fase 4.** "DoD: lista paginada + detalle workout + gráfica real de 1 ejercicio."
+- **S8 · Fase 5.** "DoD: una llamada `dashboard_summary()` pinta todo; prefetch en background."
+- **S9 · Fase 6.** "DoD: cambiar kg/lb no altera ningún dato histórico; CSV descarga."
+- **S10 · Fase 7.** "DoD: Lighthouse 90+ en las 4 categorías, instalable Android+iOS, URL pública sin errores en Sentry."
 
-- **B1 · `recent_prs` con `LIMIT` inerte.** `supabase/migrations/0002_rpcs.sql:186-198` (duplicado en `PLAN.md:606`). Un `SELECT jsonb_agg(...)` sin `GROUP BY` devuelve **una** fila, así que `LIMIT 5` nunca recorta nada: el dashboard recibe **todos** los PRs, no 5. Fix: subconsulta interna `ORDER BY pr.achieved_at DESC LIMIT 5` y recién después agregar.
-- **B2 · La cola offline no era durable como estaba documentada.** `PLAN.md:37,131` afirmaba que `persistQueryClient` conserva la cola de mutaciones y que solo faltaba `shouldDehydrateMutation`. **Diagnóstico corregido leyendo la fuente de `@tanstack/query-core`**: el default de ese predicado **no es `false`**, es `mutation.state.isPaused`, así que el agujero real es más fino — (a) una mutación solo llega a pausada mientras hay un retry pendiente, por lo que `retry: 0` la deja en error y no se persiste; (b) `resumePausedMutations()` filtra por `isPaused`, así que persistir otro estado deja una entrada muerta; (c) `dehydrateMutation` guarda solo `mutationKey`, `state`, `scope` y `meta`, y como el `mutationFn` no se serializa, una mutación restaurada **no tiene función que ejecutar**, mientras `Mutation.continue()` sí llama a `execute()`. La cola necesita un **dispatcher global** para ser reanudable. Además el retryer duerme el `retryDelay` **antes** de pausar: hay una ventana de ~2-3 s en la que la escritura offline todavía no está en disco. Zustand `persist` con IndexedDB sigue necesitando `StateStorage` propio e hidratación asíncrona.
-- **B3 · `uuidv7()` en cliente sin dependencia.** `PLAN.md:130`. `crypto.randomUUID()` genera v4. Falta `uuid@^9` (soporta v7) o un generador propio; sin esto el DDL "IDs generados en cliente" no se puede cumplir.
-- **B4 · Topología git rota.** `git rev-parse --show-toplevel` → `C:/Users/ulise`: el proyecto vive dentro del repo accidental del home (rama `master`, **0 commits**, sin remoto) y dentro de OneDrive, sin `.gitignore` para `node_modules/` ni `.supabase/`. Bloquea la disciplina de commits por work-unit y expone `.git` al sync de OneDrive.
+### El flujo de la Fase 3, textual
 
-### Altos (drift o rework costoso)
+- **S6 · La pantalla de entrenamiento.** "[+ Nuevo Workout] → título opcional → [+ Agregar Ejercicio] → modal (🔍 fuse + filtro por grupo) → tarjeta por ejercicio → series (reps × kg, ref "último: …") → [+ serie] / swipe-delete → reorder (dnd-kit) → timer descanso → [✅ Finalizar] → 🎉 PRs"
 
-- **A1 · Policy de Storage con columna deprecada.** `0001_init.sql:226-227` usa `owner`; en Supabase actual el uploader se registra en `owner_id`, así que la policy puede no matchear nunca (avatar sube y no se lee). Además el comentario dice "bucket privado" (`0001_init.sql:220`) pero `public = true`.
-- **A2 · Integridad de `workout_sets`.** `save_workout` inserta ids de set provistos por el cliente sin `ON CONFLICT`, y `user_id` está desnormalizado sin guard que lo ate a `workouts.user_id`. `exercise_progress` (`0002_rpcs.sql:145-155`) confía en esa columna. Falta trigger o CHECK compuesto.
-- **A3 · RPCs sin `REVOKE`.** `0002_rpcs.sql:257-260` solo hace `GRANT`: Postgres otorga `EXECUTE` a `PUBLIC` por defecto, o sea que `anon` también puede invocarlas. `save_workout` se salva con `IF v_user_id IS NULL`, pero el endurecimiento (`REVOKE ... FROM public, anon`) falta.
-- **A4 · PRs monótonos.** `save_workout` borra y reinserta sets, pero `personal_records` nunca baja: editar o borrar la serie que logró el PR deja el PR viejo como mejor marca. Documentar como limitación MVP o recalcular.
-- **A5 · Decimales como string.** `weight_kg`, `best_1rm`, `total_volume` son `DECIMAL`; supabase-js los devuelve como **string**. Riesgo de concatenación, `.toFixed` roto y comparaciones inválidas en gráficas e inputs. Necesita regla de mapeo en `src/lib`.
-- **A6 · Harness de test RLS inválido.** `PLAN.md:819` propone "dos usuarios A/B vía service_role + anon", pero `service_role` **bypassea RLS**: ese test pasa siempre y no prueba nada. Hace falta `SET ROLE authenticated` + `request.jwt.claims` (pgTAP) o dos sesiones reales firmadas.
-- **A7 · Drift de scaffold y dependencias.**
-  - `PLAN.md:800` (`npm create vite@latest gymtracker ...`) anidaría `gymtracker/` dentro de un root que ya contiene `supabase/`. Debe scaffoldeárselo en `.`.
-  - Faltan en `package.json` (§2) contra la tabla de stack: Radix Dialog/Toast, `@tailwindcss/vite` (integración v4+Vite, §2 solo lista `tailwindcss`), `uuid`, `jsdom`/`happy-dom`, `@testing-library/jest-dom` y `@playwright/test` (el plan lista `playwright`, que es la librería, no el runner). En RR7 el paquete canónico es `react-router`.
-  - `injectManifest` exige un `src/sw.ts` propio con `self.__WB_MANIFEST` y `precacheAndRoute`; §5 no lo lista.
-  - Falta `vercel.json` con rewrite a `/index.html`: sin eso los deep links de React Router dan 404 en Vercel.
-- **A8 · Presupuesto 180 KB gzip optimista** con Supabase + Zod + RR7 + RHF + Sentry + Inter de por medio. Medir en Fase 0 con `rollup-plugin-visualizer` antes de fijarlo, y cargar Sentry por import dinámico post-paint.
-- **A9 · Las tablas no tenían `GRANT` (nuevo, detectado contra la base hosted).** Al aplicar `0001`/`0002` por primera vez, toda lectura falló con **`42501 permission denied for table ...`**. La causa: las migraciones crean policies de RLS pero **nunca otorgan privilegios de tabla**, y RLS filtra filas *dentro* de los privilegios del rol, no los sustituye. Supabase expone tablas nuevas por un default de plataforma que depende de `[api] auto_expose_new_tables`, y **ese default no se aplica en `db push`** (solo en el stack local). Fix: `0003_grants.sql` con GRANTs explícitos, para que las migraciones sean autosuficientes y no dependan de un default que puede cambiar. **Ninguna cantidad de revisión estática de 588 líneas lo iba a encontrar**: hacía falta una base real.
+### Las garantías offline y de datos
 
-### Medios
+- **S12 · IDs generados en cliente.** "`uuidv7()` de `uuid@^9` en cliente para workouts/sets/custom; `gen_random_uuid()` como default servidor (Postgres no genera v7 nativo). `crypto.randomUUID()` **no sirve: es v4**".
+- **S13 · La cola de mutaciones tiene que ser real.** "`networkMode: 'offlineFirst'` **en queries y en `defaultOptions.mutations`** + **`retry` > 0** + `persistQueryClient` con persister IndexedDB y `dehydrateOptions.shouldDehydrateMutation`." Y el requisito que el plan reconoce en su sección de limitaciones: "La cola solo es reanudable si el cliente aporta un `mutationFn` por defecto que despache según el payload. Y como `MutationFunction` recibe únicamente las variables (no la `mutationKey`), **el payload tiene que ser autodescriptivo**: unión discriminada con `kind`."
+- **S17 · La ventana de pérdida de escritura.** "Ventana de pérdida antes de que la escritura sea durable. El retryer duerme el `retryDelay` **antes** de consultar si puede continuar y pausar, y el persister además tiene su propio throttle. Con el backoff por defecto (~2 s en el primer reintento) más el throttle (~1 s), una escritura offline tarda del orden de dos a tres segundos en quedar en disco: si el usuario cierra la pestaña en esa ventana, se pierde. Mitigación prevista: forzar un flush del persister en `pagehide`/`visibilitychange: hidden`."
+- **S14 · Guardado atómico.** "Un solo RPC `save_workout(payload jsonb)`: workout + sets + PRs en una transacción"
+- **S15 · Decimales parseados en un solo lugar.** "Las columnas `DECIMAL` (`weight_kg`, `best_1rm`, `total_volume`) vuelven como **string** desde supabase-js. Todo pasa por `src/lib/utils.ts`: nunca concatenar ni llamar `.toFixed()` sobre el valor crudo"
 
-- **M1** `ON CONFLICT (id) DO UPDATE` no actualiza `date` (`0002_rpcs.sql:48`): no se puede re-fechar un workout existente. Documentarlo.
-- **M2** Ninguna fase cubre borrar un workout ni el historial; y la convención soft-delete ("todo query filtra `.is('deleted_at', null)`", §4.1) no tiene helper que la haga cumplir.
-- **M3** `duration_minutes` no se calcula en ningún punto desde `startTime` del store.
-- **M4** `body_measurements` no tiene `deleted_at`, rompe la convención global de soft delete.
-- **M5** El seed deja `Glúteos` y `Cuerpo Completo` sin ejercicios ("Hip Thrust" quedó bajo Piernas) → el filtro por grupo muscular muestra grupos vacíos.
-- **M6** Edición concurrente desde dos dispositivos = last-write-wins con reemplazo total de sets → pérdida silenciosa. Documentar como limitación MVP.
-- **M7** Sin ADR para las decisiones de stack; el Apéndice de parches es trazabilidad de bugs, no de decisiones.
+### Rendimiento
 
-### Hallazgos del harness de tests contra hosted (2026-10-12)
-
-Ninguno era visible leyendo: aparecieron en la primera ejecución real de `supabase test db --linked`.
-
-- **H1 · El rol de `pg_prove` no puede leer tablas.** El CLI crea un rol temporal (`cli_login_postgres`, contraseña que caduca a los 5 minutos) y pg_prove se conecta con él. Es miembro de `postgres` **con `INHERIT FALSE`** (`pg_has_role(...,'member') = true`), así que no hereda privilegios y toda lectura falla con `permission denied for table ...`. Fix: el test arranca con `set local role postgres`, la misma escalada que el CLI hace en sus propios queries.
-- **H2 · pgTAP vive en `extensions` y el `search_path` no lo incluye.** El CLI ya instala la extensión ahí (dueño: `supabase_admin`) y el `search_path` de la conexión es `"$user", public`. Sin traer `extensions` explícitamente: `function plan(integer) does not exist`. El `GRANT USAGE` sobre `extensions` para el rol temporal resultó **innecesario** en cuanto el test escala a `postgres` (que sí tiene USAGE): se otorgó durante el diagnóstico, se revocó y el suite siguió en **21/21**. O sea que la base quedó sin privilegios fuera de las migraciones.
-- **H3 · `plan(14)` contra 15 aserciones.** Defecto propio del archivo de tests, invisible mientras nunca se ejecutaba.
-- **H4 · `db push --include-seed` NO ejecuta el seed.** El CLI solo registra el hash del archivo y lo deja marcado como aplicado ("Updating seed hash to supabase/seed.sql"); el catálogo siguió en 48 ejercicios después del push. Para aplicar catálogo al proyecto hosted hay que correrlo explícitamente: `supabase db query --linked -f supabase/seed.sql`. Por eso el seed es idempotente (migración 0005 + `ON CONFLICT DO NOTHING`).
-- **H5 · `db query --linked` no es oráculo del catálogo.** Corre como `postgres`, pero su `pg_proc` **no ve las funciones de pgTAP** (0 filas para `plan`, mientras la sesión de pg_prove ve 1 `plan` y 8 sobrecargas de `fk_ok`). Sirve para datos, `pg_constraint`, `pg_indexes` e `information_schema`; no para concluir "esa función no existe".
-- **H6 · `fk_ok` de pgTAP tiene 8 sobrecargas** y la llamada posicional `(schema, tabla, nombre_del_constraint, descripción)` cae en otra sobrecarga y falla. La aserción del FK compuesto se escribe con una consulta a `pg_constraint` que verifica la **forma** (columnas y columnas referenciadas): más fuerte que chequear el nombre, porque un FK simple contra `workouts(id)` volvería a dejar `user_id` libre, que es justo lo que A2 prohíbe.
+- **S11 · Presupuesto de bundle.** "Presupuesto: decisión del 2026-10-11 — se mantiene en 180 KB gzip", con estas cuatro mitigaciones, todas obligatorias: "1. **Los tres formularios de auth son rutas diferidas.** Zod y React Hook Form viajan en el chunk de cada pantalla, nunca en el inicial. 2. **El cliente de Supabase no entra al bundle inicial.** Se accede por un `getSupabase()` asíncrono con singleton perezoso; la primera pintura no lo necesita y la comprobación de sesión puede esperarlo. 3. **Sentry ya está fuera** por import dinámico (T0.6). 4. **Se vuelve a medir al cerrar cada fase** con `rollup-plugin-visualizer`, y si el número no entra se reporta con la cifra exacta antes de tomar cualquier otra decisión."
 
 ---
 
-## 2. Tareas
+## Tasks
+
+Una línea por tarea: ID, `S#` vinculado, ruta de ejecución y commit con el que cerró.
+El detalle de cada tarea —hallazgo, decisión, evidencia— está inmediatamente
+después, y es lo que un subagente lee cuando se le despacha
+`Spec: odd/tasks/gymtracker-mvp.md, <Tarea>, <S#>`.
+
+| Tarea | S# | Ruta | Commit |
+|-------|----|------|--------|
+| T0.1 · repo aislado + `.gitignore` + scaffold Vite/React/TS en el root | S2 | inline | `813f501` |
+| T0.2 · TS strict + ESLint/Prettier/Husky/lint-staged | S2 | inline | `813f501` |
+| T0.3 · Tailwind v4 + tokens de diseño | S2 | inline | `813f501` |
+| T0.4 · dependencias completas (incluidas las de A7) | S2 | inline | `813f501` |
+| T0.5 · PWA `injectManifest` en modo prompt + `src/sw.ts` | S2 | inline | `6cdd7c0` |
+| T0.6 · Sentry por import dinámico, sin PII, solo en PROD | S11 | inline | `3960d76` |
+| T0.7 · CI `lint → typecheck → test → build` + `vercel.json` | S2 | inline | `33e684d`, `d90b2ae` |
+| T0.8 · medición y presupuesto de bundle | S11 | inline | `33e684d` |
+| T1.1 · B1 (`recent_prs`) y A3 (`REVOKE`) en el baseline | S3 | hosted | aplicado a la base |
+| T1.2 · A1 (policy de Storage sobre `storage.foldername`) | S3 | hosted | aplicado a la base |
+| T1.3 · guard de integridad A2 (FK compuesto) | S3 | hosted | `14ad965` |
+| T1.4 · `supabase init`, proyecto hosted, migraciones, tipos | S3 | hosted | aplicado a la base |
+| T1.5 · seed: grupos vacíos + idempotencia | S3 | hosted | `176b5a6` |
+| T1.6 · suite pgTAP de schema, RLS y GRANTs | S3 | hosted | `8260fb5` |
+| T1.7 · tests de `save_workout` con harness de impersonación | S3, S14 | hosted | `16432c4` |
+| T1.8 · limitaciones M1/M6 + `deleted_at` en `body_measurements` | S3 | hosted | `d884544` |
+| T2.1 · `getSupabase()` perezoso, SDK fuera del inicial | S4, S11 | inline | `c398990` |
+| T2.2 · `AuthProvider` + `useAuth` + `RequireAuth` | S4 | inline | `7f58d3d` |
+| T2.3 · cuatro pantallas de auth como rutas diferidas | S4, S16 | inline | `10df839` |
+| T2.4 · shell + BottomNav + skeletons | S4, S16 | inline | `29488d2`, `7112d49`, `66f74b4` |
+| T2.5 · registro contra el servidor real | S4 | **bloqueada** | pendiente |
+| T3.1 · `AsyncStorage` sobre IndexedDB compartido | S13 | inline | `4a5551b` |
+| T3.1b · `useWorkoutStore` (Zustand + persist) con guard de doble finish | S13 | inline | `19573de` |
+| T3.1c · `localIsoDate()` (fecha del reloj local) | S13 | inline | `19573de` |
+| T3.2 · QueryClient offline-first + persister IndexedDB | S13 | inline | `4a5551b` |
+| T3.2b · dispatcher de reanudación + `save-workout` | S13 | inline | `1ef4b8a` |
+| T3.2c · ventana de pérdida: pausa inmediata + flush sin timers | S17 | inline | `f4c7abd` |
+| T3.3 · IDs v7 en cliente | S12 | inline | `4a5551b` |
+| T3.4 · catálogo en TQ + IndexedDB + mapeo de decimales | S15, S6 | pendiente | — |
+| T3.5 · selector modal Radix + fuse + filtro por grupo | S6 | pendiente | — |
+| T3.6 · inputs reps × peso + swipe-delete + reorder dnd-kit | S6 | pendiente | — |
+| T3.7 · timer por `endTimestamp` + Wake Lock + `duration_minutes` | S6 | pendiente | — |
+| T3.8 · ejercicio custom local → sync en `save_workout` | S6 | pendiente | — |
+| T3.9 · Finalizar → PRs + animación + badge de sync | S5, S6, S14 | pendiente | — |
+| T3.10 · E2E Playwright del flujo crítico | S5 | pendiente | — |
+| T4.1 · lista `useInfiniteQuery` con paginación keyset | S7 | pendiente | — |
+| T4.2 · detalle de workout y de ejercicio | S7 | pendiente | — |
+| T4.3 · uPlot lazy sobre `exercise_progress` | S7, S11 | pendiente | — |
+| T4.4 · toggle kg/lb solo UI + helper de soft-delete | S7, S15 | pendiente | — |
+| T4.5 · borrar workout / historial | S7 | pendiente | — |
+| T5.1 · `dashboard_summary()` en una llamada | S8 | pendiente | — |
+| T5.2 · skeletons + prefetch de historial y catálogo | S8, S16 | pendiente | — |
+| T6.1 · nombre, avatar, unidad preferida | S9 | pendiente | — |
+| T6.2 · stats derivadas + peso corporal | S9 | pendiente | — |
+| T6.3 · "Repetir workout" + export CSV + logout | S9 | pendiente | — |
+| T7.1 · manifest + iconos maskable + splash iOS | S10 | pendiente | — |
+| T7.2 · SW: precache shell, nunca cachear auth ni escrituras | S10 | pendiente | — |
+| T7.3 · prompt de instalación Android + instrucciones iOS | S10 | pendiente | — |
+| T7.4 · Lighthouse 90+ ×4 y medición de controles de formulario | S10, S11 | pendiente | — |
+| T7.5 · deploy Vercel + e2e en dispositivo real + README | S10, S5 | pendiente | — |
+
+### Detalle por tarea
+
 
 Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con al menos un commit de work-unit en la rama de feature.
 
-### Fase 0 — Setup + CI
+#### Fase 0 — Setup + CI
 
 - [x] **T0.1** (D1) Repo aislado + `.gitignore` + `.gitattributes` + scaffold Vite 8 / React 19 / TS 6 **en el root del repo**. `create-vite` pide confirmación en un directorio no vacío, así que se generó en un directorio temporal fuera del repo y se copió: `PLAN.md`, `odd/`, `supabase/`, `.gitignore` y `.gitattributes` intactos. Sobrantes del template (oxlint, `icons.svg`, `App.css`, assets demo) eliminados. Verificado en `813f501`.
 - [x] **T0.2** TS `strict` + `noUncheckedIndexedAccess`; ESLint 10 flat config (`typescript-eslint` + react-hooks + react-refresh) + Prettier + Husky v9 + lint-staged. El hook se probó en el propio commit `813f501` (lint-staged corrió `eslint --fix` y `prettier --write` y stageó los cambios).
@@ -84,7 +123,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T0.7** CI en GitHub Actions (`lint → typecheck → test → build`, con caché de npm, `HUSKY=0` y grupo de concurrencia) + `vercel.json` con rewrite de todas las rutas a `/index.html` y `Cache-Control` de revalidación para `/sw.js` (un SW cacheado de más hace que el prompt de actualización nunca dispare). Pipeline validado ejecutando `HUSKY=0 npm ci` real: 625 paquetes desde el lockfile sin drift. **Plantilla de entorno entregada como `env.example`**: la ruta convencional `.env.example` está bloqueada de forma incondicional por la política de seguridad del harness (rechaza escrituras a `.env*` y no acepta autorización en conversación), así que el archivo salió sin el punto inicial, lo explica en su encabezado y renombrarlo es un solo comando. El contrato de variables quedó además documentado en `README.md` y tipado en `src/vite-env.d.ts`.
 - [x] **T0.8** Bundle final medido: **JS inicial 69.87 kB gzip** (222.63 kB raw), **CSS 3.36 kB gzip**, chunk aparte de `workbox-window` 2.20 kB gzip, `index.html` 0.39 kB gzip, y el SDK de Sentry (30.78 kB gzip) fuera del inicial cuando hay DSN. Precacheados solo los subsets latinos de Inter. Presupuesto de referencia 180 kB gzip: el margen se sostiene, pero todavía no entraron router, TanStack Query, Supabase ni los gráficos.
 
-### Fase 1 — Schema + RLS + Seed
+#### Fase 1 — Schema + RLS + Seed
 
 - [x] **T1.1** (D3) B1 (`recent_prs`) y A3 (`REVOKE`) aplicados en el baseline y **verificados en vivo**: `save_workout` responde `42501 permission denied for function` a `anon`, o sea que el `REVOKE` hace efecto.
 - [x] **T1.2** (D3) A1 aplicado en el baseline. `0001_init.sql` corrió contra la base hosted **sin errores**, incluidos el `INSERT` en `storage.buckets` y la policy sobre `storage.objects`.
@@ -99,7 +138,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 **Agregado 2026-10-12**: `db query --linked` (SQL arbitrario como `postgres`) tampoco necesita Docker y es la vía tanto para DML suelto como para aplicar el seed. Y **no correr dos comandos del CLI contra la base en paralelo**: `test db` junto con `db query` se colgó (el CLI rota la contraseña del rol temporal en cada corrida); secuencial siempre.
 
-### Fase 2 — Auth + Shell
+#### Fase 2 — Auth + Shell
 
 - [x] **T2.1** `src/lib/supabase.ts`: **`getSupabase()` asíncrono con singleton perezoso**. El SDK entra por `import()` dinámico, así que la primera pintura no paga por él — medido con y sin consumidor: el inicial pasa de **107.98 a 108.16 kB gzip** (+176 B, el wrapper) y el SDK de Supabase (**54.5 kB gzip**) queda en un chunk aparte. `persistSession` + `autoRefreshToken` + `detectSessionInUrl` (los links de confirmación y recuperación vuelven con los tokens en el fragmento de la URL). Cinco tests: pereza (nada se crea al importar el módulo), singleton (una sola creación aunque se lo llame en paralelo), la URL/key/opciones que recibe el SDK, y los dos errores que nombran la variable faltante. Los tests stubean el entorno: no dependen de `.env`, que en CI no existe. Nota: ese chunk queda precacheado por el SW (14 entradas / 705 KiB en el build con consumidor), coherente con offline-first.
 - [x] **T2.2** `AuthProvider` + `useAuth()` + `RequireAuth` (`7f58d3d`). El contexto expone `session`, `user`, `loading` y `signIn`/`signUp`/`signOut`; `signUp` manda `full_name` como metadata, que es de donde `handle_new_user` llena el perfil. Dos fuentes alimentan el estado y ninguna sobra: `onAuthStateChange` (login, logout, refresh de token y otras pestañas sin recargar) y `getSession()` (responde desde storage sin esperar un evento); **gana la primera que conteste**, así que una lectura lenta no pisa una sesión ya reportada. `RequireAuth` cuelga el shell entero de **una sola ruta sin path**: con la sesión desconocida muestra el esqueleto (no redirige — decidir temprano rebotaría a `/login` en cada recarga) y sin sesión manda a `/login` **con el destino original en el `state`**, para que la pantalla de login pueda devolver al usuario donde iba. 12 tests nuevos con un doble de `getSupabase()` en `src/testing/fake-supabase.ts` (peraza, sesión guardada, eventos, la carrera lectura-vs-evento, desuscripción al desmontar, errores de Supabase, metadata de `signUp`). **Desviación menor**: el context vive en `src/providers/auth-context.ts` y el provider en `AuthProvider.tsx` porque exportar ambos desde el mismo archivo rompía Fast Refresh (`react-refresh/only-export-components`). Verificación en navegador pendiente: llega con T2.3, cuando exista `/login`; acá lo verificado es el comportamiento del gate y el presupuesto.
@@ -113,7 +152,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 - [ ] **T2.5** Cerrar la milla que quedó del registro contra el servidor real. Hoy está verificado que el **signup real** funciona contra un dominio que el servidor acepta, que `handle_new_user` crea el perfil y que el login devuelve token; lo que falta es la pantalla **"Revisá tu correo"** con el servidor (hoy solo está cubierta con dobles). **Bloqueada por dos cosas del proyecto**: exige confirmar el email (`mailer_autoconfirm: false`) y hay que esperar a que se recupere el rate limit de envíos (varios signups de diagnóstico lo consumieron). Caminos: un email entregable del usuario, o desactivar la confirmación en el proyecto de dev. Técnica al retomar: signup real + `update auth.users set email_confirmed_at = now()` — un usuario **insertado a mano no sirve** (GoTrue no valida el hash y con las columnas de token en NULL responde 500).
 
-### Fase 3 — Workout Core (offline-first) ⭐
+#### Fase 3 — Workout Core (offline-first) ⭐
 
 - [x] **T3.1** (parcial) `src/lib/storage.ts` con un `AsyncStorage` sobre IndexedDB compartido por el persister y —más adelante— Zustand, porque ambos contratos exponen los mismos tres miembros. Falta el `useWorkoutStore` en sí.
 - [x] **T3.1b** `useWorkoutStore`: Zustand + `persist` sobre IndexedDB, con el guard de doble finish. **Cerrada** (`19573de`). El draft (`workoutId`, `date`, `title`, `notes`, `startedAt`, `endedAt`, `status`, `exercises[]` → `sets[]`) es el núcleo offline-first: la serie se registra acá y llega al servidor después. Los dos guards viven en **un solo helper `edit()`** en vez de repetirse en cada acción — sin draft abierto no hay cambio que aplicar, así que de ahí salen gratis las dos garantías: un segundo toque en Finalizar no puede mover `endedAt` (que es de donde salen la duración y el payload) y ninguna serie puede entrar después de que el payload se construyó, porque entonces el store y el servidor discreparían sobre lo entrenado. `start()` **no reemplaza** un draft abierto (perder una sesión por un segundo toque no se recupera); descartarlo es `discard()`, que la pantalla decide con el usuario. Un draft **terminado** sí se puede reemplazar sin riesgo: lo que se iba a guardar ya quedó capturado como variables autodescriptivas en la cola, que es exactamente por lo que T3.2b exigió que el payload se describiera solo. `hydrated` distingue "no hay draft" de "todavía no lo leí": la lectura es asíncrona. `addSet` acepta un `seed` porque "igual que la última vez" es un dato que la UI pasa, no algo que el store deba ir a buscar. 18 tests. **Hallazgo propio**: `persist` **escribe en cada cambio de estado**, así que "olvidar" el draft en memoria para simular un reload lo **borra del disco**; el test tuvo que capturar los bytes, esperar la escritura del estado vaciado y recién entonces reponerlos.
@@ -130,7 +169,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [ ] **T3.9** Finalizar → `save_workout` + animación de PRs + badge "pendiente de sync".
 - [ ] **T3.10** E2E Playwright: login → workout → 3 series → guardar → historial.
 
-### Fase 4 — Historial + Progreso
+#### Fase 4 — Historial + Progreso
 
 - [ ] **T4.1** Lista `useInfiniteQuery` con paginación keyset.
 - [ ] **T4.2** Detalle workout y detalle ejercicio.
@@ -138,18 +177,18 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [ ] **T4.4** Toggle kg/lb solo UI + helper de soft-delete (**M2**).
 - [ ] **T4.5** Borrar workout / historial (**M2**).
 
-### Fase 5 — Dashboard
+#### Fase 5 — Dashboard
 
 - [ ] **T5.1** `dashboard_summary()` en una llamada: saludo, dots semanales, racha, PRs, último workout, FAB.
 - [ ] **T5.2** Skeletons + prefetch de historial y catálogo.
 
-### Fase 6 — Perfil + Extras
+#### Fase 6 — Perfil + Extras
 
 - [ ] **T6.1** Nombre, avatar (bucket `avatars`), unidad preferida.
 - [ ] **T6.2** Stats derivadas (no columnas) + peso corporal.
 - [ ] **T6.3** "Repetir workout" + export CSV + logout.
 
-### Fase 7 — PWA Polish + Deploy
+#### Fase 7 — PWA Polish + Deploy
 
 - [ ] **T7.1** Manifest + iconos maskable + favicon + splash iOS.
 - [ ] **T7.2** SW: precache shell, `StaleWhileRevalidate` catálogo, **nunca** cachear auth ni escrituras.
@@ -159,7 +198,116 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 ---
 
-## 3. Registro de commits
+
+
+---
+
+## Log
+
+### L1 · Pedido original del usuario
+
+**No recuperable verbatim desde esta sesión, y no se inventa.** El pedido que originó el proyecto es anterior a este hilo; `mem_search` sobre "GymTracker" no devuelve observaciones previas y `mem_context` solo lista los prompts de esta sesión. Queda el hueco declarado, que es lo correcto: fabricar el texto sería fabricar evidencia de ciclo de vida.
+
+**Fuente de requisitos efectiva, declarada por el usuario:** `PLAN.md` (revisado 2026-10-10), junto con `supabase/migrations/0001_init.sql`, `0002_rpcs.sql` y `supabase/seed.sql`. La cabecera histórica de este documento ya la declaraba como su fuente: `PLAN.md` se presenta como "Plan Único de Desarrollo" y sus DoD de §6 son las frases que citan los `S#`. Los `S#` se derivan de ahí; nada más se agregó.
+
+---
+
+**Cabecera histórica del documento.** Se conserva verbatim lo que este archivo declaraba como cabecera antes de la reestructuración del 2026-10-13 (ver `L6`). Describe el estado al cerrar la Fase 2 y contiene mediciones que no se repiten en ningún otro lado —el `41/41` de pgTAP, los 111.03 kB de ese momento, la verificación del `.env` contra la API real— así que se preserva en vez de resumirse: es evidencia.
+
+**Estado:** Fase 0 cerrada. **Fase 1 completa**: schema, RLS, GRANTs, catálogo, integridad, soft delete y la RPC `save_workout` aplicados y verificados con pgTAP contra la base real (**41/41**, dos archivos). El harness de tests contra hosted quedó funcionando; ver "Hallazgos del harness". **Fase 2 completa**: T2.1, T2.2 y T2.3 cerradas. El cliente de Supabase se crea perezoso y queda fuera del bundle inicial (**111.03 kB** de 180), la app está detrás de un gate de sesión y las cuatro pantallas de auth son rutas diferidas. El flujo quedó verificado **en navegador real a 360px** contra el servidor: credenciales incorrectas en español, login, ruta protegida, recarga y logout sin dejar token. **Única milla sin cerrar**: el registro contra el servidor real necesita un email entregable (el proyecto exige confirmarlo; ver T2.3). El `.env` ya está con el nombre correcto y **verificado contra la API real**: `anon` recibe `42501 permission denied for table muscle_groups`, o sea que la URL y la publishable key son válidas y `anon` sigue afuera de las tablas. **Fase 3 en curso (2026-10-13)**: la base de la durabilidad offline quedó cerrada — el dispatcher de reanudación (T3.2b, `1ef4b8a`) y el cierre de la ventana de pérdida (T3.2c, `f4c7abd`), las dos tareas que el plan original no tenía. El bundle inicial pasó a **113.84 kB** de 180 con **cero** código de Zod, SDK de Supabase, uPlot, fuse o dnd-kit en el chunk inicial, verificado sobre el build, y el draft del entrenamiento ya vive en un store persistido (T3.1b, `19573de`).
+**Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp` (repo propio, fuera del repo accidental del home). `node_modules` es un **junction** a `C:\Users\ulise\develop\gymtracker-modules\node_modules` para no sincronizar 511 MB / 30.918 archivos.
+**Fuente:** `PLAN.md` (revisado 2026-10-10) + `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_rpcs.sql`, `supabase/seed.sql`.
+**Revisión:** 2026-10-10. Hallazgos citados con `path:line`.
+**No-objetivos (MVP):** social, rutinas con IA, push como dependencia, pagos, i18n.
+
+### L2 · Gate de decisiones (2026-10-10)
+
+| ID | Decisión | Resuelto como |
+|----|----------|---------------|
+| D1 | Ubicación y repo | `git init` propio, rama `feat/gymtracker-mvp`. **Revisada el 2026-10-11**: el proyecto volvió a OneDrive por convención del usuario, pero `node_modules` queda fuera con un junction a un store local |
+| D2 | Fase 1 local (Docker) o hosted | Proyecto **hosted** de dev en Supabase (región São Paulo); Docker queda como opción futura |
+| D3 | Parchear baseline o resolver por fase | Baseline parcheado antes de codear (`PLAN.md` + los 3 SQL + deps) |
+| D4 | Primer incremento | **Fase 0 + Fase 1** (base verificable con review acotado) |
+
+**Resuelto**: el proyecto hosted existe (`wcurruszasxgxzimlbdk`), está linkeado, y el CLI opera **sin contraseña** con su rol temporal (`cli_login_postgres`, ver H1).
+
+---
+
+
+### L3 · Hallazgos de la revisión (2026-10-10)
+
+#### Bloqueantes (rompen algo real)
+
+- **B1 · `recent_prs` con `LIMIT` inerte.** `supabase/migrations/0002_rpcs.sql:186-198` (duplicado en `PLAN.md:606`). Un `SELECT jsonb_agg(...)` sin `GROUP BY` devuelve **una** fila, así que `LIMIT 5` nunca recorta nada: el dashboard recibe **todos** los PRs, no 5. Fix: subconsulta interna `ORDER BY pr.achieved_at DESC LIMIT 5` y recién después agregar.
+- **B2 · La cola offline no era durable como estaba documentada.** `PLAN.md:37,131` afirmaba que `persistQueryClient` conserva la cola de mutaciones y que solo faltaba `shouldDehydrateMutation`. **Diagnóstico corregido leyendo la fuente de `@tanstack/query-core`**: el default de ese predicado **no es `false`**, es `mutation.state.isPaused`, así que el agujero real es más fino — (a) una mutación solo llega a pausada mientras hay un retry pendiente, por lo que `retry: 0` la deja en error y no se persiste; (b) `resumePausedMutations()` filtra por `isPaused`, así que persistir otro estado deja una entrada muerta; (c) `dehydrateMutation` guarda solo `mutationKey`, `state`, `scope` y `meta`, y como el `mutationFn` no se serializa, una mutación restaurada **no tiene función que ejecutar**, mientras `Mutation.continue()` sí llama a `execute()`. La cola necesita un **dispatcher global** para ser reanudable. Además el retryer duerme el `retryDelay` **antes** de pausar: hay una ventana de ~2-3 s en la que la escritura offline todavía no está en disco. Zustand `persist` con IndexedDB sigue necesitando `StateStorage` propio e hidratación asíncrona.
+- **B3 · `uuidv7()` en cliente sin dependencia.** `PLAN.md:130`. `crypto.randomUUID()` genera v4. Falta `uuid@^9` (soporta v7) o un generador propio; sin esto el DDL "IDs generados en cliente" no se puede cumplir.
+- **B4 · Topología git rota.** `git rev-parse --show-toplevel` → `C:/Users/ulise`: el proyecto vive dentro del repo accidental del home (rama `master`, **0 commits**, sin remoto) y dentro de OneDrive, sin `.gitignore` para `node_modules/` ni `.supabase/`. Bloquea la disciplina de commits por work-unit y expone `.git` al sync de OneDrive.
+
+#### Altos (drift o rework costoso)
+
+- **A1 · Policy de Storage con columna deprecada.** `0001_init.sql:226-227` usa `owner`; en Supabase actual el uploader se registra en `owner_id`, así que la policy puede no matchear nunca (avatar sube y no se lee). Además el comentario dice "bucket privado" (`0001_init.sql:220`) pero `public = true`.
+- **A2 · Integridad de `workout_sets`.** `save_workout` inserta ids de set provistos por el cliente sin `ON CONFLICT`, y `user_id` está desnormalizado sin guard que lo ate a `workouts.user_id`. `exercise_progress` (`0002_rpcs.sql:145-155`) confía en esa columna. Falta trigger o CHECK compuesto.
+- **A3 · RPCs sin `REVOKE`.** `0002_rpcs.sql:257-260` solo hace `GRANT`: Postgres otorga `EXECUTE` a `PUBLIC` por defecto, o sea que `anon` también puede invocarlas. `save_workout` se salva con `IF v_user_id IS NULL`, pero el endurecimiento (`REVOKE ... FROM public, anon`) falta.
+- **A4 · PRs monótonos.** `save_workout` borra y reinserta sets, pero `personal_records` nunca baja: editar o borrar la serie que logró el PR deja el PR viejo como mejor marca. Documentar como limitación MVP o recalcular.
+- **A5 · Decimales como string.** `weight_kg`, `best_1rm`, `total_volume` son `DECIMAL`; supabase-js los devuelve como **string**. Riesgo de concatenación, `.toFixed` roto y comparaciones inválidas en gráficas e inputs. Necesita regla de mapeo en `src/lib`.
+- **A6 · Harness de test RLS inválido.** `PLAN.md:819` propone "dos usuarios A/B vía service_role + anon", pero `service_role` **bypassea RLS**: ese test pasa siempre y no prueba nada. Hace falta `SET ROLE authenticated` + `request.jwt.claims` (pgTAP) o dos sesiones reales firmadas.
+- **A7 · Drift de scaffold y dependencias.**
+  - `PLAN.md:800` (`npm create vite@latest gymtracker ...`) anidaría `gymtracker/` dentro de un root que ya contiene `supabase/`. Debe scaffoldeárselo en `.`.
+  - Faltan en `package.json` (§2) contra la tabla de stack: Radix Dialog/Toast, `@tailwindcss/vite` (integración v4+Vite, §2 solo lista `tailwindcss`), `uuid`, `jsdom`/`happy-dom`, `@testing-library/jest-dom` y `@playwright/test` (el plan lista `playwright`, que es la librería, no el runner). En RR7 el paquete canónico es `react-router`.
+  - `injectManifest` exige un `src/sw.ts` propio con `self.__WB_MANIFEST` y `precacheAndRoute`; §5 no lo lista.
+  - Falta `vercel.json` con rewrite a `/index.html`: sin eso los deep links de React Router dan 404 en Vercel.
+- **A8 · Presupuesto 180 KB gzip optimista** con Supabase + Zod + RR7 + RHF + Sentry + Inter de por medio. Medir en Fase 0 con `rollup-plugin-visualizer` antes de fijarlo, y cargar Sentry por import dinámico post-paint.
+- **A9 · Las tablas no tenían `GRANT` (nuevo, detectado contra la base hosted).** Al aplicar `0001`/`0002` por primera vez, toda lectura falló con **`42501 permission denied for table ...`**. La causa: las migraciones crean policies de RLS pero **nunca otorgan privilegios de tabla**, y RLS filtra filas *dentro* de los privilegios del rol, no los sustituye. Supabase expone tablas nuevas por un default de plataforma que depende de `[api] auto_expose_new_tables`, y **ese default no se aplica en `db push`** (solo en el stack local). Fix: `0003_grants.sql` con GRANTs explícitos, para que las migraciones sean autosuficientes y no dependan de un default que puede cambiar. **Ninguna cantidad de revisión estática de 588 líneas lo iba a encontrar**: hacía falta una base real.
+
+#### Medios
+
+- **M1** `ON CONFLICT (id) DO UPDATE` no actualiza `date` (`0002_rpcs.sql:48`): no se puede re-fechar un workout existente. Documentarlo.
+- **M2** Ninguna fase cubre borrar un workout ni el historial; y la convención soft-delete ("todo query filtra `.is('deleted_at', null)`", §4.1) no tiene helper que la haga cumplir.
+- **M3** `duration_minutes` no se calcula en ningún punto desde `startTime` del store.
+- **M4** `body_measurements` no tiene `deleted_at`, rompe la convención global de soft delete.
+- **M5** El seed deja `Glúteos` y `Cuerpo Completo` sin ejercicios ("Hip Thrust" quedó bajo Piernas) → el filtro por grupo muscular muestra grupos vacíos.
+- **M6** Edición concurrente desde dos dispositivos = last-write-wins con reemplazo total de sets → pérdida silenciosa. Documentar como limitación MVP.
+- **M7** Sin ADR para las decisiones de stack; el Apéndice de parches es trazabilidad de bugs, no de decisiones.
+
+#### Hallazgos del harness de tests contra hosted (2026-10-12)
+
+Ninguno era visible leyendo: aparecieron en la primera ejecución real de `supabase test db --linked`.
+
+- **H1 · El rol de `pg_prove` no puede leer tablas.** El CLI crea un rol temporal (`cli_login_postgres`, contraseña que caduca a los 5 minutos) y pg_prove se conecta con él. Es miembro de `postgres` **con `INHERIT FALSE`** (`pg_has_role(...,'member') = true`), así que no hereda privilegios y toda lectura falla con `permission denied for table ...`. Fix: el test arranca con `set local role postgres`, la misma escalada que el CLI hace en sus propios queries.
+- **H2 · pgTAP vive en `extensions` y el `search_path` no lo incluye.** El CLI ya instala la extensión ahí (dueño: `supabase_admin`) y el `search_path` de la conexión es `"$user", public`. Sin traer `extensions` explícitamente: `function plan(integer) does not exist`. El `GRANT USAGE` sobre `extensions` para el rol temporal resultó **innecesario** en cuanto el test escala a `postgres` (que sí tiene USAGE): se otorgó durante el diagnóstico, se revocó y el suite siguió en **21/21**. O sea que la base quedó sin privilegios fuera de las migraciones.
+- **H3 · `plan(14)` contra 15 aserciones.** Defecto propio del archivo de tests, invisible mientras nunca se ejecutaba.
+- **H4 · `db push --include-seed` NO ejecuta el seed.** El CLI solo registra el hash del archivo y lo deja marcado como aplicado ("Updating seed hash to supabase/seed.sql"); el catálogo siguió en 48 ejercicios después del push. Para aplicar catálogo al proyecto hosted hay que correrlo explícitamente: `supabase db query --linked -f supabase/seed.sql`. Por eso el seed es idempotente (migración 0005 + `ON CONFLICT DO NOTHING`).
+- **H5 · `db query --linked` no es oráculo del catálogo.** Corre como `postgres`, pero su `pg_proc` **no ve las funciones de pgTAP** (0 filas para `plan`, mientras la sesión de pg_prove ve 1 `plan` y 8 sobrecargas de `fk_ok`). Sirve para datos, `pg_constraint`, `pg_indexes` e `information_schema`; no para concluir "esa función no existe".
+- **H6 · `fk_ok` de pgTAP tiene 8 sobrecargas** y la llamada posicional `(schema, tabla, nombre_del_constraint, descripción)` cae en otra sobrecarga y falla. La aserción del FK compuesto se escribe con una consulta a `pg_constraint` que verifica la **forma** (columnas y columnas referenciadas): más fuerte que chequear el nombre, porque un FK simple contra `workouts(id)` volvería a dejar `user_id` libre, que es justo lo que A2 prohíbe.
+
+---
+
+
+### L4 · Pedido de estado (2026-10-13)
+
+Verbatim: "Ok, como vamos en este proyecto y que nos falta para continuar con las funcionalidades y hacer que esto funcione."
+
+Pedido **read-only** sobre un working tree limpio: no autoriza escritura. Produjo un informe de estado con una verificación real del árbol (typecheck limpio, `git status` vacío, 77/77 tests en 16 archivos) en vez de repetir lo documentado, y encontró el hueco de fondo: **la app no hacía nada todavía** — `DashboardPage`, `WorkoutPage` e `HistoryPage` eran `<PagePlaceholder>`. Todo el valor del producto estaba en la Fase 3 sin empezar. También identificó que las dos tareas que el plan no tenía (T3.2b, T3.2c) son prerequisito duro de T3.6–T3.9, no adorno.
+
+### L5 · Autorización de la Fase 3 (2026-10-13)
+
+Verbatim: "Si procede con fase 3" (enviado dos veces).
+
+Alcance autorizado: ejecutar la Fase 3 completa. Decisión del usuario sobre T2.5: queda como deuda (opción 3 de las tres que se ofrecieron), porque no bloquea el core. Con eso, el camino crítico es T3.2b → T3.2c → T3.1b → T3.4 → … → T3.10, con la regla de que T3.2b y T3.2c van antes que cualquier UI, porque son la base sobre la que se apoya todo el registro de series.
+
+### L6 · Regla de proceso: todo pasa por ODD (2026-10-13)
+
+Verbatim: "Pasa siempre todo por odd".
+
+Regla **permanente**, no por pedido puntual: todo el trabajo se rutea por Organic Driven Development, sin trabajo ad-hoc fuera del flujo. Guardada en Engram (`odd-process-rule`, scope `project`).
+
+Este mismo pedido obligó a **corregir la forma de este documento**, que no cumplía lo que ODD manda: no tenía `## Specs` con `S#` ni `## Log` con `L1`, y las tareas no estaban alineadas a specs citadas, así que un subagente no podía recibir `Spec: odd/tasks/gymtracker-mvp.md, T3.6, S6` — esos `S#` no existían. La reestructuración movió los bloques existentes **verbatim** (gate de decisiones, hallazgos, registro de commits, desviaciones, presupuesto) a este `## Log`, sin borrar ni resumir evidencia, y agregó el índice de tareas con `S#`, ruta y commit.
+
+**Excepción que ODD mismo fija y que esta regla no deroga**: una tarea **chica** —entendida, riesgo contenido, reanudable desde el pedido original y `git diff`— se queda inline y no crea artefactos durables. "Todo por ODD" significa no trabajar fuera del flujo, no crear un documento por cada arreglo trivial.
+
+---
+
+### L7 · Registro de commits (evidencia acumulada)
 
 | Tarea | Commit | Verificación |
 |-------|--------|--------------|
@@ -188,7 +336,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 | T3.2c | `f4c7abd` `fix(offline): close the two-second window where an offline write was still only in memory` | 7 tests nuevos y **90/90** · typecheck y lint limpios · bundle inicial **113.84 kB** de 180 (+2.81 kB sobre T2.3), medido a gzip nivel 9 sobre los chunks de `index.html` · **falso positivo descartado**: el inicial contiene la URL `wcurruszasxgxzimlbdk.supabase.co` (Vite inlinea `VITE_SUPABASE_URL` del `.env`) pero **0** ocurrencias de `GoTrueClient`, `PostgrestBuilder`, `SupabaseClient`, `ZodError`, `uPlot`, `fuseIndex`, `DndContext` y `useSortable` |
 | T3.1b + T3.1c | `19573de` `feat(workout): hold the workout in progress in a persisted store` | RED observado en los dos tests de persistencia · 22 tests nuevos y **112/112** · typecheck y lint limpios · el store y Zustand todavía **no entran a ningún chunk**: ningún componente lo importa aún, así que el inicial sigue en 113.84 kB y el costo se va a pagar en el chunk de la ruta de workout (T3.6) |
 
-### Desviaciones de Fase 0 (documentadas, no ocultas)
+
+### L8 · Desviaciones documentadas (no ocultas)
 
 - **Delegación no disponible.** El harness rechaza `repository_root` y `workspace_root` para este proyecto porque `C:\Users\ulise` sigue siendo un repo git (0 commits, sin remoto), así que GymTracker queda anidado. El usuario eligió no tocar el home: **T0.1–T0.4 se hicieron inline**, contra la preferencia de delegar. Queda como deuda de proceso hasta que se elimine ese `.git` o se mueva el proyecto.
 - **ESLint 10, no 9.** Se instaló el major vigente; `typescript-eslint` 8.71 y los plugins de React declaran soporte `^9 || ^10`. El plan §2 quedó corregido a 10.
@@ -207,7 +356,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - **La versión del caché se declara una sola vez (T3.2c).** `CACHE_VERSION` nombra tanto la clave de storage como el `buster` del persister. Antes la clave estaba versionada (`v1`) y el buster no (era `''`), así que un cambio de formato inflaba uno y dejaba el otro. Consecuencia del cambio: el buster pasó de `''` a `'v1'`, lo que invalida una vez todo caché persistido por un build anterior (solo desarrollo, no hay usuarios). El test que lo detectó fue el propio flush: escribía `buster: 'v1'` y el `persistQueryClientRestore` del test usaba el default `''` → `busted → removeClient()` y cero mutaciones restauradas. Se verificó en la fuente que `PersistQueryClientProvider` **sí** reenvía `persistOptions` (`...optionsRef.current.persistOptions`), así que la app era consistente y el defecto era solo del test; lo que quedó fue una mejora de fidelidad: **todos** los tests de persistencia ahora esparcen `persistOptions` en vez de reescribir `buster`/`dehydrateOptions` a mano, que era la forma de que pasaran mientras producción busteaba cada entrada.
 - **El proyecto compila con `erasableSyntaxOnly`.** Prohíbe las parameter properties (`constructor(readonly kind: unknown)`), los enums y los namespaces. Aplica a todo el código nuevo de la fase.
 
-### Presupuesto de bundle — seguimiento medido
+
+### L9 · Presupuesto de bundle — seguimiento medido
 
 El plan §7 fija 180 KB gzip para el bundle inicial, con la regla de **medir, no asumir** (A8). Serie medida hasta ahora:
 
