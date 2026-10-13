@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fases 0, 1 y 2 cerradas. **Fase 3 en curso**: T3.2b, T3.2c, T3.1b/c, T3.2d y T3.4 cerradas (126/126 tests en 21 archivos, bundle inicial 113.84 kB de 180). La verificación independiente de la durabilidad corrió y encontró un defecto alto, ya corregido (`L10`). **Dos decisiones pendientes del usuario**: D2 y T1.9. T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
+**Estado:** Fases 0, 1 y 2 cerradas. **Fase 3 en curso**: T3.2b, T3.2c, T3.1b/c, T3.2d, T3.4 y T1.9 cerradas (126/126 tests en 21 archivos, bundle inicial 113.84 kB de 180). La verificación independiente de la durabilidad corrió y su defecto alto quedó corregido (`L10`); la policy de lectura de `exercises` quedó acotada y aplicada al proyecto hosted (`L11`). D2 se resuelve dentro de T3.9. T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
 **Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp`, repo propio. `node_modules` es un junction a `C:\Users\ulise\develop\gymtracker-modules\node_modules`.
 **Specs:** los `S#` citan **verbatim** `PLAN.md` §1, §3, §6, §7 y §9, que es la fuente de requisitos declarada en `L1`. Los pedidos del usuario, las decisiones y la evidencia están en el `## Log`, al final.
 
@@ -77,7 +77,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T2.3 · cuatro pantallas de auth como rutas diferidas | S4, S16 | inline | `10df839` |
 | T2.4 · shell + BottomNav + skeletons | S4, S16 | inline | `29488d2`, `7112d49`, `66f74b4` |
 | T2.5 · registro contra el servidor real | S4 | **bloqueada** | pendiente |
-| T1.9 · policy de SELECT de `exercises` expone custom ajenos | S3 | **decisión** | pendiente |
+| T1.9 · policy de SELECT de `exercises` expone custom ajenos | S3 | hosted | `97a732f` |
 | T3.1 · `AsyncStorage` sobre IndexedDB compartido | S13 | inline | `4a5551b` |
 | T3.1b · `useWorkoutStore` (Zustand + persist) con guard de doble finish | S13 | inline | `19573de` |
 | T3.1c · `localIsoDate()` (fecha del reloj local) | S13 | inline | `19573de` |
@@ -135,7 +135,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T1.6** Suite pgTAP en `supabase/tests/0001_schema_test.sql`: **21 aserciones, ejecutadas contra la base real, 21/21 en verde**. Cubre seed (incluido M5), RLS habilitado en las 6 tablas, los GRANTs de tabla y de función (A9/A3), el FK compuesto (A2), `deleted_at` y el índice parcial (M4) y el índice único del catálogo (M5). Tres defectos que solo aparecían ejecutando (H1–H3) más dos hallazgos del CLI (H4–H6).
 - [x] **T1.7** Tests de `save_workout` en `supabase/tests/0002_save_workout_test.sql`: **20 aserciones** contra la base real (41/41 con el archivo de schema). Cubre Epley (`100 kg × 5 → 116.67`), PR que no baja (A4), warmups excluidos del PR pero guardados en el historial, reintento con los mismos UUID sin duplicar, reemplazo completo de series (sin merge), `Forbidden` al pisar un workout ajeno — sin tocar sus datos —, `Not authenticated` sin claims, y **RLS real**: B no ve los workouts de A, que es el harness que pedía A6 (`authenticated` + claims, no `service_role`, que bypassea RLS). Todo dentro de una transacción con rollback: verificado que no quedan usuarios ni workouts de prueba en la base.
 - [x] **T1.8** Documentar limitaciones M1/M6 y agregar `deleted_at` a `body_measurements` (M4). **Cerrada**: `0006_body_measurements_soft_delete.sql` agrega `deleted_at` y reemplaza `UNIQUE(user_id, date)` por un índice único **parcial** sobre filas vivas — sin ese detalle, borrar una medición bloquearía volver a cargar el mismo día. M1, M6 y A4 quedaron documentados en el README ("Limitaciones conocidas del MVP").
-- [ ] **T1.9** **La policy de SELECT de `exercises` expone filas custom de otros usuarios.** Hallazgo propio, no de la verificación: `0001_init.sql:74-75` es `ON public.exercises FOR SELECT USING (true)` y `0003_grants.sql:26` da `GRANT SELECT` a `authenticated`, así que cualquier usuario autenticado lee **todas** las filas, incluidas las de `is_custom = true` ajenas: `name`, `description`, `created_by`. El plan hablaba de que el catálogo **global** fuera compartido y legible; leer los custom ajenos contradice esa intención. La suite pgTAP no lo cubría: probaba que A no lee los *workouts* de B, no los ejercicios custom de B. **Pendiente de decisión del usuario** porque cambia la policy de seguridad de la base desplegada; el fix es del servidor y `fetchCatalog` lo recorta en el cliente mientras tanto, cosa que su código dice explícitamente para que nadie lo confunda con el fix.
+- [x] **T1.9** **La policy de SELECT de `exercises` exponía filas custom de otros usuarios.** Hallazgo propio, no de la verificación. **Cerrada** (`97a732f`) con la decisión del usuario de corregirla **y aplicarla al proyecto hosted**. `0001_init.sql:74-75` era `ON public.exercises FOR SELECT USING (true)` y `0003_grants.sql:26` da `GRANT SELECT` a `authenticated`, así que cualquier usuario autenticado leía **todas** las filas, incluidas las de `is_custom = true` ajenas: `name`, `description`, `created_by`. El plan solo pedía que el catálogo **global** fuera compartido; leer los custom ajenos lo contradecía. La suite pgTAP no lo cubría: probaba que A no lee los *workouts* de B, nunca los ejercicios custom de B. Fix: `0007_exercises_select_scope.sql` dropea y recrea la policy con el invariante real (`COALESCE(is_custom, false) = false OR created_by = (select auth.uid())`); el `COALESCE` no es decorativo, porque `is_custom = false` **no** matchea NULL y habría dejado invisibles las filas globales insertadas sin la columna explícita — un arreglo peor que el bug. Aplicada con `db push --linked` después de confirmar con `migration list --linked` que era la única pendiente. Ver evidencia y la deuda del pgTAP sin ejecutar en `L11`.
 
 **Aprendizaje operativo de la Fase 1**: `db push` y `gen types --linked` funcionan contra el proyecto hosted **sin Docker**, pero `test db --linked` y `db dump --linked` **lo requieren igual** (corren `pg_prove`/`pg_dump` en un contenedor). Elegir hosted en D2 no nos libra de necesitar el daemon para verificar RLS.
 
@@ -406,3 +406,30 @@ Reproducido por el verificador: una entrada que agota `retry: 3` pasa a `error`,
 #### Hallazgo propio · Alto — la policy de SELECT de `exercises` expone filas custom ajenas
 
 Detectado al abrir T3.4, no por la verificación. Está registrado como **T1.9** con el detalle; acá queda el hecho: el plan solo pedía que el catálogo **global** fuera legible, y la policy `USING (true)` hace legible también lo custom de otros usuarios. `fetchCatalog` recorta el resultado en el cliente para que la pantalla sea honesta hoy, y su código dice explícitamente que **eso no es el fix**: el fix es del servidor.
+
+---
+
+### L11 · La policy de lectura de `exercises`, acotada y aplicada (2026-10-13)
+
+Decisión del usuario sobre T1.9: corregirla **y aplicarla al proyecto hosted**. Ejecutado en `97a732f`.
+
+`0007_exercises_select_scope.sql` dropea y recrea `read exercises` con el invariante real: `COALESCE(is_custom, false) = false` es catálogo compartido, `created_by = auth.uid()` es tu propio custom. El `COALESCE` no es decorativo —`is_custom = false` **no** matchea NULL, así que sin él una fila global insertada sin la columna explícita habría quedado invisible para todos, que es un arreglo peor que el bug.
+
+**Aplicada**: `migration list --linked` mostró `0007` como la única pendiente antes de empujar, y `db push --linked` la aplicó.
+
+**Verificación honesta**: Docker **no está corriendo** en esta máquina, y `supabase test db --linked` corre `pg_prove` dentro de un contenedor, así que `supabase/tests/0003_exercises_scope_test.sql` **quedó escrito pero no ejecutado**. Para no dejar la migración sin evidencia, las mismas seis condiciones se corrieron contra la base real con una sonda SQL cruda (`stats/probe-0007.sql`, gitignoreado) vía `db query --linked`, que sí funciona sin contenedor (hallazgo H5: su `pg_proc` no ve pgTAP, de ahí que la sonda use `raise exception` en vez de aserciones). Resultado:
+
+| Medición | Valor medido | Esperado |
+|---|---|---|
+| B ve los custom de A | **0** | 0 |
+| A ve su propio custom | **1** | 1 |
+| Globales que ve B / que existen | **57 / 57** | iguales |
+| Filas que B ve en total | **57** | = globales, nada más |
+| `anon` puede leer `exercises` | **false** | false |
+| `qual` aplicado | `((COALESCE(is_custom, false) = false) OR (created_by = ( SELECT auth.uid() AS uid)))` | el de la migración |
+
+La sonda aborta con `raise exception` si cualquiera de las condiciones falla, así que **no hubo excepción = las seis pasaron**. Todo dentro de una transacción con rollback, y verificado **después** del rollback: **0 usuarios de sonda** quedaron en la base.
+
+**Deuda declarada**: el archivo pgTAP existe y declara `plan(8)` con 8 aserciones, pero nadie lo ejecutó todavía. La primera vez que haya Docker hay que correr `npx supabase test db --linked` y confirmar 8/8 antes de confiar en él.
+
+**Efecto en el código**: el recorte que `fetchCatalog` hace en el cliente pasó a ser redundante. Se deja: es barato y documenta la intención donde se lee.
