@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { kgToLb, lbToKg, localIsoDate, normalizeForSearch, toNumber } from './utils';
+import {
+  kgToLb,
+  lbToKg,
+  localIsoDate,
+  normalizeForSearch,
+  parseDecimalInput,
+  toNumber,
+} from './utils';
 
 describe('toNumber', () => {
   it('parses the DECIMAL strings returned by supabase-js', () => {
@@ -97,5 +104,42 @@ describe('normalizeForSearch', () => {
 
   it('leaves text without accents alone', () => {
     expect(normalizeForSearch('Sentadilla')).toBe('sentadilla');
+  });
+});
+
+describe('parseDecimalInput', () => {
+  /*
+   * Los pesos en Argentina se escriben con coma: "72,5". Un input
+   * `type="number"` **rechaza la coma** (el valor queda vacío), así que estos
+   * campos son de texto con `inputMode="decimal"` y el parseo vive acá.
+   */
+  it('accepts the decimal comma', () => {
+    expect(parseDecimalInput('72,5')).toBe(72.5);
+    expect(parseDecimalInput('0,25')).toBe(0.25);
+  });
+
+  it('accepts a decimal point too', () => {
+    expect(parseDecimalInput('72.5')).toBe(72.5);
+  });
+
+  it('parses whole numbers', () => {
+    expect(parseDecimalInput('10')).toBe(10);
+    expect(parseDecimalInput('0')).toBe(0);
+  });
+
+  it('treats an empty field as "no value", not as zero', () => {
+    // `Number('')` is 0, which would silently turn a skipped field into a 0 kg
+    // set — the difference between "not filled in" and "lifted nothing".
+    expect(parseDecimalInput('')).toBeNull();
+    expect(parseDecimalInput('   ')).toBeNull();
+  });
+
+  it('keeps a half-typed number usable while the user is still typing', () => {
+    expect(parseDecimalInput('72,')).toBe(72);
+  });
+
+  it('returns null for what is not a number', () => {
+    expect(parseDecimalInput('abc')).toBeNull();
+    expect(parseDecimalInput('7a')).toBeNull();
   });
 });

@@ -47,6 +47,32 @@ export function localIsoDate(date: Date = new Date()): string {
 }
 
 /**
+ * Parses what someone typed into a numeric field.
+ *
+ * The decimal comma is the reason this exists at all: weights are written "72,5"
+ * in Argentina, and a `type="number"` input **refuses a comma outright** — it
+ * reports an empty value — so the set fields are text inputs with
+ * `inputMode="decimal"` and the parsing happens here instead of in the browser.
+ *
+ * An empty field is `null`, never 0: `Number('')` is 0, which would quietly turn a
+ * field the user skipped into a 0 kg set. A half-typed "72," parses as 72 so the
+ * value stays usable while the user is still typing; it is the caller's business
+ * whether that intermediate value is committed.
+ */
+export function parseDecimalInput(value: string): number | null {
+  // Only the first comma: nobody types thousands separators into a set field.
+  const cleaned = value.trim().replace(',', '.');
+
+  if (cleaned === '') {
+    return null;
+  }
+
+  const parsed = Number(cleaned);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
  * Single sanctioned conversion point for Postgres `DECIMAL` columns.
  *
  * `supabase-js` returns numeric/decimal columns as strings, so arithmetic on a
