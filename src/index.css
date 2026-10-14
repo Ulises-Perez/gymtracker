@@ -1,14 +1,16 @@
 @import 'tailwindcss';
 /*
- * Both faces ship every subset their package carries -- cyrillic, greek, vietnamese -- which measured
- * 308 kB of woff2 in dist for an app that only ever speaks Spanish, on the connection its own product
- * truth describes as usually bad. That is real weight, and it is recorded as a pending fix instead of
- * hidden: these packages organise their entry points by axis (wght, wdth, standard) and not by subset,
- * so trimming it means writing the @font-face declarations by hand against the latin files. Latin-only
- * measures around 66 kB instead of 308.
+ * Both faces ship every subset their package carries -- cyrillic, greek, vietnamese -- and `dist` ends up
+ * holding 308 kB of woff2 for an app that only speaks Spanish.
  *
- * The first attempt at that imported '@fontsource-variable/archivo/latin.css', which does not exist, and
- * broke the build. Reverted first, optimisation second.
+ * That is deploy size and NOT what a phone downloads. It is worth writing down because the first note in
+ * this file implied otherwise: the packages declare a `unicode-range` per subset, so a browser fetches
+ * only the ranges the page's text actually matches, and Spanish never matches cyrillic. The weight a
+ * session pays is the latin files, around 66 kB.
+ *
+ * Trimming `dist` by hand would change nothing about a session, so it is not worth doing now. Recorded
+ * rather than quietly dropped, because the mistake -- measuring what is on disk instead of what is
+ * requested over the network -- is the same one the bundle method was written to prevent.
  */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/archivo';
