@@ -87,14 +87,34 @@ describe('WorkoutExerciseCard', () => {
   });
 
   /**
-   * The reference the plan asks for on the card. It is read from the RPC that
-   * returns the sets of the most recent workout that used this exercise, so a drop
-   * set shows up as itself instead of being summarised into one number.
+   * The reference the plan asks for on the card, read from the RPC that returns the sets of the most
+   * recent workout that used this exercise. It is summarised to the heaviest set: the plan asked for
+   * every set so that a drop set would read as itself, and the line grew long enough to stop being
+   * read, which is the opposite of what it was for.
    */
   it('shows what was lifted last time', async () => {
     renderCard(cardWith([]));
 
-    expect(await screen.findByText('último: 10 × 70 kg · 8 × 75 kg')).toBeInTheDocument();
+    expect(await screen.findByText('último: 8 × 75 kg')).toBeInTheDocument();
+  });
+
+  /**
+   * The heaviest set and not the last one, which is the whole difference from what this line used to
+   * do. A session that ends lighter than it started still has a best set, and that is the number the
+   * user is about to try to beat.
+   */
+  it('shows the heaviest set of last time, not the last one', async () => {
+    fake.rpc.mockResolvedValue({
+      data: [
+        { set_number: 1, reps: 5, weight_kg: '80.00' },
+        { set_number: 2, reps: 12, weight_kg: '40.00' },
+      ],
+      error: null,
+    });
+
+    renderCard(cardWith([]));
+
+    expect(await screen.findByText('último: 5 × 80 kg')).toBeInTheDocument();
   });
 
   it('says nothing about last time when there is no history', async () => {

@@ -25,6 +25,9 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 
 ---
 
+- **S6 · La línea de "último".** Pedido textual: "falta que cuando muetre que fue lo ultimo vaya 4rep y cantidad max de kg osea 30kg ponele". La tarjeta muestra, de la sesión anterior, **las repeticiones de la serie más pesada y ese peso** — "último: 4 × 30 kg" — en vez de la lista completa de series. **Cambia una decisión previa de T3.6a**, que mostraba todas a propósito: el razonamiento era que un drop set son dos números distintos y promediarlos diría que levantes algo que nunca levantaste, y sigue siendo cierto — pero la lista se volvió larga y dejó de leerse, que es lo contrario de lo que buscaba. El peso que queda **sigue siendo uno que el usuario levantó**: es el de la serie más pesada, no un promedio. Si hay dos series con el mismo peso gana la de más repeticiones, porque es la que dice más sobre lo que puede hacer.
+
+
 ## Tasks
 
 | ID | Qué | S# | Ruta | Commit |
@@ -34,6 +37,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 | O3 | Cliente: el draft (con migración de formato), el schema y el payload | S2, S4 | cliente | `74fcccb` |
 | O4 | La UI del objetivo: los campos al elegir y su lugar en la tarjeta | S2, S4 | cliente | pendiente |
 | O5 | E2E del objetivo | S2 | e2e | pendiente |
+| O6 | La línea de "último": reps de la serie más pesada y ese peso | S6 | cliente | pendiente |
 
 ### Detalle por tarea
 
@@ -42,6 +46,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 - [x] **O3** Cliente: el objetivo en el draft (con **migración de formato a `version: 2`**), en el schema Zod y en `toSaveWorkoutPayload`. **Cerrada** en `74fcccb`, 11 tests nuevos (274 → **285/285 en 34 archivos**), typecheck y lint limpios. **RED observado** en los tres archivos antes de implementar. Lo que importa del diseño: el payload numera los objetivos por la **posición de la tarjeta** y no por su lugar en el array — numerarlos por orden de aparición archivaría el objetivo contra el ejercicio equivocado el día que el mismo ejercicio aparezca dos veces, que es justo el día para el que existe la posición en la clave. Y una tarjeta con los tres campos vacíos **no viaja**: es una tarjeta que nunca se completó, y una fila de tres nulos no diría nada y sería igual una fila. Ver `L6`.
 - [ ] **O4** La UI del objetivo: los tres campos aparecen **al elegir el ejercicio** —que es lo que el usuario pidió— y quedan también en la tarjeta para poder ajustarlos durante la sesión. El selector pierde por esto su "un toque y afuera" de T3.5: es un cambio deliberado y pedido, a cambio de poder fijar el objetivo al agregar.
 - [ ] **O5** E2E: el flujo crítico suma el objetivo —fijarlo al agregar el ejercicio y verlo después de guardar— contra el stack local.
+- [ ] **O6** La línea de "último" pasa de la lista completa de series de la sesión anterior a **las repeticiones de la serie más pesada y ese peso**. Es el cambio de una decisión de T3.6a, y se hace porque la lista dejó de leerse. El test que lo fija usa una sesión que **termina más liviana de lo que empezó**: si tomara la última serie, pasaría igual con la implementación vieja y no probaría nada.
 
 ---
 
@@ -127,3 +132,13 @@ Cerrada en `74fcccb`. **285/285 unit tests en 34 archivos** (11 nuevos: 3 del sc
 **Lo que costó, y lo anoto porque fue mi error.** Mi primera edición del test del store **reemplazó las aserciones y los cierres del test anterior** y dejó un `describe` adentro de un `it`, o sea un `Transform failed`. Como el archivo no compilaba, **sus tests no corrían**, y la primera lectura que hice fue "el RED está incompleto" en vez de "el archivo está roto". Lo destapó que los números no cerraban: 27 tests cuando esperaba alrededor de 39. Después aparecieron dos más de mi parte: referencié `PRESS_BANCA` cuando ese archivo llama a la constante `EXERCISE_ID`, y tipé el `emptyTarget` como *patch* (campos opcionales) cuando tiene que ser la forma completa. Los tres los marcó el typecheck o la propia suite, no yo.
 
 **La lección que me llevo**: un archivo de test que no compila **no falla, no corre** — y un recuento de tests que no cierra es la única señal de que algo así pasó.
+
+---
+
+### L7 · Pedido del usuario (2026-10-13)
+
+> Al agregar los pesos y repeticiones esta bien, falta que cuando muetre que fue lo ultimo vaya 4rep y cantidad max de kg osea 30kg ponele, ademas de eso continuemos con los demas fase 04 y 05
+
+Se parte en dos, y la segunda mitad son las dos tareas que ya estaban abiertas de este documento: **S6/O6**, el cambio de la línea de "último", y **seguir con O4 y O5** (la UI del objetivo y su E2E), que es lo que "fase 04 y 05" nombra acá.
+
+**Lo que confirma la primera mitad, y vale anotarlo**: "al agregar los pesos y repeticiones está bien" es la confirmación de que O4 va por donde va — los tres campos del objetivo (reps, mínimo, máximo) que ya están guardándose de punta a punta desde O3.

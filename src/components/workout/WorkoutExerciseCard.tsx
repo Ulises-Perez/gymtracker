@@ -104,16 +104,27 @@ export function WorkoutExerciseCard({
 }
 
 /**
- * "último: 10 × 70 kg · 8 × 75 kg"
+ * "último: 8 × 75 kg"
  *
- * Every set of the last session, not a summary: a drop set is two different
- * numbers, and averaging them into one would tell the user to lift something they
- * never lifted. It is also what the RPC was built to return.
+ * The heaviest set of the last session, with its reps — one set, not the list. This used to print
+ * every set on purpose, so that a drop set read as two numbers instead of an average telling the
+ * user to lift something they never lifted. The reasoning still holds and the line grew long enough
+ * to stop being read, which defeats the point of showing it at all. What is left is still a weight
+ * they really lifted: the heaviest set's, not a mean of them.
+ *
+ * Ties go to the set with more reps, because that is the one that says more about what they can do.
+ * The caller only renders this when there is at least one set, which is why `reduce` can start from
+ * the first one.
  */
 function formatHistory(sets: LastSet[]): string {
-  const entries = sets.map((set) => `${set.reps ?? '?'} × ${set.weightKg} kg`);
+  const best = sets.reduce((winner, set) =>
+    set.weightKg > winner.weightKg ||
+    (set.weightKg === winner.weightKg && (set.reps ?? 0) > (winner.reps ?? 0))
+      ? set
+      : winner,
+  );
 
-  return `último: ${entries.join(' · ')}`;
+  return `último: ${best.reps ?? '?'} × ${best.weightKg} kg`;
 }
 
 function SetRow({
