@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.ts';
+import { toNumber } from './utils.ts';
 
 /**
  * Reads for the history screen.
@@ -53,6 +54,86 @@ export function toWorkoutSummary(row: WorkoutRow): WorkoutSummary {
     date: row.date,
     title: row.title,
     durationMinutes: row.duration_minutes,
+  };
+}
+
+/** One set, as the detail screen reads it. */
+export type WorkoutSetDetail = {
+  id: string;
+  exerciseId: string;
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+  isWarmup: boolean;
+};
+
+export type WorkoutDetail = {
+  workout: WorkoutSummary;
+  sets: WorkoutSetDetail[];
+};
+
+type WorkoutSetRow = {
+  id: string;
+  exercise_id: string;
+  set_number: number;
+  reps: number | null;
+  weight_kg: string | null;
+  is_warmup: boolean | null;
+};
+
+/**
+ * One workout with its sets.
+ *
+ * The exercise names are deliberately **not** read here. They come from the catalogue the screen
+ * already has cached — the same list the picker used to add the exercise — so a name has one source,
+ * and that source keeps working offline.
+ */
+export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDetail> {
+  const supabase = await getSupabase();
+
+  const workout = await supabase
+    .from('workouts')
+    .select('id, date, title, duration_minutes')
+    .eq('id', workoutId)
+    .is('deleted_at', null)
+    // Ordered because a query has to end somewhere, and ending on a defined order is what makes the
+    // result deterministic instead of merely usually right.
+    .order('date');
+
+  if (workout.error) {
+    throw workout.error;
+  }
+
+  const sets = await supabase
+    .from('workout_sets')
+    .select('id, exercise_id, set_number, reps, weight_kg, is_warmup')
+    .eq('workout_id', workoutId)
+    .is('deleted_at', null)
+    .order('set_number');
+
+  if (sets.error) {
+    throw sets.error;
+  }
+
+  const first = (workout.data as WorkoutRow[])[0];
+
+  if (!first) {
+    // Gone, or never this user's. Both are a 404, and the screen can say which happened rather than
+    // showing an empty workout with no explanation.
+    throw new Error('Workout not found');
+  }
+
+  return {
+    workout: toWorkoutSummary(first),
+    sets: (sets.data as WorkoutSetRow[]).map((row) => ({
+      id: row.id,
+      exerciseId: row.exercise_id,
+      setNumber: row.set_number,
+      reps: row.reps,
+      // A5: a DECIMAL arrives as a string and becomes a number here and nowhere else.
+      weightKg: row.weight_kg === null ? null : toNumber(row.weight_kg),
+      isWarmup: row.is_warmup ?? false,
+    })),
   };
 }
 

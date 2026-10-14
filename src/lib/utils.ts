@@ -22,6 +22,19 @@ export function lbToKg(lb: number): number {
  * duration is not a duration, and inventing one would write a wrong number into the
  * workout being saved.
  */
+/**
+ * "13/10/2026", from the string the database returns.
+ *
+ * Deliberately not `new Date(isoDate)`: a `DATE` column arrives as `YYYY-MM-DD`, which JavaScript
+ * reads as UTC midnight. West of Greenwich that is the previous day, so a workout done on the 13th
+ * would read as the 12th — a wrong answer produced by a formatter.
+ */
+export function formatIsoDate(isoDate: string): string {
+  const parts = isoDate.split('-');
+
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : isoDate;
+}
+
 export function durationMinutes(startedAt: number, endedAt: number): number | null {
   if (endedAt < startedAt) {
     return null;

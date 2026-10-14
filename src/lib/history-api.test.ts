@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
-import { fetchWorkoutPage } from './history-api.ts';
+import { fetchWorkoutDetail, fetchWorkoutPage } from './history-api.ts';
 import { getSupabase } from './supabase.ts';
 
 vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -95,5 +95,48 @@ describe('fetchWorkoutPage', () => {
 
     // An empty list and a denied query look the same on screen unless the failure is raised.
     await expect(fetchWorkoutPage(USER_ID, null)).rejects.toThrow('permission denied');
+  });
+});
+
+describe('fetchWorkoutDetail', () => {
+  const SET_ROW = {
+    id: '01920000-0000-7000-8000-0000000000b1',
+    exercise_id: '01920000-0000-7000-8000-0000000000a1',
+    set_number: 1,
+    reps: 10,
+    weight_kg: '70.00',
+    is_warmup: false,
+  };
+
+  beforeEach(() => {
+    fake.setTableResult('workout_sets', { data: [SET_ROW], error: null });
+  });
+
+  it('turns the decimal into a number at the boundary, and nowhere else', async () => {
+    const detail = await fetchWorkoutDetail(row(1).id);
+
+    // A5: the column arrives as a string, and arithmetic on it would concatenate.
+    expect(detail.sets[0]?.weightKg).toBe(70);
+  });
+
+  it('keeps an unwritten weight as nothing instead of turning it into zero', async () => {
+    fake.setTableResult('workout_sets', { data: [{ ...SET_ROW, weight_kg: null }], error: null });
+
+    // Zero would be a claim that someone lifted nothing; the column is nullable for a reason.
+    expect((await fetchWorkoutDetail(row(1).id)).sets[0]?.weightKg).toBeNull();
+  });
+
+  it('refuses a workout that is not there instead of returning an empty one', async () => {
+    fake.setTableResult('workouts', { data: [], error: null });
+
+    // Deleted, or never this user's — and RLS makes those indistinguishable, which is why the
+    // screen says "may have been deleted" rather than guessing.
+    await expect(fetchWorkoutDetail(row(1).id)).rejects.toThrow('Workout not found');
+  });
+
+  it('throws the error whole when the sets cannot be read', async () => {
+    fake.setTableResult('workout_sets', { data: null, error: { message: 'permission denied' } });
+
+    await expect(fetchWorkoutDetail(row(1).id)).rejects.toThrow('permission denied');
   });
 });

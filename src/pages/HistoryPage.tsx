@@ -1,6 +1,9 @@
+import { Link } from 'react-router';
+
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory.ts';
+import { formatIsoDate } from '../lib/utils.ts';
 
 /**
  * The history: the workouts that reached the server, newest first.
@@ -38,12 +41,17 @@ export function HistoryPage() {
         <>
           <ul aria-label="Entrenamientos" className="mt-4 space-y-2">
             {workouts.map((workout) => (
-              <li key={workout.id} className="bg-surface rounded-lg p-4">
-                <p className="text-sm font-medium">{formatDate(workout.date)}</p>
-                <p className="text-muted mt-0.5 text-sm">
-                  {workout.title ?? 'Entrenamiento'}
-                  {workout.durationMinutes !== null ? ` · ${workout.durationMinutes} min` : ''}
-                </p>
+              <li key={workout.id}>
+                <Link
+                  to={`/history/${workout.id}`}
+                  className="bg-surface hover:bg-bg block rounded-lg p-4"
+                >
+                  <p className="text-sm font-medium">{formatIsoDate(workout.date)}</p>
+                  <p className="text-muted mt-0.5 text-sm">
+                    {workout.title ?? 'Entrenamiento'}
+                    {workout.durationMinutes !== null ? ` · ${workout.durationMinutes} min` : ''}
+                  </p>
+                </Link>
               </li>
             ))}
           </ul>
@@ -62,17 +70,4 @@ export function HistoryPage() {
       ) : null}
     </div>
   );
-}
-
-/**
- * "13/10/2026", built from the string the database returns.
- *
- * Deliberately not `new Date(isoDate)`: the column is a `DATE` and arrives as `YYYY-MM-DD`, which
- * JavaScript reads as UTC midnight. West of Greenwich that is the day before, so a workout done on
- * the 13th would read as the 12th — a wrong answer produced by a formatter.
- */
-function formatDate(isoDate: string): string {
-  const parts = isoDate.split('-');
-
-  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : isoDate;
 }

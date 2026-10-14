@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../lib/queryClient.ts';
@@ -31,7 +32,10 @@ function row(index: number) {
 function renderPage() {
   return render(
     <QueryClientProvider client={client}>
-      <HistoryPage />
+      {/* A router, because every row is a link to its own detail now. */}
+      <MemoryRouter>
+        <HistoryPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
