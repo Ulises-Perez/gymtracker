@@ -115,3 +115,44 @@
     animation: none;
   }
 }
+
+/*
+ * The browser's own surfaces.
+ *
+ * Selection, the caret, the scrollbar, the focus ring, the underline offset and the numerals all ship
+ * with defaults that belong to no design system, and the craft floor calls theming them from the palette
+ * "the cheapest signal that a page was built rather than assembled" -- and the one everybody skips. A
+ * paper-coloured page with a dark system scrollbar and a grey focus ring reads as a template.
+ *
+ * `color-scheme: light` is the line that makes the native controls, the scrollbar and the caret follow
+ * the page instead of the operating system's idea of what a page is.
+ */
+:root {
+  color-scheme: light;
+  /* The scrollbar is a ruled margin, not a chrome bar. */
+  scrollbar-color: var(--color-rule) var(--color-bg);
+  scrollbar-width: thin;
+  /* The caret is one of the two things the accent is for, with the strikethrough. */
+  caret-color: var(--color-primary);
+}
+
+/* The highlighter of a paper notebook, which is the accent earning its keep a third time. */
+::selection {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* A rule drawn by hand sits a little below the letters; the default glues it to them. */
+a {
+  text-underline-offset: 3px;
+}
+
+/* For a number that is read as data and not as prose: it must not shift while it is being written. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
