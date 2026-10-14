@@ -22,7 +22,9 @@ export function HistoryPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <h1 className="text-2xl font-semibold">Historial</h1>
+      {/* The display face at its own weight: in this world a page title is printed, not the interface
+          face pushed heavier. */}
+      <h1 className="font-display text-3xl font-black tracking-tight">Historial</h1>
 
       {history.isPending ? <PageSkeleton label="Cargando el historial" /> : null}
 
@@ -39,14 +41,17 @@ export function HistoryPage() {
 
       {workouts.length > 0 ? (
         <>
-          <ul aria-label="Entrenamientos" className="mt-4 space-y-2">
+          {/*
+           * Ruled rows, not cards: the history is a page of the notebook, so every workout is a line
+           * under the one before it. One elevation and it is the rule -- no card, no shadow, nothing
+           * nested inside anything.
+           */}
+          <ul aria-label="Entrenamientos" className="border-rule mt-4 border-t">
             {workouts.map((workout) => (
-              <li key={workout.id}>
-                <Link
-                  to={`/history/${workout.id}`}
-                  className="bg-surface hover:bg-bg block rounded-lg p-4"
-                >
-                  <p className="text-sm font-medium">{formatIsoDate(workout.date)}</p>
+              <li key={workout.id} className="border-rule border-b">
+                <Link to={`/history/${workout.id}`} className="hover:bg-surface block px-1 py-3">
+                  {/* Tabular figures so the dates form a column instead of shifting row by row. */}
+                  <p className="tabular text-sm font-medium">{formatIsoDate(workout.date)}</p>
                   <p className="text-muted mt-0.5 text-sm">
                     {workout.title ?? 'Entrenamiento'}
                     {workout.durationMinutes !== null ? ` · ${workout.durationMinutes} min` : ''}
@@ -61,7 +66,12 @@ export function HistoryPage() {
               type="button"
               onClick={() => void history.fetchNextPage()}
               disabled={history.isFetchingNextPage}
-              className="ring-white/15 hover:bg-bg mt-3 min-h-12 w-full rounded-md px-4 ring-1 disabled:opacity-50"
+              /*
+               * Paging only brings more of the list, so it neither advances the session nor
+               * replaces anything: a ruled button, and the accent stays where it means something.
+               * Its focus ring comes from `index.css`, which declares focus once for the whole app.
+               */
+              className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4 disabled:opacity-50"
             >
               {history.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
             </button>

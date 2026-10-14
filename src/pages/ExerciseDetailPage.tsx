@@ -62,7 +62,7 @@ export function ExerciseDetailPage() {
         ← Historial
       </Link>
 
-      <h1 className="mt-2 text-2xl font-semibold">{name}</h1>
+      <h1 className="font-display mt-2 text-3xl font-black tracking-tight">{name}</h1>
 
       {progress.isPending ? <Skeleton className="mt-4 h-6 w-40" /> : null}
 
@@ -88,10 +88,17 @@ export function ExerciseDetailPage() {
                 // `aria-pressed` rather than a colour alone: the choice has to be audible.
                 aria-pressed={metric === entry.metric}
                 onClick={() => setMetric(entry.metric)}
-                className={`min-h-12 rounded-md px-3 text-sm ring-1 focus-visible:ring-2 focus-visible:outline-none ${
+                /*
+                 * The chosen metric is ink and not accent, the same call the picker's chips made:
+                 * the red belongs to what was replaced and to what moves the session forward, and
+                 * which line is being plotted is a state. The old world's `ring-white/15` is gone
+                 * -- on paper it was an invisible border -- and so are the per-control focus rings,
+                 * because focus is declared once, in `index.css`.
+                 */
+                className={`border-rule min-h-12 rounded-sm border px-3 text-sm transition-colors motion-reduce:transition-none ${
                   metric === entry.metric
-                    ? 'bg-primary ring-primary text-white'
-                    : 'ring-white/15 hover:bg-bg'
+                    ? 'bg-text border-text text-bg'
+                    : 'text-muted hover:text-text'
                 }`}
               >
                 {entry.label}
@@ -103,9 +110,11 @@ export function ExerciseDetailPage() {
             <ProgressChart points={points} metric={metric} label={chosen?.series ?? ''} />
           </Suspense>
 
-          <ul aria-label="Sesiones" className="text-muted mt-4 space-y-1 text-sm">
+          {/* The sessions as ruled rows, with the figures tabular so the column of numbers holds
+              still and the date column does not wobble down the page. */}
+          <ul aria-label="Sesiones" className="mt-4">
             {points.map((point: ExerciseProgressPoint) => (
-              <li key={point.date}>
+              <li key={point.date} className="border-rule tabular text-muted border-b py-1 text-sm">
                 {formatIsoDate(point.date)} · {point.maxWeight} kg máx · {point.volume} kg de
                 volumen
               </li>

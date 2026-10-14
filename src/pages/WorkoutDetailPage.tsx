@@ -53,7 +53,7 @@ export function WorkoutDetailPage() {
         ← Historial
       </Link>
 
-      <h1 className="mt-2 text-2xl font-semibold">
+      <h1 className="font-display mt-2 text-3xl font-black tracking-tight">
         {detail.data ? formatIsoDate(detail.data.workout.date) : 'Entrenamiento'}
       </h1>
 
@@ -62,7 +62,7 @@ export function WorkoutDetailPage() {
       ) : null}
 
       {detail.data?.workout.durationMinutes !== null && detail.data !== undefined ? (
-        <p className="text-muted mt-1 text-sm">{detail.data.workout.durationMinutes} min</p>
+        <p className="text-muted tabular mt-1 text-sm">{detail.data.workout.durationMinutes} min</p>
       ) : null}
 
       {detail.isPending ? <PageSkeleton label="Cargando el entrenamiento" /> : null}
@@ -74,20 +74,30 @@ export function WorkoutDetailPage() {
       ) : null}
 
       {groups.map((group) => (
-        <section key={group.exerciseId} className="bg-surface mt-4 rounded-lg p-4">
-          <h2 className="text-base font-semibold">
-            {/* The way into the exercise's own screen, where its progress is graphed. */}
-            <Link to={`/history/exercise/${group.exerciseId}`} className="hover:text-primary-soft">
+        /*
+         * A ruled block and not a card: the group opens with a printed rule and its sets are rows
+         * under it, so nothing is nested inside anything and the elevation is the border alone. The
+         * rule is ink and doubled because it starts an exercise, exactly like the block on the
+         * workout screen.
+         */
+        <section key={group.exerciseId} className="border-text mt-6 border-t-2 pt-4">
+          <h2 className="font-display text-lg font-extrabold tracking-tight uppercase">
+            {/* The way into the exercise's own screen, where its progress is graphed. It navigates
+                and does nothing else, so it stays ink and the printed rule underlines it. */}
+            <Link
+              to={`/history/exercise/${group.exerciseId}`}
+              className="decoration-rule hover:decoration-text underline"
+            >
               {names.get(group.exerciseId) ?? 'Ejercicio'}
             </Link>
           </h2>
 
           <ul
             aria-label={`Series de ${names.get(group.exerciseId) ?? 'ejercicio'}`}
-            className="mt-2 space-y-1"
+            className="mt-2"
           >
             {group.sets.map((set) => (
-              <li key={set.id} className="text-muted text-sm">
+              <li key={set.id} className="border-rule tabular text-muted border-b py-1 text-sm">
                 {set.setNumber}ª · {formatSet(set)}
                 {set.isWarmup ? ' · calentamiento' : ''}
               </li>
@@ -111,28 +121,39 @@ export function WorkoutDetailPage() {
               </p>
 
               <div className="flex gap-2">
+                {/*
+                 * The confirm step of a destructive action is one of the two places the red fill
+                 * belongs: this is the tap that commits. `danger` carries the same value and is a
+                 * different meaning, so the accent is used here and the error colour is left to
+                 * errors.
+                 */}
                 <button
                   type="button"
                   onClick={() => remove.mutate()}
                   disabled={remove.isPending}
-                  className="bg-danger min-h-12 flex-1 rounded-md px-4 font-medium text-white disabled:opacity-50"
+                  className="bg-primary min-h-12 flex-1 rounded-sm px-4 font-medium text-white disabled:opacity-50"
                 >
                   Sí, borrar
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirming(false)}
-                  className="ring-white/15 hover:bg-bg min-h-12 flex-1 rounded-md px-4 ring-1"
+                  className="border-rule hover:bg-surface min-h-12 flex-1 rounded-sm border px-4"
                 >
                   Cancelar
                 </button>
               </div>
             </div>
           ) : (
+            /*
+             * The destructive action that asks first: a ruled button whose words carry the warning.
+             * The printed ring of the old world is gone -- on paper it was an invisible border -- and
+             * so is the ring behind the error text.
+             */
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="ring-danger/40 text-danger hover:bg-danger/10 min-h-12 w-full rounded-md px-4 ring-1"
+              className="border-rule text-danger hover:bg-surface min-h-12 w-full rounded-sm border px-4"
             >
               Borrar este entrenamiento
             </button>

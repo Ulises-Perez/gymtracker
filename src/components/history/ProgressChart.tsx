@@ -6,6 +6,20 @@ import { buildChartSeries } from '../../lib/progress-api.ts';
 import type { ExerciseProgressPoint, ProgressMetric } from '../../lib/progress-api.ts';
 
 /**
+ * The two colours this chart is painted with, copied in by value.
+ *
+ * uPlot paints into a canvas and a canvas resolves no custom property, so `var(--color-text)` cannot
+ * be written here. `CHART_INK` is `--color-text` and `CHART_RULE` is `--color-rule`, both declared in
+ * `src/index.css`, and a test reads that file and fails the day one of them moves without this one:
+ * a duplicated value that nothing checks drifts in silence.
+ *
+ * The series is ink — the abandoned violet went with the rest of the old world — and the chart's own
+ * lines are the rule the page is printed with.
+ */
+export const CHART_INK = '#16171b';
+export const CHART_RULE = '#d8d6cf';
+
+/**
  * The progress line, drawn by uPlot.
  *
  * This module exists as its own file so it can be loaded on demand: uPlot is about 50 kB and only
@@ -40,7 +54,7 @@ export function ProgressChart({
       {
         width: element.clientWidth || 320,
         height: 220,
-        series: [{}, { label, stroke: '#6c5ce7', width: 2, points: { show: true } }],
+        series: [{}, { label, stroke: CHART_INK, width: 2, points: { show: true } }],
         scales: { x: { time: true } },
         axes: [
           {
@@ -58,8 +72,9 @@ export function ProgressChart({
                   timeZone: 'UTC',
                 }).format(new Date(tick * 1000)),
               ),
+            ...chartLines(),
           },
-          {},
+          chartLines(),
         ],
       },
       [series.x, series.y],
@@ -70,4 +85,27 @@ export function ProgressChart({
   }, [points, metric, label]);
 
   return <div ref={host} className="mt-3" />;
+}
+
+/**
+ * The grid, the ticks and the axis values, in the world's own two colours.
+ *
+ * uPlot ships `rgba(0, 0, 0, 0.07)` for the grid and the ticks — a black wash that belongs to no
+ * world — and `hexBlack` for the axis values, so both are stated here instead of inherited. The grid
+ * and the ticks are the printed rule of the page, which is what the rule token is for.
+ *
+ * The axis values are ink and deliberately not the rule colour. Read as one phrase, "the grid/axis
+ * becomes the rule" would paint the dates in a line colour: at 1.3:1 against the paper they could
+ * not be read, and the rule is a line, not a letter. Ink is the world's text colour and it stops
+ * the axis from using the library's black.
+ *
+ * A function and not a shared object: uPlot defaults the options it is handed by writing back into
+ * them, so two axes pointing at one object would be two axes sharing whatever the library put there.
+ */
+function chartLines() {
+  return {
+    grid: { stroke: CHART_RULE },
+    ticks: { stroke: CHART_RULE },
+    stroke: CHART_INK,
+  };
 }
