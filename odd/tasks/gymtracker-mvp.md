@@ -195,8 +195,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T4.2a** Detalle del workout: la fecha, el título, la duración y las series agrupadas por ejercicio con los nombres del catálogo. **Cerrada** en `24c5f08`. **310/310 unit tests en 37 archivos**, typecheck y lint limpios. Los nombres salen del catálogo ya cacheado y no de una segunda lectura; los grupos salen en el orden de las series porque la base no guarda el orden de las tarjetas. Ver `L31`.
 - [x] **T4.2b+T4.3** La pantalla del ejercicio y su gráfica. **Cerradas** en `5cf041e`. **322/322 unit tests en 39 archivos**, typecheck y lint limpios. **No hizo falta ninguna migración**: `exercise_progress` existe desde la Fase 1 (`0002_rpcs.sql`), ya está otorgada y agrega por día con `max_weight`, `total_volume` y `best_set_1rm`, sin calentamientos ni filas borradas — así que la gráfica **dibuja lo que calculó la base** y no hace aritmética propia. uPlot y su CSS viajan en un chunk aparte. Ver `L32`.
 - [x] **T4.3** uPlot diferido (peso máx / volumen / 1RM), colgado de la pantalla de T4.2b.
-- [ ] **T4.4** Toggle kg/lb solo UI + helper de soft-delete (**M2**).
-- [ ] **T4.5** Borrar workout / historial (**M2**).
+- [ ] **T4.4** Toggle kg/lb (solo UI) + helper de soft-delete. **Mitad hecha**: `softDeleteWorkout` en `history-api.ts`, con el doble de PostgREST extendido con `update` para poder afirmar **la forma** de la escritura —un UPDATE y no un DELETE— y no sólo su resultado. **El toggle no tiene dónde vivir todavía**: su casa natural es la pantalla de perfil (Fase 6, donde se guarda la preferencia), y ponerlo en la pantalla de entrenamiento cambiaría las etiquetas «Peso en kg serie N» — y con ellas los tests y la E2E entera. Se mueve a Fase 6 con la preferencia, y su helper de conversión va con él.
+- [ ] **T4.5** Borrar un entrenamiento del historial. **El helper está** (borrado suave, `deleted_at`, la convención de 0006 — borrar la fila se llevaría sus series por cascada y reescribiría el historial en silencio). Falta el botón y su confirmación en el detalle del workout.
 
 #### Fase 5 — Dashboard
 
@@ -827,3 +827,17 @@ Cerrado con `0010_revoke_anon_table_privileges.sql`, aplicada a local y al hoste
 **Un cast que documenta una divergencia real**: los tipos generados dicen que esas columnas `DECIMAL` devuelven `number` y en runtime llegan como `string` (el hallazgo A5 del propio proyecto). El cast pasa por `unknown` porque **el compilador tiene razón en que los dos no coinciden**, y el comentario dice por qué.
 
 **Una limitación que queda anotada**: la pantalla muestra la serie temporal y el máximo por sesión, pero no qué series concretas se hicieron ese día. Eso está en el detalle del workout, a un toque desde el historial.
+
+---
+
+### L33 · Borrado suave, y el timeout que estaba arreglando mal (2026-10-13)
+
+**324/324 unit tests en 39 archivos**, typecheck y lint limpios.
+
+**`softDeleteWorkout` marca `deleted_at` y no borra la fila.** Es la convención del proyecto desde `0006` (`body_measurements`), y tiene una razón concreta: borrar la fila se llevaría sus series por la cascada y **reescribiría el historial en silencio** — un récord personal desaparecería de un entrenamiento que el usuario ya había mirado. El test afirma **la forma** de la escritura (`update deleted_at`, no un `delete`) y no sólo su resultado, porque esa es toda la diferencia entre las dos convenciones y una de las dos no se puede deshacer. El doble de PostgREST se extendió con `update` para poder afirmarlo.
+
+**El toggle kg/lb se va a la Fase 6, y es una decisión.** Su casa natural es la pantalla de perfil, donde vive la preferencia; ponerlo hoy en la pantalla de entrenamiento cambiaría las etiquetas «Peso en kg serie N» y con ellas los tests y la E2E entera. El helper de conversión va con él, donde tiene consumidor.
+
+**Y el error que vale más que el código: arreglé el timeout equivocado.** Dos tests de la pantalla de entrenamiento empezaron a fallar en la corrida completa y a pasar solos. Subí `asyncUtilTimeout` de Testing Library de 5 a 10 segundos —que es **cuánto espera un `findBy`**, no cuánto puede durar un test— y **el número no se movió** (8618 ms, después 8186 ms). Eso fue la señal de que estaba tocando la palanca equivocada. El error real era `Test timed out in 5000ms`, o sea el `testTimeout` de vitest, y se arregló ahí (`15_000` en `vite.config.ts`).
+
+La causa de fondo es la que ya había aparecido en T3.6b y no desapareció: **las pantallas resuelven chunks diferidos** —la lista de ejercicios trae dnd-kit y Motion, la del ejercicio trae uPlot— así que lo que parece un render es también un `import()` dinámico, y en paralelo eso pasó los cinco segundos. Los dos timeouts quedaron escritos donde se configuran, con la razón.
