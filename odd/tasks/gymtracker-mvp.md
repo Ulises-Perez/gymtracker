@@ -768,3 +768,13 @@ Vale escribirlo porque es el error que este documento existe para no cometer: **
 **Y la mitigación de S11 quedó verificada sobre el build, no asumida.** T3.6b sumó dnd-kit y Motion: **53.88 kB en su propio chunk**, el segundo más grande del proyecto, mientras el bundle inicial creció ~2.7 kB. Las dependencias pesadas siguen **fuera** del chunk inicial, que es exactamente lo que la mitigación pedía.
 
 **Lo que conviene vigilar en Fase 4 no es el inicial.** Quedan 62 kB de margen, pero los chunks diferidos ya son grandes: 53.88 el de gestos, 53.01 el del SDK de Supabase, 28.36 la pantalla de entrenamiento. El presupuesto se cumple con aire; el riesgo se mudó a donde no se mide.
+
+---
+
+### L29 · Hallazgo posterior al cierre: el stack local era más permisivo que producción (2026-10-13)
+
+No salió de la Fase 3 sino del alcance nuevo (`odd/tasks/gymtracker-objetivos.md`, `L5`), y se anota acá porque es una propiedad del proyecto y no de esa feature.
+
+`0003` documentó que Supabase expone las tablas nuevas de `public` a `anon`/`authenticated` por un default de plataforma que **sólo se aplica en el stack local** —`db push` no lo aplica— y decidió no depender de él otorgando `GRANT` explícitos. **Nunca revocó `anon`**, que era justamente la mitad cuya seguridad descansaba en ese default. Consecuencia: en cualquier Postgres con el default de Supabase, `anon` puede leer `workouts` y `exercises`; y en local la suite pgTAP fallaba dos aserciones que contra el hosted pasan.
+
+Cerrado con `0010_revoke_anon_table_privileges.sql`, aplicada a local y al hosted. Recomendado y **no** aplicado: `auto_expose_new_tables = false` en `config.toml`, porque necesita un reset del stack y hay datos de prueba en uso.

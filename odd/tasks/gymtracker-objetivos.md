@@ -1,6 +1,6 @@
 # Objetivo por ejercicio y secciones en el selector
 
-**Estado:** En curso (2026-10-13). **O1 cerrada** (`5372d35`). Alcance nuevo pedido por el usuario después del cierre de la Fase 3 del MVP (`odd/tasks/gymtracker-mvp.md`, `L28`).
+**Estado:** En curso (2026-10-13). **O1** (`5372d35`) y **O2** (`ba28a6b`) cerradas. Alcance nuevo pedido por el usuario después del cierre de la Fase 3 del MVP (`odd/tasks/gymtracker-mvp.md`, `L28`).
 
 Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historial, dashboard, perfil, PWA) y esto no estaba en ninguna. Se documenta aparte para no diluir el MVP, que ya tiene 700 líneas.
 
@@ -30,7 +30,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 | ID | Qué | S# | Ruta | Commit |
 | --- | --- | --- | --- | --- |
 | O1 | El selector por secciones (UI, sin base) | S1 | cliente | `5372d35` |
-| O2 | Servidor: tabla de objetivos + `save_workout` (migración + pgTAP + hosted) | S2, S4 | hosted | pendiente |
+| O2 | Servidor: tabla de objetivos + `save_workout` (migración + pgTAP + hosted) | S2, S4 | hosted | `ba28a6b` |
 | O3 | Cliente: el draft (con migración de formato), el schema y el payload | S2, S4 | cliente | pendiente |
 | O4 | La UI del objetivo: los campos al elegir y su lugar en la tarjeta | S2, S4 | cliente | pendiente |
 | O5 | E2E del objetivo | S2 | e2e | pendiente |
@@ -38,7 +38,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 ### Detalle por tarea
 
 - [x] **O1** El selector por secciones. **Cerrada** en `5372d35`, 3 tests nuevos. La lista plana pasó a ser secciones con encabezado por grupo muscular, en el orden en que el catálogo los devuelve, y cada ejercicio **adentro** de la suya; lo que no tiene grupo va último, en una sección propia, porque un ejercicio propio se puede crear sin grupo y dejarlo afuera lo escondería. Los chips se mantienen filtrando qué secciones se ven. La jerarquía se anuncia (la sección se nombra y nombra su lista). **Dos cosas aparecieron por correr los tests contra el selector viejo**: la versión plana renderizaba la lista **aunque estuviera vacía** (decisión de T3.5), y con secciones no hay lista cuando nada coincide —correcto, una sección vacía sería ruido— pero el helper esperaba una y dos tests ajenos a secciones se colgaron 5 s; y el fixture de grupos estaba en un orden que el servidor **nunca devuelve** (los ordena alfabéticamente), así que mis aserciones fijaban un layout inexistente. Ver `L4`.
-- [ ] **O2** Servidor: una tabla nueva `workout_exercise_targets` + la extensión de `save_workout` para escribirla en la misma transacción que el resto (S14 del MVP: "workout + sets + PRs en una transacción"). **Decisión de forma, y por qué no es obvia**: el objetivo es de la **tarjeta** y no del ejercicio, y un mismo ejercicio puede aparecer dos veces en una sesión (el store lo permite a propósito). La clave es `(workout_id, exercise_id, position)`, donde `position` es el lugar de la tarjeta en la sesión, contado desde 1 — el mismo criterio con el que `set_number` numera dentro de su tarjeta.
+- [x] **O2** Servidor: `workout_exercise_targets` y el paso de `save_workout` que la escribe, en la misma transacción que las series y los récords. **Cerrada** en `ba28a6b`. **`Files=5, Tests=73, Result: PASS` contra la base local y contra el proyecto hosted**, con RED observado antes (la tabla no existía, 13/13 fallidas). La clave lleva la **posición** porque el objetivo es de la tarjeta y el mismo ejercicio puede aparecer dos veces. Los tres valores son opcionales e independientes, y **`min < max` no se valida a propósito**: se tipean de a uno, y un CHECK convertiría un rango a medio escribir en un guardado que falla entero. De paso apareció un defecto de seguridad preexistente: el stack local era más permisivo que producción (ver `L5` y la migración `0010`).
 - [ ] **O3** Cliente: el objetivo en el draft (con **migración de formato**, `version: 2`), en el schema Zod y en `toSaveWorkoutPayload`. El schema va en snake_case como el resto (`target_reps`, `target_weight_min`, `target_weight_max`) porque son los nombres que lee el RPC.
 - [ ] **O4** La UI del objetivo: los tres campos aparecen **al elegir el ejercicio** —que es lo que el usuario pidió— y quedan también en la tarjeta para poder ajustarlos durante la sesión. El selector pierde por esto su "un toque y afuera" de T3.5: es un cambio deliberado y pedido, a cambio de poder fijar el objetivo al agregar.
 - [ ] **O5** E2E: el flujo crítico suma el objetivo —fijarlo al agregar el ejercicio y verlo después de guardar— contra el stack local.
@@ -85,3 +85,29 @@ Cerrada en `5372d35`. **274/274 unit tests en 34 archivos** (3 nuevos), typechec
 2. **El fixture mentía sobre los datos reales.** Listaba los grupos como `Pecho, Tríceps, Hombros`, y el servidor los devuelve **alfabéticos** (`.order('name')`). Mis aserciones nuevas estaban fijando un orden que producción nunca produce. Corregido el fixture, no la expectativa.
 
 **Sin RED ninguna de las dos habría aparecido.** La primera corrida dio **4 fallas contra el selector viejo** (RED real, recuperado apartando la implementación con `git stash`); la segunda, ya con el cambio puesto, dio **5**, incluidas dos regresiones que mi propio cambio había causado. Ese contraste es la razón de correr el test contra el código viejo antes de creerle al verde.
+
+---
+
+### L5 · O2 cerrada: la tabla, el RPC, y un defecto de seguridad que no era mío (2026-10-13)
+
+Cerrada en `ba28a6b`. **`Files=5, Tests=73, Result: PASS`** contra la **base local** y contra el **proyecto hosted** (60 previos + 13 nuevos; la aritmética vuelve a confirmar el `plan(13)`).
+
+**Qué entró**: la tabla `workout_exercise_targets`, su policy y su `GRANT`, y el paso de `save_workout` que la escribe en la misma transacción que las series y los récords (S14). Trece aserciones, y las que valen no son el camino feliz: el mismo ejercicio en dos tarjetas conserva dos objetivos distintos, un payload que ya no los trae los borra, **B no ve ninguno de A**, y **B no puede escribir un objetivo sobre el workout de A**. Este último camino no lo cubre la policy —`save_workout` es `SECURITY DEFINER` y Postgres no aplica RLS al dueño de la tabla— lo cubre el check de ownership del principio de la función.
+
+**El hallazgo que apareció de costado, y es más importante que la tarea.** Correr la suite pgTAP contra el **stack local** por primera vez —el hosted ya se corría— hizo fallar dos aserciones que ahí pasan:
+
+```
+# Failed test 19: "anon NO puede SELECT workouts (deliberado: SPA privada tras login)"
+# Failed test  8: "anon sigue sin poder leer exercises"
+#         have: true
+#         want: false
+```
+
+**El stack local era más permisivo que producción.** Supabase expone las tablas nuevas de `public` a `anon`/`authenticated` por un default de plataforma (`[api] auto_expose_new_tables`, comentado en `config.toml`, así que aplica el default), y **ese default sólo se aplica en el stack local**: `db push` no lo aplica. El encabezado de `0003` ya lo decía, textualmente: quería migraciones "autosuficientes y portables a cualquier Postgres, sin depender de un default que puede cambiar". **Pero `0003` lo aplicó a los `GRANT` de `authenticated` y `service_role` y nunca revocó `anon`**: la intención estaba escrita y no estaba en el SQL. La consecuencia no es cosmética —cualquier Postgres con el default de Supabase deja a `anon` leer workouts y ejercicios— y además el entorno donde se prueba no se comportaba como producción, o sea que la suite no podía estar en verde donde se trabaja.
+
+**`0010` lo revoca explícito**, que es portable a cualquier Postgres y no depende del default. Va después de `0009` a propósito: la tabla nueva nace expuesta en local. **`auto_expose_new_tables = false` en `config.toml` es la mitad durable y quedó recomendada y no aplicada**: necesita un reset del stack, y eso borraría la cuenta y los entrenamientos con los que el usuario está probando la app en este momento.
+
+**Dos errores míos en el test, y los dos valen por el mismo motivo.**
+
+1. Dejé la sesión con el rol `authenticated` al salir de cada bloque, así que las aserciones no podían leer su propia tabla temporal (`permission denied for table t_ctx`). El patrón del resto de la suite vuelve a `postgres` al terminar cada `do`; el mío no.
+2. **Y al corregirlo metí la pata justo en el caso que más importa.** Puse la restauración de rol en los nueve bloques, incluido el de RLS —cuya razón de ser es dejar la sesión **como B** para que la aserción mida lo que B ve—. Corriendo como superusuario la lectura atraviesa RLS y ve todo, así que **"B no ve ningún objetivo de A" pasaba siempre**. Lo destapó el `have: 3, want: 0`. Queda como la única excepción al patrón, comentada con esas palabras, porque es exactamente la clase de "arreglo" que alguien podría repetir.
