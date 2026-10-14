@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   durationMinutes,
+  formatLongDate,
   localIsoDate,
   normalizeForSearch,
   parseDecimalInput,
@@ -65,6 +66,30 @@ describe('localIsoDate', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('formatLongDate', () => {
+  /*
+   * The date is the header of the training screen, which is the page of a notebook: it is written
+   * the way someone writes a date by hand — in Spanish, with no year, and with the weekday leading.
+   * Capitalised because it is a title and not a phrase in the middle of a sentence.
+   */
+  it('writes the weekday with the day and the month, capitalised and without the year', () => {
+    expect(formatLongDate(new Date(2026, 9, 14, 22, 0))).toBe('Miércoles, 14 de octubre');
+  });
+
+  /*
+   * The same trap as `localIsoDate`, and it is worth its own assertion: at 22:00 in Argentina the
+   * UTC instant is already tomorrow, and a date read off it would put the header of tonight's
+   * session one day ahead — a mistake that only shows up in the evening and only west of UTC.
+   */
+  it('reads the day off the local clock and not off the UTC instant', () => {
+    expect(formatLongDate(new Date(2026, 9, 13, 22, 0))).toBe('Martes, 13 de octubre');
+  });
+
+  it('writes a single-digit day without padding it', () => {
+    expect(formatLongDate(new Date(2026, 0, 5, 9, 30))).toBe('Lunes, 5 de enero');
   });
 });
 

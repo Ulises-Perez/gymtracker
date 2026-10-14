@@ -60,7 +60,12 @@ describe('app routes', () => {
   it('resolves the workout route', async () => {
     renderAt('/workout');
 
-    expect(await screen.findByRole('heading', { name: 'Entrenar' })).toBeInTheDocument();
+    /*
+     * By the region and not by the heading: the heading of this screen is today's date, which a test
+     * cannot look for and nobody can orient themselves by. The landmark carries the stable name, and
+     * the date is asserted where it is computed, in `formatLongDate`.
+     */
+    expect(await screen.findByRole('region', { name: 'Entrenar' })).toBeInTheDocument();
   });
 
   it('falls back to the not-found screen for an unknown route', async () => {

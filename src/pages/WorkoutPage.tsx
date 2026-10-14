@@ -12,6 +12,7 @@ import { useSaveSync } from '../hooks/useSaveSync.ts';
 import { useSaveWorkout } from '../hooks/useSaveWorkout.ts';
 import { useWakeLock } from '../hooks/useWakeLock.ts';
 import type { CatalogExercise } from '../lib/catalog-api.ts';
+import { formatLongDate } from '../lib/utils.ts';
 import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
 
@@ -184,8 +185,19 @@ export function WorkoutPage() {
 
   if (!draft || draft.status === 'finished') {
     return (
-      <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-        <h1 className="text-2xl font-semibold">Entrenar</h1>
+      <div
+        /*
+         * A landmark with a stable name, and the reason it is not the heading: the heading of this
+         * page is the date, which changes daily. Orientation for a screen reader and a hook for the
+         * route test both need a name that does not move.
+         */
+        role="region"
+        aria-label="Entrenar"
+        className="mx-auto w-full max-w-lg px-4 pt-6 pb-28"
+      >
+        {/* The date is the header: the page of a notebook opens with the day it belongs to, and the
+            craft floor asks for no label above or below a heading, without exception. */}
+        <h1 className="font-display text-3xl font-black tracking-tight">{formatLongDate()}</h1>
 
         {records.length > 0 ? (
           <PersonalRecords
@@ -215,7 +227,7 @@ export function WorkoutPage() {
             <button
               type="button"
               onClick={retrySave}
-              className="ring-white/15 hover:bg-bg mt-3 min-h-12 w-full rounded-md px-4 ring-1"
+              className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4"
             >
               Reintentar
             </button>
@@ -242,14 +254,14 @@ export function WorkoutPage() {
               <button
                 type="button"
                 onClick={startNew}
-                className="bg-primary min-h-12 flex-1 rounded-md px-4 font-medium text-white"
+                className="bg-primary min-h-12 flex-1 rounded-sm px-4 font-medium text-white"
               >
                 Sí, descartarlo
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingRestart(false)}
-                className="ring-white/15 hover:bg-bg min-h-12 flex-1 rounded-md px-4 ring-1"
+                className="border-rule hover:bg-surface min-h-12 flex-1 rounded-sm border px-4"
               >
                 Cancelar
               </button>
@@ -259,7 +271,7 @@ export function WorkoutPage() {
           <button
             type="button"
             onClick={replacingIsLossy ? () => setConfirmingRestart(true) : startNew}
-            className="bg-primary mt-6 min-h-12 w-full rounded-md px-4 font-medium text-white"
+            className="bg-primary mt-6 min-h-12 w-full rounded-sm px-4 font-medium text-white"
           >
             Nuevo workout
           </button>
@@ -269,8 +281,10 @@ export function WorkoutPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <h1 className="text-2xl font-semibold">Entrenar</h1>
+    <div role="region" aria-label="Entrenar" className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
+      {/* The same date header, because it is the same page of the notebook whether or not a set has
+          already been written on it. */}
+      <h1 className="font-display text-3xl font-black tracking-tight">{formatLongDate()}</h1>
 
       <div className="mt-4">
         <Input
@@ -307,14 +321,14 @@ export function WorkoutPage() {
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="ring-white/15 hover:bg-bg min-h-12 flex-1 rounded-md px-4 ring-1"
+          className="border-rule hover:bg-surface min-h-12 flex-1 rounded-sm border px-4"
         >
           Agregar ejercicio
         </button>
         <button
           type="button"
           onClick={rest.start}
-          className="ring-white/15 hover:bg-bg min-h-12 rounded-md px-4 ring-1"
+          className="border-rule hover:bg-surface min-h-12 rounded-sm border px-4"
         >
           Descanso
         </button>
@@ -330,7 +344,7 @@ export function WorkoutPage() {
         type="button"
         onClick={save.finishAndQueue}
         disabled={save.status === 'pending'}
-        className="bg-primary mt-6 min-h-12 w-full rounded-md px-4 font-medium text-white disabled:opacity-50"
+        className="bg-primary mt-6 min-h-12 w-full rounded-sm px-4 font-medium text-white disabled:opacity-50"
       >
         Finalizar
       </button>

@@ -68,6 +68,26 @@ export function localIsoDate(date: Date = new Date()): string {
 }
 
 /**
+ * The date written the way the page of a notebook writes it: "Miércoles, 14 de octubre".
+ *
+ * No year, because the page belongs to today; the weekday leads, because that is what someone
+ * writing a training log puts first; and it is capitalised because it is a title on the screen and
+ * not a phrase in the middle of a sentence.
+ *
+ * It goes through `Intl` over the local date and never over the UTC instant — the same trap
+ * `localIsoDate` exists to avoid, and the one that only shows up in the evening and west of UTC.
+ */
+export function formatLongDate(date: Date = new Date()): string {
+  const written = date.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  return written.charAt(0).toUpperCase() + written.slice(1);
+}
+
+/**
  * Parses what someone typed into a numeric field.
  *
  * The decimal comma is the reason this exists at all: weights are written "72,5"
