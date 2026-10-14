@@ -206,7 +206,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 #### Fase 6 — Perfil + Extras
 
 - [x] **T6.1a** La capa de datos del perfil: leer nombre, avatar y unidad, y escribir la preferencia. **Cerrada** en `d7f3590`. **350/350 unit tests en 43 archivos**, typecheck y lint limpios. **Sin migración**: `profiles` ya tenía `weight_unit` y `avatar_url`. **`updateWeightUnit` escribe la preferencia y nunca un peso**: es el DoD de S9 en una función, y el test afirma **las columnas que se escriben** porque una escritura que llevara un peso reescribiría el historial. Una unidad desconocida se lee como kilos. Ver `L38`.
-- [ ] **T6.1b** La pantalla de perfil (nombre, avatar en el bucket `avatars`, y el selector de unidad), con **T4.4b**: el toggle kg/lb que se movió acá, y las etiquetas de peso del resto de las pantallas.
+- [ ] **T6.1b** La pantalla de perfil (nombre, avatar en el bucket `avatars`, y el selector de unidad), con **T4.4b**: el toggle kg/lb que se movió acá, y las etiquetas de peso del resto de las pantallas. **T4.4b decidido y en curso** (ver `L39`): la preferencia es **de lectura**, y la regla es *convierte la pantalla cuya materia es leer, no la que sirve para entrar*. **El avatar sigue pendiente**: el bucket `avatars` necesita el stack local para probarse, y Docker no está disponible en esta sesión.
 - [ ] **T6.2** Stats derivadas (no columnas) + peso corporal.
 - [ ] **T6.3** "Repetir workout" + export CSV + logout.
 
@@ -928,3 +928,16 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Y el número que no era comparable.** El mismo proyecto reportó 117.99, 118.72 y 118.81 kB para el mismo estado, según el `.env`, la implementación de gzip y **si quien medía se acordaba del CSS**. Ahora hay **`scripts/measure-bundle.mjs`** commiteado, con el método escrito adentro, que es lo que hace comparables dos mediciones. Es la lección de `L28` un escalón más fino: allá el error fue comparar dos métodos; acá, no tener el método escrito en ningún lado.
 
 **Una limitación declarada que sigue en pie**: el trazo de la gráfica no está cubierto por automatización — uPlot dibuja en un canvas y jsdom no tiene. Lo que sí está cubierto es la aritmética de la serie, el cableado de la pantalla y que la instancia se destruya al desmontar.
+
+### L39 · Fase 6, T4.4b: la preferencia de unidad es de LECTURA, y la regla que la vuelve coherente (2026-10-14)
+
+**La decisión del usuario**, preguntada con las consecuencias a la vista: **"sólo lectura"**. El selector del perfil cambia **cómo se ven** los pesos; **los campos de la serie siguen escribiéndose en kilos** y su etiqueta sigue diciendo "Peso en kg serie N". Es lo que el plan dice literalmente —*"Toggle kg/lb (solo UI)"*— y lo que sostiene el DoD de S9 sin ningún riesgo de reescritura del historial.
+
+**De la decisión sale una regla que hay que escribir, porque la decisión sola no alcanza**: ***convierte la pantalla cuya materia es leer, no la pantalla cuya materia es entrar.***
+
+- **Leen y por lo tanto convierten**: el detalle del entrenamiento (las series), la pantalla de progreso por ejercicio (la lista de sesiones **y la gráfica**, valores y etiqueta del eje) y el inicio (la línea de récords recientes y el último entrenamiento).
+- **No convierten, y es a propósito**: **la tarjeta de la serie** —su etiqueta, sus campos de objetivo y **la línea de "último: 8 × 75 kg"**— y **el panel de récords nuevos**, que aparece en la misma pantalla donde se escriben los kilos. **El motivo es que una pantalla no puede hablar dos unidades**: si al lado del campo donde escribís kilos la referencia viniera en libras, el número dejaría de servir para lo único que sirve, que es comparar con lo que estás por levantar.
+
+**Lo que esto NO cambia, y es el punto entero**: nada de lo guardado. `toStoredKg` existe desde T6.1a y el DoD de S9 —*"cambiar kg/lb no altera ningún dato histórico"*— se cumple **por construcción**: el selector escribe una preferencia y ninguna fila con peso. Se guarda siempre en kilos, se lee en la unidad que el usuario eligió, y la conversión ocurre en el borde de la lectura.
+
+**La ficha de S9 no se toca**: el CSV y la exportación quedan como están, en kilos, porque un archivo exportado es dato y no una pantalla.
