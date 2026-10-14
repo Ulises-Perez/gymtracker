@@ -120,7 +120,13 @@ export type QueryBuilderStub = {
   is: (column: string, value: unknown) => QueryBuilderStub;
   or: (filter: string) => QueryBuilderStub;
   eq: (column: string, value: unknown) => QueryBuilderStub;
-  order: (column: string) => Promise<{ data: unknown; error: unknown }>;
+  order: (column: string) => QueryBuilderStub;
+  limit: (count: number) => QueryBuilderStub;
+  /** Thenable, so both `await …select().order()` and a longer chain resolve. */
+  then: (
+    onfulfilled: (value: { data: unknown; error: unknown }) => unknown,
+    onrejected?: (reason: unknown) => unknown,
+  ) => Promise<unknown>;
 };
 
 /**
@@ -158,7 +164,21 @@ export function createQueryBuilder(result: { data: unknown; error: unknown }): Q
     order(column) {
       builder.calls.push(`order ${column}`);
 
-      return Promise.resolve(result);
+      return builder;
+    },
+    limit(count) {
+      builder.calls.push(`limit ${count}`);
+
+      return builder;
+    },
+    /*
+     * Thenable, and that is what lets both shapes of query be written honestly: the ones that end at
+     * `order` and are awaited there, and a keyset page, which needs two `order`s and a `limit`. The
+     * previous stub settled on `order`, so the pagination query would have had to be shaped around
+     * the test double instead of the other way round.
+     */
+    then(onfulfilled, onrejected) {
+      return Promise.resolve(result).then(onfulfilled, onrejected);
     },
   };
 
