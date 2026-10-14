@@ -1,0 +1,45 @@
+-- =============================================
+-- 0010 — `anon` no tiene privilegios de tabla, y ahora está escrito
+--
+-- Hallado al correr la suite pgTAP contra el **stack local** por primera vez: dos aserciones que
+-- pasan contra el proyecto hosted **fallaban acá**, y las dos decían lo mismo.
+--
+--   # Failed test 19: "anon NO puede SELECT workouts (deliberado: SPA privada tras login)"
+--   # Failed test  8: "anon sigue sin poder leer exercises"
+--   #         have: true
+--   #         want: false
+--
+-- **El stack local era más permisivo que producción.** Supabase expone las tablas nuevas del
+-- esquema `public` a `anon`/`authenticated` por un default de plataforma (`[api]
+-- auto_expose_new_tables`, que en `config.toml` está **comentado**, así que aplica el default), y
+-- ese default **sólo se aplica en el stack local**: `db push` no lo aplica. Es exactamente lo que
+-- ya documentaba el encabezado de `0003`, escrito cuando apareció A9:
+--
+--   "Supabase expone las tablas nuevas a anon/authenticated por un default de plataforma que
+--    depende de `[api] auto_expose_new_tables`, y ese default NO se aplica en `db push` (solo en
+--    el stack local). Estos GRANT explícitos hacen que las migraciones sean autosuficientes y
+--    portables a cualquier Postgres, sin depender de un default que puede cambiar."
+--
+-- `0003` lo aplicó a los GRANT de `authenticated` y `service_role`, pero **nunca revocó `anon`**:
+-- la intención estaba escrita ("`anon` queda deliberadamente SIN privilegios de tabla") y no
+-- estaba en el SQL. La consecuencia no es cosmética: **una instancia cualquiera de este esquema en
+-- un Postgres con el default de Supabase deja a `anon` leer workouts y ejercicios**, y el stack
+-- local —donde se prueba— no se comporta como producción. Una suite que no puede pasar en verde
+-- contra el entorno donde uno trabaja es una suite que se deja de correr.
+--
+-- La revocación explícita cierra las dos cosas: hace que la postura de seguridad sea una
+-- propiedad del esquema y no del entorno, y deja el stack local igual que producción.
+--
+-- Va después de 0009 a propósito: la tabla nueva también tiene que quedar revocada, y en local
+-- nace con el default aplicado. Para las tablas que se creen de acá en adelante, la forma durable
+-- es además poner `auto_expose_new_tables = false` en `config.toml` —queda recomendado en el
+-- README— porque este archivo sólo puede revocar lo que ya existe.
+--
+-- `service_role` conserva TODO: es el rol administrativo y el que usa el harness de tests de RLS.
+-- =============================================
+
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;
+
+-- Idempotente por naturaleza: revocar lo ya revocado no hace nada. Se deja escrito el alcance
+-- para que la próxima tabla no dependa de que alguien se acuerde.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon;
