@@ -27,9 +27,17 @@ export function PersonalRecords({ records, names, onDismiss }: PersonalRecordsPr
       // there: the session ends and the news arrives.
       role="status"
       aria-label="Récords nuevos"
-      className="pr-arrive ring-primary/40 mt-6 rounded-md p-4 ring-1"
+      className="pr-arrive border-primary mt-6 border-l-4 pl-4"
     >
-      <h2 className="text-lg font-semibold">🎉 Récords nuevos</h2>
+      {/*
+       * The accent belongs here more than anywhere else: these are values that were replaced by
+       * better ones, which is exactly what the red means in this world. The rule down the margin is
+       * the whole elevation -- a border and not a border plus a shadow.
+       *
+       * The heading drops the celebration emoji: the project already decided against glyphs as
+       * icons, and in a printed notebook a party popper is an illustration nobody drew.
+       */}
+      <h2 className="font-display text-lg font-black tracking-tight">Récords nuevos</h2>
 
       <ul className="mt-2 space-y-2">
         {records.map((record, index) => (
@@ -50,7 +58,7 @@ export function PersonalRecords({ records, names, onDismiss }: PersonalRecordsPr
       <button
         type="button"
         onClick={onDismiss}
-        className="ring-white/15 hover:bg-bg mt-3 min-h-12 w-full rounded-md px-4 ring-1"
+        className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4"
       >
         Listo
       </button>

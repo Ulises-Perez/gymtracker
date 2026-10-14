@@ -196,14 +196,27 @@ export function ExercisePickerDialog({
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="overlay fixed inset-0 bg-black/60" />
+        <Dialog.Overlay className="overlay bg-text/60 fixed inset-0" />
         <Dialog.Content
           // No description: the title and the controls say everything, and Radix
           // wants the decision made explicitly rather than guessed.
+          /*
+           * It stays a dialog, and that is the answer the craft floor asks for rather than an
+           * oversight: the sheet holds a search field and a form that can be half written, so it
+           * needs protected focus and a deliberate dismissal. What the floor prohibits is a modal
+           * for a task that needs neither.
+           *
+           * As a container it is square and separated by a rule, not rounded: in this world radii
+           * belong to controls.
+           */
+          className="border-rule bg-bg fixed inset-x-0 bottom-0 flex max-h-[85vh] flex-col border-t-2 p-4 sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[80vh] sm:w-[32rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:border-2"
+          // The decision Radix asks for explicitly instead of guessing: the title and the controls
+          // say everything, so there is no description to point at.
           aria-describedby={undefined}
-          className="bg-surface fixed inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl p-4 sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[80vh] sm:w-[32rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
         >
-          <Dialog.Title className="text-lg font-semibold">Agregar ejercicio</Dialog.Title>
+          <Dialog.Title className="font-display text-xl font-black tracking-tight">
+            Agregar ejercicio
+          </Dialog.Title>
 
           <div className="mt-3">
             <Input
@@ -242,7 +255,7 @@ export function ExercisePickerDialog({
           */}
           {isCreating ? (
             <form
-              className="ring-white/15 mt-3 space-y-3 rounded-md p-3 ring-1"
+              className="border-rule mt-3 space-y-3 border p-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 create();
@@ -266,7 +279,7 @@ export function ExercisePickerDialog({
                   onChange={(event) =>
                     setNewGroupId(event.target.value === '' ? null : event.target.value)
                   }
-                  className="bg-bg ring-white/15 focus-visible:ring-primary min-h-12 w-full rounded-md px-3 text-base ring-1 outline-none focus-visible:ring-2"
+                  className="border-rule min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 text-base"
                 >
                   <option value="">Sin grupo</option>
                   {/*
@@ -286,7 +299,7 @@ export function ExercisePickerDialog({
               <button
                 type="submit"
                 disabled={trimmedName === ''}
-                className="bg-primary min-h-12 w-full rounded-md px-4 font-medium text-white disabled:opacity-50"
+                className="bg-primary min-h-12 w-full rounded-sm px-4 font-medium text-white disabled:opacity-50"
               >
                 Crear
               </button>
@@ -295,7 +308,7 @@ export function ExercisePickerDialog({
             <button
               type="button"
               onClick={() => setIsCreating(true)}
-              className="ring-white/15 hover:bg-bg mt-3 min-h-12 w-full rounded-md px-4 text-sm ring-1"
+              className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4 text-sm"
             >
               Nuevo ejercicio
             </button>
@@ -336,18 +349,18 @@ export function ExercisePickerDialog({
                     >
                       <h3
                         id={headingId}
-                        className="text-muted mb-1 text-xs font-medium tracking-wide uppercase"
+                        className="border-rule text-muted mb-1 border-b pb-1 text-xs font-semibold tracking-wide uppercase"
                       >
                         {section.name}
                       </h3>
 
-                      <ul aria-labelledby={headingId} className="space-y-1">
+                      <ul aria-labelledby={headingId}>
                         {section.exercises.map((exercise) => (
                           <li key={exercise.id}>
                             <button
                               type="button"
                               onClick={() => choose(exercise)}
-                              className="ring-white/10 hover:bg-bg focus-visible:ring-primary min-h-12 w-full rounded-md px-3 text-left ring-1 focus-visible:ring-2 focus-visible:outline-none"
+                              className="border-rule hover:bg-surface min-h-12 w-full border-b px-1 text-left"
                             >
                               {exercise.name}
                             </button>
@@ -365,7 +378,7 @@ export function ExercisePickerDialog({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="ring-white/15 hover:bg-bg min-h-12 w-full rounded-md px-4 ring-1"
+                className="border-rule hover:bg-surface min-h-12 w-full rounded-sm border px-4"
               >
                 Cancelar
               </button>
@@ -393,8 +406,13 @@ function GroupChip({
       // be audible, not just visible.
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-12 rounded-md px-3 text-sm ring-1 transition-colors focus-visible:ring-2 focus-visible:outline-none ${
-        selected ? 'bg-primary ring-primary text-white' : 'ring-white/15 hover:bg-bg'
+      /*
+       * The selected chip is ink, not accent. The red is for what was replaced and for what can be
+       * pressed to move the workout forward; which group is being filtered is a state, and painting
+       * six chips red would spend the accent on a filter.
+       */
+      className={`min-h-12 rounded-sm border px-3 text-sm transition-colors motion-reduce:transition-none ${
+        selected ? 'bg-text border-text text-bg' : 'border-rule text-muted hover:text-text'
       }`}
     >
       {children}
