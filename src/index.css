@@ -1,22 +1,41 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/archivo';
 
 @theme {
   --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /*
+   * The display voice is its own and it is self-hosted. The craft floor is explicit that the closest
+   * installed face is a failure rather than a fallback, and a heading at weight 900 set in the
+   * interface face is exactly that. Archivo is a printing grotesque: it belongs on a page of rules.
+   */
+  --font-display: 'Archivo Variable', 'Inter Variable', system-ui, sans-serif;
 
-  /* Design tokens — PLAN.md §5 */
-  --color-bg: #0a0a0f;
-  --color-surface: #14141f;
-  --color-primary: #6c5ce7;
-  --color-primary-soft: #a29bfe;
-  --color-accent: #00cec9;
-  --color-danger: #ff6b6b;
-  --color-text: #f0f0f5;
-  --color-muted: #8888a0;
+  /*
+   * The world: a field notebook. Cold paper, ink, and one red that means "this was replaced".
+   *
+   * The token NAMES are the ones the screens already use. Renaming them would be the tidier system and
+   * would break every screen in the same commit, so the values move first -- the whole app changes skin
+   * without a layout change -- and the screens migrate to the notebook's language, ruled rows instead of
+   * cards, one at a time.
+   */
+  --color-bg: #f3f2ee;
+  --color-surface: #e9e7e1;
+  --color-text: #16171b;
+  /* Ink lightened toward the paper, never grey: a grey on a coloured ground belongs to nobody. */
+  --color-muted: #6b6a66;
+  /* The printed rule of the page, which the ruled rows are drawn with. */
+  --color-rule: #d8d6cf;
+  /* One accent, reserved for what was struck through and for what can be pressed. Nothing else. */
+  --color-primary: #c7342a;
+  --color-primary-soft: #e0847c;
+  --color-accent: #16171b;
+  --color-danger: #a4291f;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 24px;
+  /* A printed page is square. Radii belong to controls, not to containers. */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
 @layer base {
