@@ -92,6 +92,14 @@ export const routes: RouteObject[] = [
             },
           },
           {
+            path: 'history/exercise/:exerciseId',
+            lazy: async () => {
+              const { ExerciseDetailPage } = await import('../pages/ExerciseDetailPage.tsx');
+
+              return { Component: ExerciseDetailPage };
+            },
+          },
+          {
             path: 'profile',
             lazy: async () => {
               const { ProfilePage } = await import('../pages/ProfilePage.tsx');

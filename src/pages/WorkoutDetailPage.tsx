@@ -57,7 +57,12 @@ export function WorkoutDetailPage() {
 
       {groups.map((group) => (
         <section key={group.exerciseId} className="bg-surface mt-4 rounded-lg p-4">
-          <h2 className="text-base font-semibold">{names.get(group.exerciseId) ?? 'Ejercicio'}</h2>
+          <h2 className="text-base font-semibold">
+            {/* The way into the exercise's own screen, where its progress is graphed. */}
+            <Link to={`/history/exercise/${group.exerciseId}`} className="hover:text-primary-soft">
+              {names.get(group.exerciseId) ?? 'Ejercicio'}
+            </Link>
+          </h2>
 
           <ul
             aria-label={`Series de ${names.get(group.exerciseId) ?? 'ejercicio'}`}
