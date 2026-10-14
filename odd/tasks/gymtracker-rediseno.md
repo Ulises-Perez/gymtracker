@@ -85,3 +85,40 @@ La skill exige sondear una vez antes de inferir desde el brief, y sus **pasos de
 **Corregido en el seguimiento**: D2 decía "elegir el mundo y escribir `DESIGN.md`"; es **elegir el mundo y escribir el contrato de dirección**, y `DESIGN.md` cierra la fase en D9.
 
 **Nota de proceso que la skill exige decir en la primera respuesta, no esconder**: la ronda de decisión se presenta por la página de la skill o, cuando el harnés no puede sostener un `--wait` bloqueante —que es el caso acá, donde el shell devuelve los comandos largos en segundo plano—, **por la herramienta estructurada**. Es una sustitución declarada, no un atajo.
+
+### L4 · Las siete direcciones, y el sorteo eligiendo la sexta (2026-10-14)
+
+Derivadas del **mundo del usuario** —el gimnasio: su gráfica, sus lugares, sus rituales— y **no de las herramientas que opera**, que es lo que la skill prohíbe explícitamente. Ordenadas por resonancia con el escenario de S4 (entre series, una mano ocupada, sin señal):
+
+1. **El cuaderno de entrenamiento.** La libreta donde el propio acto de anotar vive: renglones, columnas hechas a mano, tachones. Resuena porque **es la acción del producto**. Cómo se ve: papel de campo (no el crema de cuaderno, que es el default de la categoría), tinta oscura, regla impresa, la corrección visible. Primer viewport: la serie recién anotada, grande, con la anterior tachada al lado.
+2. **La tabla de discos y porcentajes pegada en la pared.** El documento que todo gimnasio tiene. Resuena porque es **lo que se lee parado al lado del rack**. Cómo se ve: fondo casi blanco, retícula negra, figuras tabulares, una sola regla roja para el intento máximo. Primer viewport: la serie como una fila de tabla, con el número que importa en negrita.
+3. **El póster de la competencia.** La cartelería del día de meet: condensada ultra negrita, un color caliente sobre negro. Resuena porque es **la aspiración** de quien entrena. Cómo se ve: negro, un amarillo o rojo de seguridad, grotesca condensada, filetes. Primer viewport: el récord, enorme, como un cartel.
+4. **El hierro fundido antes de la web.** Chapas y catálogos de equipamiento: formas fundidas, esmalte, el número de la propia chapa. Resuena porque **es la materia** de la actividad. Cómo se ve: esmalte oscuro, el numeral pintado en la cara de la chapa, grotesca industrial chunky, el borde de la chapa como forma. Primer viewport: el peso como una chapa, no como un campo de texto.
+5. **La señalética del gimnasio.** Plantilla y pintura: números de rack, líneas del piso, carteles de "no dejar discos". Resuena porque **es el lugar**. Cómo se ve: gris hormigón y negro con un fluorescente, mayúsculas de plantilla, bordes gastados. Primer viewport: cada serie rotulada como un número de rack.
+6. **La pizarra del día.** El plan escrito donde todos lo ven, con los tildes de lo hecho. Resuena porque es **el ritual compartido** del gimnasio. Cómo se ve: negro de pizarra o blanco de marcador, una grilla visible, tildes que cierran. Primer viewport: la sesión como una fila de tildes que se van cerrando, con el ejercicio en curso más grande que el resto.
+7. **El póster de anatomía.** El cuerpo en tinta con rótulos y líneas guía. Resuena porque **enseña**. Cómo se ve: tinta profunda sobre claro, filetes finos, versalitas, un color para el músculo que el ejercicio trabaja. Primer viewport: qué músculo trabaja, con la línea guía hasta el número.
+
+**El sorteo asignó el índice 6** (`aae13118`): **la pizarra del día**. Y la asignación no es una entrada del catálogo, sale de mi lista: el script decide **cuál de mis direcciones se construye**, no una dirección ajena.
+
+**Fusiones y veredictos de los seis desafíos** —material para juzgar, ninguno se construye tal cual:
+
+- **Ikeda datamatics** → **se rechaza**: los datos como espectáculo no pueden llevar un registro (S4). **Dona una disciplina**: dos valores y la denegación del gris medio → la pizarra gana **dos tonos sin grises intermedios**.
+- **Muro de pósters en filas** → **se rechaza**: es catálogo, no sesión. **Dona**: la tarjeta que crece al enfocarse → el ejercicio en curso.
+- **Labanotation** → **compite**: que el tiempo suba por la pantalla es una idea real para una sesión, y la simetría bilateral ordena los lados del cuerpo; no gana porque vuelve la sesión una partitura que hay que aprender a leer.
+- **Pase de embarque + tablero** → **se rechaza**: transporta ranking de vuelos, no registro de entrenamiento. **Dona**: la reranja en el lugar, que sirve cuando se corrige una serie ya anotada.
+- **Superficie de consumo cálida** → **se rechaza, y es el más tentador**: es exactamente el default de la categoría que la skill lista como calibración fallida. **Dona**: el acento reservado **sólo** a lo accionable.
+- **Espécimen reticulado de Crouwel** → **gana**: la retícula visible como prueba del sistema y las letras construidas celda por celda sobreviven a "dos valores, sin grises" y le dan a la pizarra **un sistema de construcción en vez de un estilo**.
+
+**Lo que la dirección asignada se lleva de los rechazados, escrito como líneas propias**: dos tonos sin gris medio (de datamatics), la tarjeta que crece en el ejercicio en curso (del muro), la reranja en el lugar de una serie corregida (del tablero) y el acento reservado a lo accionable (de la superficie de consumo). Sin esas líneas, el rechazo fue adorno.
+
+### L5 · El usuario eligió, y eligió mi candidata (2026-10-14)
+
+De las cuatro cartas presentadas —la asignada por el sorteo, mi número uno, el desafío que ganó, y la salida convencional— **el usuario eligió "El cuaderno de entrenamiento", que era mi candidata número uno**.
+
+**Eso es exactamente lo que la skill prevé**: "the assignment exists to refuse the model's ranking rut, never to outrank the user or the brief", y una dirección fijada por el usuario **le gana al sorteo, siempre**. La asignación hizo su trabajo —me obligó a derivar siete y a no construir la primera que se me ocurrió— y el usuario eligió otra. No hay nada que corregir.
+
+**Lo que se hereda y lo que no.** El cuaderno se lleva del mundo asignado la disciplina que éste había ganado: **la corrección visible en el lugar** (que el destinatario rechazado donó) y **el acento reservado a lo accionable** (de la superficie de consumo). Lo que **no** entra es la retícula visible de Crouwel como sistema de construcción: el cuaderno ya trae la suya, que es el renglón impreso.
+
+**El contrato de dirección quedó escrito en el brief de la superficie** (`src/pages/WorkoutPage.tsx`), con los seis bloques que la skill exige, la clave del sorteo y la línea `FINISH` textual. **La escena forzó la decisión difícil**: claro u oscuro no se elige por gusto — se escribe la escena (sótano, tubo duro, una mano) y ella decide. Un fondo oscuro con reflejos de tubo es un espejo; el papel mate no refleja y es lo que el objeto reemplazado ya era.
+
+**Sin comps, por contrato y no por deriva**: superficie Operate + sin generación de imágenes → camino `code-led` ✓. La ambición vive en el primer viewport y en el momento memorable (ver una serie tacharse), y el revisor la audita **en el comportamiento**.

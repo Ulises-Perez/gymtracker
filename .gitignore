@@ -34,6 +34,11 @@ Thumbs.db
 # Local agent runtime state
 .atl/
 
-# Estado local de la skill de diseño (el sorteo, sus mocks y la pagina de decision).
-# La verdad del producto vive en PRODUCT.md y en odd/tasks/gymtracker-rediseno.md.
-.impeccable/
+# Estado local de la skill de diseño: lo que se genera y se descarta.
+# Los briefs de superficie NO se ignoran: son el contrato de direccion, y la skill los define
+# como el recordatorio durable que los agentes recargan entre ediciones y sesiones.
+.impeccable/questions/
+.impeccable/mocks/
+.impeccable/build/
+.impeccable/review/
+.impeccable/config.local.json
