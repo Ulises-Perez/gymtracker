@@ -31,8 +31,8 @@
 | D3 | Los tokens y los componentes base | S2 | cliente | `c3de6df` + `70d13a0` |
 | D4 | Las pantallas del flujo de entrenamiento | S2, S4 | cliente | `b2b7b67` · `0e758e8` · `36bace9` |
 | D5 | Historial, detalle y progreso | S2 | cliente | `3b7733f` |
-| D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | pendiente |
-| D7 | Las pantallas de autenticación | S2 | cliente | pendiente |
+| D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | `aa098bc` |
+| D7 | Las pantallas de autenticación | S2 | cliente | `ee11092` |
 | D8 | Rehacer los tests y la E2E contra los flujos nuevos | S3 | cliente | pendiente |
 | D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | pendiente |
 
@@ -43,8 +43,8 @@
 - [x] **D3** Los tokens y los componentes base. **Cerrada** en dos tramos: los tokens con los valores movidos y **sin tocar un solo layout** (`c3de6df`), y los componentes base (`70d13a0`). La cara de despliegue (**Archivo**, autoalojada) entra acá, con su costo medido en `L6`.
 - [x] **D4** El flujo de entrenamiento — donde la app promete el offline y donde el escenario de S4 es literal. **Cerrada** en tres tramos (D4a `b2b7b67`, D4b `0e758e8`, D4c el commit de este tramo), todos registrados abajo.
 - [x] **D5** Historial, detalle del entrenamiento y progreso por ejercicio (con la gráfica). **Cerrada** (delegada a un escritor acotado y verificada por el padre; ver `L11`).
-- [ ] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords.
-- [ ] **D7** Las pantallas de autenticación, que son la primera impresión.
+- [x] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords. **Cerrada** (`aa098bc`) — era el pedido original del usuario, y entra con el mismo patrón que él eligió para el flujo: ver `L12`.
+- [x] **D7** Las pantallas de autenticación, que son la primera impresión. **Cerrada** (`ee11092`), en paralelo con D6 y sobre archivos disjuntos.
 - [ ] **D8** Rehacer los tests y la E2E contra los flujos nuevos (S3). **No es opcional**: es la mitad del costo de haber dicho "puede cambiar absolutamente todo".
 - [ ] **D9** La verificación de la skill: capturas en desktop y mobile en una pasada, arreglar todo lo que muestren de una vez, confirmar con a lo sumo una ronda más, y **el detector una sola vez**, sobre lo cambiado.
 
@@ -213,3 +213,24 @@ Con el mundo ya en el flujo de entrenamiento, se midió como manda el método co
 **Dos hechos de librería que el escritor encontró y que valen para el que siga**: (1) **uPlot no hereda `axis.stroke` hacia `grid` ni `ticks`**, y **muta el objeto de opciones que recibe** — por eso las dos listas de ejes salen de **una función que devuelve un objeto nuevo** y no de un objeto compartido; (2) **Vitest devuelve un módulo vacío para un `.css` importado con `?raw`**, así que un test que necesite el texto del CSS tiene que leerlo con `node:fs` — y ese `@ts-expect-error` es del tsconfig de la app (tipada para el navegador), no un atajo.
 
 **Verificación del padre**: **366/366 unit tests en 44 archivos** (365 + el test de despeje de los colores), typecheck, lint y `prettier --check` limpios, **bundle inicial 119.18 kB de 180** (D3+D4 habían medido 119.24: bajó, porque sacar las utilidades de anillo encogió el CSS más de lo que creció el marcado), y **el límite diferido se mantiene**: la gráfica y su CSS siguen en chunks que `index.html` no referencia. Se comprobó además, sobre el CSS construido, que las clases nuevas (`bg-text`, `text-bg`, `border-rule`, `decoration-rule`, `font-display`, `tabular`…) **se generaron de verdad**: una clase que Tailwind no reconoce se descarta en silencio, y un repaso visual no lo distinguiría de un diseño sobrio.
+
+### L12 · D6 y D7 cerradas, y el pedido original cumplido (2026-10-14)
+
+**El pedido con el que empezó todo, hecho**: *"quiero que en el inicio salga arriba el día que es hoy"*. Inicio abre con **la fecha de hoy como encabezado visible**, con `formatLongDate` —la función pura de `L8`, en español, sin año, capitalizada y **leída del reloj local**— y la pantalla conserva **un nombre que no se mueve** en un landmark de región (`role="region"` + `aria-label="Inicio"`), que es **el mismo patrón que el usuario eligió para la pantalla de entrenamiento**. El test de rutas y el de la pantalla mueven su ancla del encabezado a la región, igual que ya lo había hecho la ruta del flujo. RED observado primero: `expected Miércoles, 14 de octubre received Inicio`. Y se conservaron las dos cosas del cierre de la Fase 5: **el saludo sigue siendo un `<p>` abajo** y **la aritmética de la tira semanal quedó igual, byte por byte**, sin pasar por UTC.
+
+**D7, la primera impresión**: `AuthCard` deja de ser tarjeta (`bg-surface rounded-lg p-6`) y pasa a ser **el bloque reglado de la página** —cuadrado, un filete impreso, sin relleno ni sombra—; los títulos a la cara de despliegue; y **todos los enlaces que sólo navegan** de las cuatro pantallas de autenticación y del 404 dejan `text-primary-soft` (un tinte de fondo usado como color de texto, que sobre papel se lee como error) por **tinta con el filete impreso de subrayado**, el tratamiento que el detalle del entrenamiento ya usaba. `ResetPasswordPage` **no lleva diff a propósito**: no le quedaba nada del mundo viejo y hereda el marco de `AuthCard`.
+
+**Cómo se hizo, y por qué así**: los dos tramos salieron **delegados a dos escritores en paralelo con superficies disjuntas** —ninguno de los dos podía tocar un archivo del otro, y a los dos se les prohibió explícitamente `src/index.css` y los archivos del otro—, por el backstop de contexto del orquestador. **El padre verificó el árbol completo por su cuenta** antes de commitear: 367/367, typecheck, lint y `prettier` limpios, bundle 118.92 kB de 180.
+
+**Dos decisiones que el padre tomó sobre los reportes, y no las dejó pasar:**
+
+1. **El único enlace del 404 se queda en tinta y no en acento.** Los dos escritores ofrecieron la alternativa ("volver al inicio sí avanza"). **No**: en esta app **todo enlace que sólo navega es tinta**, el acento es para lo que reemplaza y para lo que avanza el entrenamiento, y la pestaña "Inicio" del propio nav está justo debajo. Un enlace rojo en una pantalla cuyo mensaje entero es "acá no hay nada" gastaría el único acento en ella.
+2. **La tira semanal: los días entrenados son tinta, no acento.** Estar entrenado es **un estado**, no una presión: la misma llamada que en el nav, en los chips del selector y en los de métrica.
+
+**Un error mío, encontrado por el reporte de un delegado y corregido en `2c99f70`**: D4 y D5 habían dejado **dos radios de control** —los botones de pantalla en `rounded-sm` y el `Button` base, la pestaña del nav y el enlace de salto en `rounded-md`—. Eso es **una escala disfrazada de sistema**: dos controles de la misma clase con dos radios, elegidos por quien tocó cada archivo. El token ya decía que **los radios son de control**, y en un mundo impreso el radio de control es el más chico: los tres pasan a `rounded-sm` y las 25 apariciones coinciden. **Lo encontró el escritor de D7 al chocar con mi propia instrucción, no yo**: vale la pena que el padre escriba una regla que su propio código no cumple solo porque el delegado la lee al pie de la letra.
+
+**Lo que queda anotado como deuda, no como olvido**: el **botón secundario está escrito a mano** en varias pantallas (perfil, historial, la pantalla de entrenamiento, el selector) mientras `Button.tsx` es dueño del de acento. Es una duplicación real y su casa es **el inventario de componentes que `DESIGN.md` escribe en D9** — no un tramo más de este rediseño.
+
+**Un hallazgo de herramienta**: `npx vitest run -- archivo1 archivo2` **hace que vitest ignore los filtros y corra la suite entera**; el `--` apaga el filtro. Sin `--`, los archivos corren en foco. Se reporta porque el padre lo escribió mal en el handoff y el delegado lo detectó en vez de aceptarlo.
+
+**Estado del rediseño**: **el mundo viejo ya no existe en ninguna pantalla**. La búsqueda sobre `src` de `ring-white`, `text-primary-soft`, `bg-gradient`, `focus-visible:ring`, `outline-none` y los radios de contenedor deja una sola aparición, y no es un resto: es **la hairline de 2 px del nav**, que es una línea y no un control. **Quedan D8 (rehacer tests y E2E contra los flujos nuevos) y D9 (capturas en desktop y mobile, el detector una sola vez, y `DESIGN.md` desde lo construido).**
