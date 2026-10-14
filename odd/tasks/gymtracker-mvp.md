@@ -103,7 +103,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T3.close · Medición del bundle al cierre de la fase + cierre del documento | S11 | inline | `269f998`, `L28` |
 | T4.1 · lista `useInfiniteQuery` con paginación keyset | S7 | cliente | `1efd81d` |
 | T4.2a · detalle del workout (T4.2b, el del ejercicio, va con T4.3) | S7 | cliente | `24c5f08` |
-| T4.3 · uPlot lazy sobre `exercise_progress` | S7, S11 | pendiente | — |
+| T4.2b+T4.3 · pantalla del ejercicio + uPlot diferido sobre `exercise_progress` | S7, S11 | cliente | `5cf041e` |
 | T4.4 · toggle kg/lb solo UI + helper de soft-delete | S7, S15 | pendiente | — |
 | T4.5 · borrar workout / historial | S7 | pendiente | — |
 | T5.1 · `dashboard_summary()` en una llamada | S8 | pendiente | — |
@@ -193,8 +193,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 - [x] **T4.1** Lista `useInfiniteQuery` con paginación keyset. **Cerrada** en `1efd81d`. **303/303 unit tests en 36 archivos**, typecheck y lint limpios. Los cuatro estados de la pantalla (cargando, vacío, error y la lista), el encabezado presente en todos, y la paginación por **keyset sobre `(date, id)`** — el id es lo que la hace keyset: dos entrenamientos pueden compartir fecha y con la fecha sola la segunda página arrancaría adentro de ese tramo repetiendo o salteando filas. Ver `L30`.
 - [x] **T4.2a** Detalle del workout: la fecha, el título, la duración y las series agrupadas por ejercicio con los nombres del catálogo. **Cerrada** en `24c5f08`. **310/310 unit tests en 37 archivos**, typecheck y lint limpios. Los nombres salen del catálogo ya cacheado y no de una segunda lectura; los grupos salen en el orden de las series porque la base no guarda el orden de las tarjetas. Ver `L31`.
-- [ ] **T4.2b** Detalle del ejercicio, con T4.3: la gráfica se cuelga de esa pantalla, así que son una sola pieza de trabajo.
-- [ ] **T4.3** uPlot lazy (peso máx / volumen / 1RM) sobre `exercise_progress`.
+- [x] **T4.2b+T4.3** La pantalla del ejercicio y su gráfica. **Cerradas** en `5cf041e`. **322/322 unit tests en 39 archivos**, typecheck y lint limpios. **No hizo falta ninguna migración**: `exercise_progress` existe desde la Fase 1 (`0002_rpcs.sql`), ya está otorgada y agrega por día con `max_weight`, `total_volume` y `best_set_1rm`, sin calentamientos ni filas borradas — así que la gráfica **dibuja lo que calculó la base** y no hace aritmética propia. uPlot y su CSS viajan en un chunk aparte. Ver `L32`.
+- [x] **T4.3** uPlot diferido (peso máx / volumen / 1RM), colgado de la pantalla de T4.2b.
 - [ ] **T4.4** Toggle kg/lb solo UI + helper de soft-delete (**M2**).
 - [ ] **T4.5** Borrar workout / historial (**M2**).
 
@@ -811,3 +811,19 @@ Cerrado con `0010_revoke_anon_table_privileges.sql`, aplicada a local y al hoste
 **El detalle del ejercicio se fue con T4.3, y es una decisión.** La gráfica se cuelga de esa pantalla: hacerla ahora y volver a abrirla en la tarea siguiente sería construirla dos veces.
 
 **Un error propio que vale anotar**: al convertir cada fila de la lista en un enlace, el test de esa pantalla —que la montaba sin router— empezó a reventar en el render, y el `findBy` se quedaba esperando **cinco segundos** en vez de fallar con un mensaje que dijera qué pasó. El síntoma (una espera larga en una aserción que antes pasaba) fue lo que llevó al motivo: un `Link` fuera de un `<Router>` no avisa que falta el router, tira el render entero.
+
+---
+
+### L32 · T4.2b + T4.3 cerradas: la pantalla del ejercicio y la gráfica (2026-10-13)
+
+**322/322 unit tests en 39 archivos**, typecheck y lint limpios.
+
+**No hizo falta ninguna migración, y eso es un hallazgo, no una casualidad.** `exercise_progress` existe desde la Fase 1 (`0002_rpcs.sql:116`): agrega por día con `max_weight`, `total_volume` y `best_set_1rm`, excluye calentamientos y filas borradas, y filtra por `auth.uid()`. La consecuencia de diseño es la que importa: **la gráfica dibuja lo que calculó la base y no hace aritmética propia**, así que sus números no pueden discrepar con los del historial.
+
+**La aritmética de la gráfica vive en un módulo puro y no en el componente.** uPlot dibuja en un canvas y jsdom no tiene ninguno: una gráfica **no se puede ejercitar en un unit test**, igual que los gestos de T3.6b. Partir el cálculo de la serie deja algo que sí puede estar mal y sí se puede atrapar (12 aserciones), y el test del componente **reemplaza el canvas y lo dice**, en vez de fingir que lo probó.
+
+**El eje se formatea en UTC a propósito.** Los valores de x son medianoche UTC por construcción, y dejarlos leer en hora local correría cada punto un día para cualquiera al oeste de Greenwich. Es la misma trampa que la lista del historial evita al no convertir nunca su fecha a un `Date` — ahora en dos lugares, y por eso está escrito en los dos.
+
+**Un cast que documenta una divergencia real**: los tipos generados dicen que esas columnas `DECIMAL` devuelven `number` y en runtime llegan como `string` (el hallazgo A5 del propio proyecto). El cast pasa por `unknown` porque **el compilador tiene razón en que los dos no coinciden**, y el comentario dice por qué.
+
+**Una limitación que queda anotada**: la pantalla muestra la serie temporal y el máximo por sesión, pero no qué series concretas se hicieron ese día. Eso está en el detalle del workout, a un toque desde el historial.
