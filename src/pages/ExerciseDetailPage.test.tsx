@@ -22,7 +22,23 @@ vi.mock('../hooks/useAuth.ts', () => ({
  * contract the page owns.
  */
 vi.mock('../components/history/ProgressChart.tsx', () => ({
-  ProgressChart: ({ metric }: { metric: string }) => <p data-testid="grafica">{metric}</p>,
+  /*
+   * The stub reports the two props the page hands over, and not only the metric. Ignoring them was
+   * the problem: a page handing it `[]`, a stale array or `undefined` all looked the same from here.
+   */
+  ProgressChart: ({
+    metric,
+    label,
+    points,
+  }: {
+    metric: string;
+    label: string;
+    points: unknown;
+  }) => (
+    <p data-testid="grafica" data-label={label} data-points={JSON.stringify(points)}>
+      {metric}
+    </p>
+  ),
 }));
 
 const EXERCISE_ID = '01920000-0000-7000-8000-0000000000a1';
@@ -77,6 +93,22 @@ describe('ExerciseDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Press Banca' })).toBeInTheDocument();
     expect(await screen.findByTestId('grafica')).toHaveTextContent('maxWeight');
+  });
+
+  it('hands the chart the points the RPC brought, and the label to plot them as', async () => {
+    renderPage();
+
+    const chart = await screen.findByTestId('grafica');
+
+    /*
+     * The stub used to ignore `points` and `label`, so a page handing it `[]`, a stale array or
+     * `undefined` all looked the same from here. They are reported now, and this asserts they are
+     * exactly what `exercise_progress` returned after the boundary turned the decimals into numbers.
+     */
+    expect(JSON.parse(chart.getAttribute('data-points') ?? 'null')).toEqual([
+      { date: '2026-10-13', maxWeight: 70, volume: 1750, oneRm: 81.67, sets: 3 },
+    ]);
+    expect(chart).toHaveAttribute('data-label', 'kg');
   });
 
   it('starts on the max weight and changes metric when asked', async () => {

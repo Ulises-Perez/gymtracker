@@ -142,13 +142,24 @@ describe('fetchWorkoutDetail', () => {
 });
 
 describe('softDeleteWorkout', () => {
-  it('sets the moment instead of removing the row', async () => {
-    await softDeleteWorkout(row(1).id);
+  it('sets the moment instead of removing the row, and never writes null', async () => {
+    vi.useFakeTimers();
 
-    // Asserted on the shape of the write: an UPDATE is a soft delete, a DELETE would be the other
-    // convention — and one of the two takes the sets and the records with it.
-    expect(lastBuilder()?.calls).toContain('update deleted_at');
-    expect(lastBuilder()?.calls).toContain(`eq id ${row(1).id}`);
+    try {
+      vi.setSystemTime(new Date('2026-10-13T18:00:00.000Z'));
+
+      await softDeleteWorkout(row(1).id);
+
+      /*
+       * The value and not only the column: an UPDATE is a soft delete and a DELETE would take the sets
+       * with it, but `deleted_at: null` is the quiet third option — a soft delete turned into a no-op
+       * that leaves the workout in the history forever while the code still reads like it deletes.
+       */
+      expect(lastBuilder()?.calls).toContain('update deleted_at=2026-10-13T18:00:00.000Z');
+      expect(lastBuilder()?.calls).toContain(`eq id ${row(1).id}`);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('throws the error whole when the update is refused', async () => {

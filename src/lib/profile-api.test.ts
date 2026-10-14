@@ -72,17 +72,26 @@ describe('fetchProfile', () => {
 });
 
 describe('updateWeightUnit', () => {
-  it('writes the preference and nothing else', async () => {
+  it('writes the preference, and writes the unit it was handed', async () => {
     await updateWeightUnit(USER_ID, 'lb');
 
     /*
-     * The assertion is on the columns being written, and that is the whole DoD of S9: switching the
+     * The assertion is on the column *and its value*, and that is the whole DoD of S9: switching the
      * unit must not touch a single weight. A write that carried `weight_kg` would rewrite history the
-     * moment someone changed their mind about how to read it.
+     * moment someone changed their mind about how to read it — and a write of a hardcoded unit would
+     * leave the preference exactly where it was while a suite that only looked at column names stayed
+     * green.
      */
-    expect(lastBuilder()?.calls).toContain('update weight_unit');
-    expect(lastBuilder()?.calls).not.toContain('update weight_kg');
+    expect(lastBuilder()?.calls).toContain('update weight_unit=lb');
+    expect(lastBuilder()?.calls.some((call) => call.includes('weight_kg'))).toBe(false);
     expect(lastBuilder()?.calls).toContain(`eq id ${USER_ID}`);
+  });
+
+  it('writes kilos when kilos is what was asked for, not a fixed value', async () => {
+    await updateWeightUnit(USER_ID, 'kg');
+
+    // The other half of the same pin: the value written is the argument, not a constant.
+    expect(lastBuilder()?.calls).toContain('update weight_unit=kg');
   });
 
   it('throws the error whole when the write is refused', async () => {

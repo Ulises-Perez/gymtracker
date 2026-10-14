@@ -163,7 +163,18 @@ export function createQueryBuilder(result: { data: unknown; error: unknown }): Q
       return builder;
     },
     update(values) {
-      builder.calls.push(`update ${Object.keys(values).sort().join(',')}`);
+      /*
+       * The columns *and* their values, because the value is where the mistakes live: `update
+       * deleted_at` is true both for a timestamp and for `null`, and the second is a soft delete that
+       * never happened. Sorted by column so the recorded call is deterministic when a write carries
+       * more than one.
+       */
+      const written = Object.keys(values)
+        .sort()
+        .map((column) => `${column}=${String(values[column])}`)
+        .join(',');
+
+      builder.calls.push(`update ${written}`);
 
       return builder;
     },
