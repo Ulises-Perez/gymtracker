@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter, useLocation } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkoutExerciseCard } from '../components/workout/WorkoutExerciseCard.tsx';
 import { useWeightUnit } from '../hooks/useProfile.ts';
@@ -19,6 +19,57 @@ const EXERCISE_ID = '01920000-0000-7000-8000-0000000000a1';
 
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
+
+/**
+ * The browser half of a download, stubbed.
+ *
+ * jsdom has no object URLs, so the two functions the export calls are installed here and the clicked
+ * anchor is captured. What this lets a test see is the *file* — its name, its media type and its
+ * bytes — which is the only part of a download that can be asserted at all.
+ */
+let downloaded: Blob[];
+let revokeObjectURL: (url: string) => void;
+let clickedAnchors: HTMLAnchorElement[];
+
+function stubDownload() {
+  downloaded = [];
+  clickedAnchors = [];
+  revokeObjectURL = vi.fn();
+
+  URL.createObjectURL = vi.fn((blob: Blob) => {
+    downloaded.push(blob);
+
+    return `blob:gymtracker/${downloaded.length}`;
+  });
+  URL.revokeObjectURL = revokeObjectURL;
+
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    clickedAnchors.push(this);
+  });
+}
+
+function workoutExportRow() {
+  return {
+    date: '2026-10-13',
+    title: 'Piernas',
+    duration_minutes: 50,
+    workout_sets: [
+      {
+        exercise_id: EXERCISE_ID,
+        set_number: 1,
+        reps: 5,
+        weight_kg: '72.50',
+        rpe: '8.0',
+        is_warmup: false,
+        notes: null,
+        exercise: { name: 'Sentadilla' },
+      },
+    ],
+    workout_exercise_targets: [],
+  };
+}
 
 function profileRow(weightUnit: string) {
   return {
@@ -83,6 +134,12 @@ beforeEach(() => {
 
   client = createQueryClient();
   client.setDefaultOptions({ queries: { retry: false } });
+
+  stubDownload();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('ProfilePage', () => {
@@ -140,6 +197,81 @@ describe('the unit preference', () => {
      */
     expect(writtenCalls()).toContain('update weight_unit=kg');
     expect(writtenCalls().some((call) => call.includes('weight_kg'))).toBe(false);
+  });
+});
+
+/**
+ * The CSV export, which is the other half of the definition of done of S9. Its subject is data and
+ * not a screen: the file is always kilos, and the screen proves it by being in pounds when the file
+ * is written.
+ */
+describe('the CSV export', () => {
+  it('writes the stored kilograms even when the profile is set to pounds', async () => {
+    // The preference really is pounds, and the selector on this very screen shows it.
+    fake.setTableResult('profiles', { data: [profileRow('lb')], error: null });
+    fake.setTableResult('workouts', { data: [workoutExportRow()], error: null });
+
+    renderProfile();
+
+    expect(await screen.findByRole('button', { name: 'lb', pressed: true })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }));
+
+    await waitFor(() => {
+      expect(downloaded).toHaveLength(1);
+    });
+
+    const csv = await downloaded[0]?.text();
+
+    // The weight_kg column still holds the kilogram that is stored: an exported file is data, and
+    // the preference changes what a screen shows and nothing that is written.
+    expect(csv).toContain(';72.5;');
+    expect(csv).not.toContain('lb');
+  });
+
+  it('disables the control and announces the work while the export runs', async () => {
+    renderProfile();
+    await screen.findByRole('button', { name: 'Exportar CSV' });
+
+    // The read never settles, so pending is the only state the control can be in.
+    vi.mocked(getSupabase).mockReturnValue(new Promise<never>(() => {}));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }));
+
+    const button = screen.getByRole('button', { name: 'Exportando…' });
+
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('names the file after the day and revokes the object URL', async () => {
+    fake.setTableResult('workouts', { data: [workoutExportRow()], error: null });
+
+    renderProfile();
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar CSV' }));
+
+    await waitFor(() => {
+      expect(clickedAnchors).toHaveLength(1);
+    });
+
+    const anchor = clickedAnchors[0]!;
+
+    expect(anchor.download).toMatch(/^gymtracker-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(downloaded[0]?.type).toBe('text/csv;charset=utf-8');
+    expect(revokeObjectURL).toHaveBeenCalledWith(anchor.href);
+  });
+
+  it('says so in Spanish when the export fails, instead of downloading an empty file', async () => {
+    fake.setTableResult('workouts', { data: null, error: { message: 'permission denied' } });
+
+    renderProfile();
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar CSV' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos exportar el historial. Probá de nuevo.',
+    );
+    // A failed read must produce no file at all: a header-only CSV looks like an empty history.
+    expect(downloaded).toHaveLength(0);
   });
 });
 

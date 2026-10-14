@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import { PagePlaceholder } from '../components/ui/PagePlaceholder.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
+import { useExportWorkouts } from '../hooks/useExportWorkouts.ts';
 import { useProfile, useUpdateWeightUnit } from '../hooks/useProfile.ts';
 import { authErrorMessage } from '../lib/auth-errors.ts';
 import type { WeightUnit } from '../lib/units.ts';
@@ -18,6 +19,7 @@ export function ProfilePage() {
 
   const profile = useProfile(user?.id ?? '');
   const updateUnit = useUpdateWeightUnit(user?.id ?? '');
+  const exportWorkouts = useExportWorkouts(user?.id ?? '');
   // The selector shows what the profile stores, with kilos while it is on its way: the app stores
   // kilos, so that is the honest default rather than a blank state.
   const unit = profile.data?.weightUnit ?? 'kg';
@@ -39,10 +41,7 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <PagePlaceholder
-        title="Perfil"
-        description="Acá van los datos, el avatar y la exportación a CSV (Fase 6)."
-      />
+      <PagePlaceholder title="Perfil" description="Acá van los datos y el avatar (Fase 6)." />
 
       {/*
        * The unit preference, which until now was a line in the placeholder promising it. It changes
@@ -82,6 +81,40 @@ export function ProfilePage() {
           </p>
         ) : null}
       </section>
+      {/*
+       * The export: it reads the whole history and hands it over as a file. It is a **secondary**
+       * action -- it does not advance or confirm a workout -- so it is a ruled control with no
+       * accent, the same shape as "Salir": a rule border, a control's radius, and no focus ring of
+       * its own because focus is declared once in `index.css`.
+       *
+       * The pending state follows what this screen already does: the label is the indicator and the
+       * control disables and announces `aria-busy`, instead of the spinner the plan forbids. The copy
+       * says the one thing about the file that is not obvious on screen: the weights inside it are
+       * kilos even while this screen reads them in the preferred unit, because the file is data.
+       */}
+      <section className="border-text border-t-2 pt-4">
+        <h2 className="font-display text-lg font-extrabold tracking-tight">Exportar</h2>
+        <p className="text-muted mt-1 text-sm">
+          Descarga todo tu historial en un CSV. Los pesos van en kilos, como se guardan.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => void exportWorkouts.exportWorkouts()}
+          disabled={exportWorkouts.pending}
+          aria-busy={exportWorkouts.pending || undefined}
+          className="border-rule hover:bg-surface mt-2 min-h-12 w-full rounded-sm border px-4 disabled:opacity-50"
+        >
+          {exportWorkouts.pending ? 'Exportando…' : 'Exportar CSV'}
+        </button>
+
+        {exportWorkouts.error ? (
+          <p role="alert" className="text-danger mt-2 text-sm">
+            {exportWorkouts.error}
+          </p>
+        ) : null}
+      </section>
+
       {/*
        * Logging out is the one profile action the phase 2 definition of done names, so it lands
        * here now instead of waiting for the rest of phase 6. It leaves for the login screen rather

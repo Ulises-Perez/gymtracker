@@ -88,10 +88,14 @@ export function createFakeSupabase(initialSession: Session | null = null) {
   );
 
   const tableResults: Record<string, { data: unknown; error: unknown }> = {};
+  /** Per-table queues, so a paged read can be handed a different page on each request. */
+  const tableQueues: Record<string, { data: unknown; error: unknown }[]> = {};
 
-  const from = vi.fn((table: string) =>
-    createQueryBuilder(tableResults[table] ?? { data: [], error: null }),
-  );
+  const from = vi.fn((table: string) => {
+    const queued = tableQueues[table]?.shift();
+
+    return createQueryBuilder(queued ?? tableResults[table] ?? { data: [], error: null });
+  });
 
   return {
     client: { auth, rpc, from } as unknown as SupabaseClient<Database>,
@@ -101,6 +105,16 @@ export function createFakeSupabase(initialSession: Session | null = null) {
     /** What `from(table)` will resolve with on the next query. */
     setTableResult(table: string, result: { data: unknown; error: unknown }): void {
       tableResults[table] = result;
+    },
+    /**
+     * A different result for each of the next `from(table)` calls, in order.
+     *
+     * There is no other way to express a paged read honestly: a single result for every request
+     * makes "page until a short page" indistinguishable from "ask once". Once the queue runs out
+     * the last entry keeps answering, so a read that asks an extra time is visible as an extra call.
+     */
+    setTableResults(table: string, results: { data: unknown; error: unknown }[]): void {
+      tableQueues[table] = [...results];
     },
     unsubscribe,
     /** Simulates an auth event, the way a login, logout or token refresh would. */
@@ -123,6 +137,8 @@ export type QueryBuilderStub = {
   update: (values: Record<string, unknown>) => QueryBuilderStub;
   order: (column: string) => QueryBuilderStub;
   limit: (count: number) => QueryBuilderStub;
+  /** PostgREST's row window, and the only paging this project uses. */
+  range: (from: number, to: number) => QueryBuilderStub;
   /** Thenable, so both `await …select().order()` and a longer chain resolve. */
   then: (
     onfulfilled: (value: { data: unknown; error: unknown }) => unknown,
@@ -185,6 +201,11 @@ export function createQueryBuilder(result: { data: unknown; error: unknown }): Q
     },
     limit(count) {
       builder.calls.push(`limit ${count}`);
+
+      return builder;
+    },
+    range(from, to) {
+      builder.calls.push(`range ${from} ${to}`);
 
       return builder;
     },
