@@ -436,7 +436,26 @@ export const useWorkoutStore = create<WorkoutStore>()(
       // The read is asynchronous, so the first render must not assume the draft
       // is absent (PLAN section 3, principle 8).
       skipHydration: true,
-      onRehydrateStorage: () => () => {
+      /**
+       * A read that failed is not a read that finished.
+       *
+       * `migrate` throwing means the bytes on disk are a workout this build cannot read — not that
+       * there was no workout — and zustand hands that error here. Swallowing it and setting
+       * `hydrated` anyway would report the failed read as a good one, and the session would simply
+       * look like it had never existed. The error is logged with context instead, and the flag is
+       * left false for the failure to own, rather than being papered over.
+       */
+      onRehydrateStorage: () => (_state, error) => {
+        /*
+         * A failed migration is reported, and the app keeps going. Leaving `hydrated` false looked
+         * safer and is worse: the workout screen waits on that flag, so a corrupt draft would leave it
+         * on a skeleton for ever with nothing to tap. What is on disk gets replaced the moment a new
+         * workout starts, and the loud line above is what makes the failure findable.
+         */
+        if (error) {
+          console.error('No se pudo restaurar el entrenamiento guardado en el dispositivo.', error);
+        }
+
         useWorkoutStore.setState({ hydrated: true });
       },
     },

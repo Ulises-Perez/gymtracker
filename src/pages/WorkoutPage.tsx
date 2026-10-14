@@ -69,6 +69,7 @@ export function WorkoutPage() {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dismissedSave, setDismissedSave] = useState<string | null>(null);
+  const [confirmingRestart, setConfirmingRestart] = useState(false);
 
   const catalog = useCatalog(user?.id ?? '');
   const rest = useRestTimer(REST_SECONDS);
@@ -158,6 +159,25 @@ export function WorkoutPage() {
     save.mutate({ kind: 'save-workout', payload: toSaveWorkoutPayload(finished) });
   }
 
+  /**
+   * Opens a fresh workout, having first put the question back down.
+   *
+   * The flag is cleared here and not left for the next render: after the draft is replaced the
+   * screen shows the editor, and a confirmation that survived that transition would reappear
+   * pre-opened the next time a finished draft came back.
+   */
+  function startNew(): void {
+    setConfirmingRestart(false);
+    start();
+  }
+
+  /*
+   * A finished draft with nothing queued is a workout whose retries ran out: the draft is the only
+   * copy left, so replacing it has to be a choice. With a write still queued the workout is already
+   * captured as self-describing variables, so there is nothing to lose and the tap stays a tap.
+   */
+  const replacingIsLossy = draft?.status === 'finished' && waiting === 0;
+
   if (!hydrated) {
     return <PageSkeleton label="Cargando el entrenamiento" />;
   }
@@ -202,13 +222,48 @@ export function WorkoutPage() {
           </>
         ) : null}
 
-        <button
-          type="button"
-          onClick={start}
-          className="bg-primary mt-6 min-h-12 w-full rounded-md px-4 font-medium text-white"
-        >
-          Nuevo workout
-        </button>
+        {/*
+          Gated on `replacingIsLossy` as well, not only on the flag: if a queued retry lands while
+          the question is open, the workout is safe and the confirmation — which says it would be
+          lost — is no longer true.
+        */}
+        {confirmingRestart && replacingIsLossy ? (
+          <div className="mt-6 space-y-2">
+            {/*
+              The truth, said plainly: retries ran out, the queue is empty, and this draft is the
+              only copy of the session. The same two-step confirmation the history screen uses for
+              a delete, because a workout that is thrown away here cannot be brought back.
+            */}
+            <p role="alert" className="text-sm">
+              ¿Empezar un entrenamiento nuevo? Este no se guardó y se va a perder.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={startNew}
+                className="bg-primary min-h-12 flex-1 rounded-md px-4 font-medium text-white"
+              >
+                Sí, descartarlo
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingRestart(false)}
+                className="ring-white/15 hover:bg-bg min-h-12 flex-1 rounded-md px-4 ring-1"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={replacingIsLossy ? () => setConfirmingRestart(true) : startNew}
+            className="bg-primary mt-6 min-h-12 w-full rounded-md px-4 font-medium text-white"
+          >
+            Nuevo workout
+          </button>
+        )}
       </div>
     );
   }

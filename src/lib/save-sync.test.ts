@@ -149,3 +149,28 @@ describe('clearing the draft once its write lands', () => {
     expect(draft()?.workoutId).toBe(workoutId);
   });
 });
+
+/**
+ * Defect D3 does not stop at the hook.
+ *
+ * `useSaveWorkout` invalidates `['catalog']` in its `onSuccess`, and the catalogue is cached with
+ * `staleTime: Infinity` behind a seven-day `maxAge` while `save_workout` is what creates the custom
+ * exercises. But a write restored from the persisted queue carries no callbacks — that is the very
+ * limitation this module exists for — so an offline save that lands when the app is reopened has no
+ * hook mounted to run that invalidation. The exercise the user invented stays invisible to the
+ * picker for the rest of the window: the write succeeded and the app looks like it lost it. This
+ * subscription hears resumed successes too, which is why the invalidation belongs here as well.
+ */
+describe('what a landed write also changes', () => {
+  it('marks the catalogue stale even when no save hook is mounted to hear the success', async () => {
+    const workoutId = finishedWorkout();
+
+    queryClient.setQueryData(['catalog', 'user-1'], { exercises: [], muscleGroups: [] });
+
+    // Through the queue and the real dispatcher, with no `useSaveWorkout` in sight: this is the
+    // shape of a resumed save, not the shape of the screen.
+    await save(workoutId);
+
+    expect(queryClient.getQueryState(['catalog', 'user-1'])?.isInvalidated).toBe(true);
+  });
+});

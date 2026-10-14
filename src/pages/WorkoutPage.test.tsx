@@ -290,4 +290,121 @@ describe('WorkoutPage', () => {
       );
     });
   });
+
+  /**
+   * A finished draft with nothing queued is a workout the retries gave up on, and the draft is the
+   * only copy left. Starting another one replaces it, so the screen has to ask first: telling the
+   * user their workout is safe and then throwing it away on a single tap is the one lie this whole
+   * finish flow exists to avoid.
+   */
+  it('asks before replacing a finished workout that nothing saved', () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA.id);
+    store.finish();
+
+    const workoutId = draft()?.workoutId;
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+
+    // The question and both answers are on screen, and the draft is untouched until one of them
+    // is chosen: a confirmation that replaced first and asked later would be no confirmation.
+    expect(screen.getByText(/se va a perder/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sí, descartarlo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+    expect(draft()?.workoutId).toBe(workoutId);
+    expect(draft()?.status).toBe('finished');
+  });
+
+  it('leaves the finished workout alone when the question is answered with cancel', () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.finish();
+
+    const workoutId = draft()?.workoutId;
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(draft()?.workoutId).toBe(workoutId);
+    expect(draft()?.status).toBe('finished');
+    // Back to the plain button, so the question can be asked again rather than being stuck open.
+    expect(screen.getByRole('button', { name: 'Nuevo workout' })).toBeInTheDocument();
+  });
+
+  it('replaces it once losing it is confirmed', () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.finish();
+
+    const lostWorkoutId = draft()?.workoutId;
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, descartarlo' }));
+
+    expect(draft()?.status).toBe('draft');
+    expect(draft()?.workoutId).not.toBe(lostWorkoutId);
+    expect(screen.getByLabelText('Título')).toBeInTheDocument();
+  });
+
+  /**
+   * The other half of the same guard, and the reason it is not simply "always ask": a write that
+   * is still queued has already captured the workout as self-describing variables, so replacing
+   * the draft loses nothing and a question there would only get in the way.
+   */
+  it('starts without asking while the finished workout still has a queued write', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA.id);
+    store.finish();
+
+    // Never settles, so the write stays in the queue for the whole test, the way it does for the
+    // whole time the device is offline.
+    fake.rpc.mockImplementation(() => new Promise(() => {}));
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByText(/Guardando el entrenamiento/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+
+    expect(screen.getByLabelText('Título')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sí, descartarlo' })).not.toBeInTheDocument();
+  });
+
+  it('takes the warning back when the workout ends up queued again', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA.id);
+    store.finish();
+
+    fake.rpc.mockImplementation(() => new Promise(() => {}));
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+
+    expect(screen.getByRole('button', { name: 'Sí, descartarlo' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    // The write is queued again, so the workout is captured after all and the warning that it would
+    // be lost stopped being true. A question left open would tell the user to throw away a session
+    // that is on its way to the server.
+    await vi.waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Sí, descartarlo' })).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Nuevo workout' })).toBeInTheDocument();
+  });
 });

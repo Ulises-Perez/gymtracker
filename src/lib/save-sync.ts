@@ -25,6 +25,13 @@ import { queryClient } from './queryClient.ts';
  * Called once from `main.tsx`, and it returns its own teardown so a test does not leave a
  * listener behind that would fire into the next test's state.
  *
+ * It also marks the catalogue stale, and that is not a second responsibility so much as the same
+ * one finished. `save_workout` is what creates the custom exercises a session used, so the moment
+ * the write lands the catalogue is out of date — and a resumed write lands with no `onSuccess`
+ * mounted, because the queue never persists callbacks. Watching the cache itself is what lets the
+ * invalidation cover the resumed path too; leaving it in the hook alone would keep defect D3 alive
+ * for exactly the offline session it was written about.
+ *
  * The client is an argument with the application's own as the default, for the same reason
  * `createQueryClient` takes the dispatcher as one: a screen test builds its client, and a
  * subscription nailed to the singleton would be a behaviour those tests could not exercise.
@@ -43,6 +50,14 @@ export function installSaveSync(client: QueryClient = queryClient): () => void {
     if (queuedMutationKind(variables) !== 'save-workout') {
       return;
     }
+
+    /*
+     * Marked, not refetched, for the same reason the hook does it: a background request deciding
+     * the moment could turn a cached catalogue into an error screen while the user is offline. The
+     * invalidation is tied to the write landing and not to the draft, so it covers a resumed save
+     * even on the runs where the draft was already cleared.
+     */
+    void client.invalidateQueries({ queryKey: ['catalog'], refetchType: 'none' });
 
     // Guarded rather than assumed: these variables came out of a persisted entry, which is
     // to say out of JSON written by some earlier build.
