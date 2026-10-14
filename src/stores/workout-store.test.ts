@@ -278,7 +278,7 @@ describe('surviving a reload', () => {
     // zustand's envelope, exactly: the partialised state and a format version.
     // No action can show up here, because a function does not survive JSON —
     // which is also why the queue needs a dispatcher to be resumable.
-    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 1 });
+    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 2 });
   });
 });
 
@@ -356,5 +356,90 @@ describe('custom exercises created on the device', () => {
 
     expect(draft()?.customExercises).toEqual([]);
     expect(draft()?.title).toBe('Viejo');
+  });
+});
+
+describe('the target a card sets for itself', () => {
+  const REPS = 10;
+
+  it('starts empty, because a target is optional', () => {
+    store().start();
+    store().addExercise(EXERCISE_ID);
+
+    expect(draft()?.exercises[0]).toMatchObject({
+      targetReps: null,
+      targetWeightMin: null,
+      targetWeightMax: null,
+    });
+  });
+
+  it('takes the three values independently, because they are typed at different moments', () => {
+    store().start();
+    store().addExercise(EXERCISE_ID);
+
+    const cardId = draft()?.exercises[0]?.id ?? '';
+
+    store().setTarget(cardId, { targetReps: REPS });
+
+    expect(draft()?.exercises[0]).toMatchObject({
+      targetReps: REPS,
+      targetWeightMin: null,
+      targetWeightMax: null,
+    });
+
+    store().setTarget(cardId, { targetWeightMax: 80 });
+
+    // What was already there is untouched: each field is written on its own.
+    expect(draft()?.exercises[0]).toMatchObject({ targetReps: REPS, targetWeightMax: 80 });
+  });
+
+  it('refuses to set one on a workout that is already finished', () => {
+    store().start();
+    store().addExercise(EXERCISE_ID);
+
+    const cardId = draft()?.exercises[0]?.id ?? '';
+
+    store().finish();
+    const finished = draft();
+
+    store().setTarget(cardId, { targetReps: REPS });
+
+    expect(draft()).toEqual(finished);
+  });
+
+  /**
+   * The shape of the persisted draft changed again, and a draft written by the previous build has
+   * cards with no target fields at all. Read back as `undefined` they would reach the payload as
+   * `undefined` where the server expects null, so the migration fills them.
+   */
+  it('fills the target fields in for a draft persisted by the previous build', async () => {
+    await indexedDbStorage.setItem(
+      WORKOUT_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          draft: {
+            workoutId: '01920000-0000-7000-8000-0000000000fe',
+            date: '2026-10-01',
+            title: 'Viejo',
+            notes: '',
+            startedAt: 1,
+            endedAt: null,
+            status: 'draft',
+            customExercises: [],
+            exercises: [{ id: 'card-vieja', exerciseId: EXERCISE_ID, sets: [] }],
+          },
+        },
+        version: 1,
+      }),
+    );
+
+    await useWorkoutStore.persist.rehydrate();
+
+    expect(draft()?.exercises[0]).toMatchObject({
+      id: 'card-vieja',
+      targetReps: null,
+      targetWeightMin: null,
+      targetWeightMax: null,
+    });
   });
 });

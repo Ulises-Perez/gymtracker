@@ -19,7 +19,16 @@ const LAST_SESSION = [
 ];
 
 function cardWith(sets: WorkoutExerciseDraft['sets']): WorkoutExerciseDraft {
-  return { id: 'card-1', exerciseId: EXERCISE_ID, sets };
+  return {
+    id: 'card-1',
+    exerciseId: EXERCISE_ID,
+    sets,
+    // The card is the thing this suite renders; the target it may or may not have belongs to
+    // another one, and leaving it empty here is what "no target yet" looks like.
+    targetReps: null,
+    targetWeightMin: null,
+    targetWeightMax: null,
+  };
 }
 
 function setWith(overrides: Partial<WorkoutExerciseDraft['sets'][number]> = {}) {

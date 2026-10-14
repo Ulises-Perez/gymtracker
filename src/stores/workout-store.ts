@@ -40,7 +40,22 @@ export type WorkoutExerciseDraft = {
   id: string;
   exerciseId: string;
   sets: WorkoutSetDraft[];
+  /**
+   * What the user set out to do with this card: how many reps, between which weights.
+   *
+   * All three are optional and independent, because they get typed at different moments and a
+   * target that only says "10 reps" is a real one. They belong to the card and not to the exercise
+   * — the same exercise can be given two different targets in a single session — which is why the
+   * payload sends the card's position along with them.
+   */
+  targetReps: number | null;
+  targetWeightMin: number | null;
+  targetWeightMax: number | null;
 };
+
+export type WorkoutTargetPatch = Partial<
+  Pick<WorkoutExerciseDraft, 'targetReps' | 'targetWeightMin' | 'targetWeightMax'>
+>;
 
 /**
  * An exercise the user invented, held here until the workout is saved.
@@ -63,8 +78,15 @@ export type CustomExerciseDraft = {
  * field may not be there, and typing it as a full `WorkoutDraft` would be a lie the
  * compiler believes.
  */
-type LegacyDraft = Omit<WorkoutDraft, 'customExercises'> & {
+/**
+ * A card as an older build wrote it: the target fields did not exist yet.
+ */
+type LegacyCard = Omit<WorkoutExerciseDraft, 'targetReps' | 'targetWeightMin' | 'targetWeightMax'> &
+  Partial<Pick<WorkoutExerciseDraft, 'targetReps' | 'targetWeightMin' | 'targetWeightMax'>>;
+
+type LegacyDraft = Omit<WorkoutDraft, 'customExercises' | 'exercises'> & {
   customExercises?: CustomExerciseDraft[];
+  exercises: LegacyCard[];
 };
 
 export type WorkoutStatus = 'draft' | 'finished';
@@ -102,6 +124,7 @@ type WorkoutStore = {
   removeExercise: (cardId: string) => void;
   reorderExercises: (from: number, to: number) => void;
   addSet: (cardId: string, seed?: WorkoutSetPatch) => void;
+  setTarget: (cardId: string, patch: WorkoutTargetPatch) => void;
   updateSet: (cardId: string, setId: string, patch: WorkoutSetPatch) => void;
   removeSet: (cardId: string, setId: string) => void;
   finish: () => void;
@@ -131,6 +154,21 @@ function createSet(seed: WorkoutSetPatch): WorkoutSetDraft {
     notes: seed.notes ?? null,
   };
 }
+
+/**
+ * A card that has not been given a target yet.
+ *
+ * Null and not zero: a zero would be a claim that the user meant to lift nothing, and these fields
+ * mean "not said yet". Null is also what the payload sends and what the database stores.
+ */
+const emptyTarget: Pick<
+  WorkoutExerciseDraft,
+  'targetReps' | 'targetWeightMin' | 'targetWeightMax'
+> = {
+  targetReps: null,
+  targetWeightMin: null,
+  targetWeightMax: null,
+};
 
 /**
  * Applies `change` to an open draft, and holds both guards in one place.
@@ -208,7 +246,10 @@ export const useWorkoutStore = create<WorkoutStore>()(
           (state) =>
             edit(state, (draft) => ({
               ...draft,
-              exercises: [...draft.exercises, { id: newId(), exerciseId, sets: [] }],
+              exercises: [
+                ...draft.exercises,
+                { ...emptyTarget, id: newId(), exerciseId, sets: [] },
+              ],
             })) ?? state,
         ),
 
@@ -234,7 +275,10 @@ export const useWorkoutStore = create<WorkoutStore>()(
                   ...draft.customExercises,
                   { id: exerciseId, name: name.trim(), muscleGroupId },
                 ],
-                exercises: [...draft.exercises, { id: newId(), exerciseId, sets: [] }],
+                exercises: [
+                  ...draft.exercises,
+                  { ...emptyTarget, id: newId(), exerciseId, sets: [] },
+                ],
               };
             }) ?? state,
         ),
@@ -295,6 +339,21 @@ export const useWorkoutStore = create<WorkoutStore>()(
             ) ?? state,
         ),
 
+      /**
+       * Writes what the card is aiming for, one field at a time.
+       *
+       * A patch that leaves a field out does not clear it — the spread skips absent keys — so the
+       * three values can be typed in any order, each landing without disturbing the others. That is
+       * what makes a half-written target a real state rather than a moment to be repaired.
+       */
+      setTarget: (cardId, patch) =>
+        set(
+          (state) =>
+            edit(state, (draft) =>
+              mapCard(draft, cardId, (exercise) => ({ ...exercise, ...patch })),
+            ) ?? state,
+        ),
+
       removeSet: (cardId, setId) =>
         set(
           (state) =>
@@ -327,16 +386,15 @@ export const useWorkoutStore = create<WorkoutStore>()(
       // and `hydrated` says something about this instance, not about the data.
       partialize: (state) => ({ draft: state.draft }),
       /**
-       * The draft's shape changed with custom exercises, so the format is versioned
-       * and old entries are migrated instead of misread.
+       * The draft's shape has changed twice now, so the format is versioned and old entries are
+       * migrated instead of misread.
        *
-       * This matters more than a normal migration: a draft written by the previous
-       * build has no `customExercises` key, and reading it back as `undefined` would
-       * throw on the first `map` over it — losing the workout the user had in
-       * progress, which is the one thing this store exists to protect. The stored
-       * draft is spread last so a draft that already has the field keeps it.
+       * This matters more than a normal migration: a draft written by an older build is missing a
+       * key outright, and reading one back as `undefined` would reach the payload as `undefined`
+       * where the server expects null. That is the kind of failure that looks like a broken save at
+       * the worst possible moment — after the user has finished their session.
        */
-      version: 1,
+      version: 2,
       migrate: (persisted) => {
         const stored = persisted as { draft?: LegacyDraft | null } | undefined;
         const draft = stored?.draft;
@@ -345,9 +403,24 @@ export const useWorkoutStore = create<WorkoutStore>()(
           return { draft: null };
         }
 
-        // The default is written after the spread, not before: a default that the
-        // spread always overwrites is not a default, and the compiler says so.
-        return { draft: { ...draft, customExercises: draft.customExercises ?? [] } };
+        /*
+         * Idempotent for either older version: `customExercises` arrived at version 1 and the three
+         * target fields at version 2, and a draft from either build is missing whatever came after
+         * it. The normalisation comes after the spread so a draft that already has a value keeps
+         * it — the other order is the one the compiler rejects.
+         */
+        return {
+          draft: {
+            ...draft,
+            customExercises: draft.customExercises ?? [],
+            exercises: draft.exercises.map((card) => ({
+              ...card,
+              targetReps: card.targetReps ?? null,
+              targetWeightMin: card.targetWeightMin ?? null,
+              targetWeightMax: card.targetWeightMax ?? null,
+            })),
+          },
+        };
       },
       // The read is asynchronous, so the first render must not assume the draft
       // is absent (PLAN section 3, principle 8).

@@ -48,6 +48,30 @@ export function toSaveWorkoutPayload(draft: WorkoutDraft): SaveWorkoutPayload {
     duration_minutes:
       draft.endedAt === null ? null : durationMinutes(draft.startedAt, draft.endedAt),
     sets,
+    /**
+     * Only the cards that have a target, and each numbered by its place in the session.
+     *
+     * The position comes from the card's index and not from the target's position in this array:
+     * it says *which card this is*, which is what the database key needs to tell two cards of the
+     * same exercise apart. Numbering them 1, 2, 3 in order of appearance would file the target
+     * against the wrong exercise the day the same exercise appears twice.
+     *
+     * A card with all three fields empty is not sent at all: it is a card the user never got around
+     * to, and a row of three nulls would say nothing while still being a row.
+     */
+    exercise_targets: draft.exercises.flatMap((card, index) =>
+      hasTarget(card)
+        ? [
+            {
+              exercise_id: card.exerciseId,
+              position: index + 1,
+              target_reps: card.targetReps,
+              target_weight_min: card.targetWeightMin,
+              target_weight_max: card.targetWeightMax,
+            },
+          ]
+        : [],
+    ),
     custom_exercises: draft.customExercises
       .filter((exercise) => referenced.has(exercise.id))
       .map(toCustomExercise),
@@ -71,6 +95,16 @@ function toSets(card: WorkoutExerciseDraft): SaveWorkoutPayload['sets'] {
     is_warmup: set.isWarmup,
     notes: set.notes,
   }));
+}
+
+/**
+ * Whether the user said anything about what they were aiming for.
+ *
+ * Any one of the three is enough: they are typed at different moments, and someone who wrote their
+ * reps and left the weights for later has set a target.
+ */
+function hasTarget(card: WorkoutExerciseDraft): boolean {
+  return card.targetReps !== null || card.targetWeightMin !== null || card.targetWeightMax !== null;
 }
 
 /**

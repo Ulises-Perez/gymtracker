@@ -40,6 +40,9 @@ function card(overrides: Partial<WorkoutExerciseDraft> = {}): WorkoutExerciseDra
     id: '01920000-0000-7000-8000-0000000000c1',
     exerciseId: PRESS_BANCA,
     sets: [set()],
+    targetReps: null,
+    targetWeightMin: null,
+    targetWeightMax: null,
     ...overrides,
   };
 }
@@ -274,6 +277,70 @@ describe('the custom exercises the payload carries', () => {
     );
 
     expect(payload.custom_exercises).toEqual([]);
+  });
+});
+
+describe('the targets the payload carries', () => {
+  it('carries the target of the card that has one', () => {
+    const payload = toSaveWorkoutPayload(
+      draft({
+        exercises: [card({ targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 })],
+      }),
+    );
+
+    expect(payload.exercise_targets).toEqual([
+      {
+        exercise_id: PRESS_BANCA,
+        position: 1,
+        target_reps: 10,
+        target_weight_min: 60,
+        target_weight_max: 80,
+      },
+    ]);
+  });
+
+  /**
+   * An all-empty target is not a target: it is a card the user never got around to. Sending it
+   * would put a row in the database that says nothing.
+   */
+  it('leaves out a card that has no target at all', () => {
+    const payload = toSaveWorkoutPayload(draft({ exercises: [card()] }));
+
+    expect(payload.exercise_targets).toEqual([]);
+  });
+
+  it('sends a half-written target with nulls for the rest', () => {
+    const payload = toSaveWorkoutPayload(draft({ exercises: [card({ targetReps: 8 })] }));
+
+    expect(payload.exercise_targets?.[0]).toEqual({
+      exercise_id: PRESS_BANCA,
+      position: 1,
+      target_reps: 8,
+      target_weight_min: null,
+      target_weight_max: null,
+    });
+  });
+
+  /**
+   * The position is the card's place in the session, not its place among the targets. The second
+   * card is the only one with a target here and it still has to be 2 — filing it as 1 would put the
+   * target against the wrong exercise the day the same exercise appears twice, which is the whole
+   * reason the database key carries a position.
+   */
+  it('numbers the target by the card, not by how many cards have one', () => {
+    const payload = toSaveWorkoutPayload(
+      draft({
+        exercises: [
+          card({ id: 'card-1', exerciseId: PRESS_INCLINADO }),
+          card({ id: 'card-2', exerciseId: PRESS_BANCA, targetReps: 5 }),
+        ],
+      }),
+    );
+
+    expect(payload.exercise_targets?.[0]).toMatchObject({
+      exercise_id: PRESS_BANCA,
+      position: 2,
+    });
   });
 });
 

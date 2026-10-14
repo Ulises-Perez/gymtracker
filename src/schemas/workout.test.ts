@@ -59,4 +59,46 @@ describe('saveWorkoutPayloadSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts the targets a session sets for itself', () => {
+    const result = saveWorkoutPayloadSchema.safeParse({
+      ...basePayload,
+      exercise_targets: [
+        {
+          exercise_id: '01920000-0000-7000-8000-0000000000aa',
+          position: 1,
+          target_reps: 10,
+          target_weight_min: 60,
+          target_weight_max: 80,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  /**
+   * The position is what tells two cards of the same exercise apart in the database (0009), so a
+   * target without one cannot be stored at all. Refusing it here means the failure names a field
+   * instead of arriving as the RPC's message about a position.
+   */
+  it('rejects a target with no position', () => {
+    const result = saveWorkoutPayloadSchema.safeParse({
+      ...basePayload,
+      exercise_targets: [{ exercise_id: '01920000-0000-7000-8000-0000000000aa', target_reps: 10 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a null in place of the targets array', () => {
+    // Same reason as `custom_exercises`: 0009 reads the key with a COALESCE and a JSON null
+    // survives it, so `jsonb_array_elements` would be handed a null.
+    const result = saveWorkoutPayloadSchema.safeParse({
+      ...basePayload,
+      exercise_targets: null,
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
