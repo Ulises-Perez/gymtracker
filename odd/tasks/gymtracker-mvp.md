@@ -881,3 +881,15 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Un aviso del typecheck que valía la pena**: `prefetchInfiniteQuery` exige `getNextPageParam` aunque se pida una sola página. Tiene sentido apenas se piensa: una consulta infinita precargada **sigue siendo infinita**, y sin saber cómo continuar no es la misma consulta que la pantalla va a pedir después, así que la caché no le serviría.
 
 **Fase 5 cerrada.** El DoD de S8 era "una llamada `dashboard_summary()` pinta todo; prefetch en background", y **las dos mitades están**. Como en la Fase 4, **no hizo falta ninguna migración**: la función existe desde la Fase 1, igual que `exercise_progress`. Dos fases seguidas donde el trabajo fue leer lo que la base ya sabía hacer.
+
+---
+
+### L37 · Fase 6 abierta: el helper de unidades, y la base que ya tenía todo (2026-10-13)
+
+**5 tests nuevos**, typecheck y lint limpios. Commiteado en `65d064d`.
+
+**Lo que entró**: la conversión entre kilos y libras en los dos sentidos —al mostrar y **al guardar**—, que es la pieza que sostiene la regla del DoD de S9: "cambiar kg/lb **no altera ningún dato histórico**". Lo que se guarda siempre son kilos: una pantalla que guardara lo que el usuario tipeó mientras estaba en libras **reescribiría el historial** en el momento en que volviera a kilos.
+
+**Nada se redondea acá.** La columna es `DECIMAL(6,2)`, así que la precisión la decide la base donde corresponde, y redondear dos veces es como una conversión empieza a derivar. El ida y vuelta a través de esos dos decimales quedó **con test y no como suposición**, para que nadie "arregle" la deriva guardando libras.
+
+**Y el hallazgo se repite por tercera fase consecutiva**: `profiles` **ya tiene `weight_unit`** (y `avatar_url`), y `body_measurements` ya tiene `weight_kg` con su `deleted_at`. La Fase 6 **tampoco necesita migración** para la preferencia de unidad. Tres fases seguidas — Fase 4 con `exercise_progress`, Fase 5 con `dashboard_summary`, Fase 6 con `weight_unit` — donde el trabajo es **leer lo que la Fase 1 ya había construido**. Vale escribirlo porque cambia lo que hay que buscar primero: **antes de diseñar una tabla, mirar si ya está**.
