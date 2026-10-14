@@ -1,6 +1,6 @@
 # Objetivo por ejercicio y secciones en el selector
 
-**Estado:** En curso (2026-10-13). **O1** (`5372d35`) y **O2** (`ba28a6b`) cerradas. Alcance nuevo pedido por el usuario después del cierre de la Fase 3 del MVP (`odd/tasks/gymtracker-mvp.md`, `L28`).
+**Estado:** En curso (2026-10-13). **O1** (`5372d35`), **O2** (`ba28a6b`) y **O3** (`74fcccb`) cerradas. Alcance nuevo pedido por el usuario después del cierre de la Fase 3 del MVP (`odd/tasks/gymtracker-mvp.md`, `L28`).
 
 Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historial, dashboard, perfil, PWA) y esto no estaba en ninguna. Se documenta aparte para no diluir el MVP, que ya tiene 700 líneas.
 
@@ -31,7 +31,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 | --- | --- | --- | --- | --- |
 | O1 | El selector por secciones (UI, sin base) | S1 | cliente | `5372d35` |
 | O2 | Servidor: tabla de objetivos + `save_workout` (migración + pgTAP + hosted) | S2, S4 | hosted | `ba28a6b` |
-| O3 | Cliente: el draft (con migración de formato), el schema y el payload | S2, S4 | cliente | pendiente |
+| O3 | Cliente: el draft (con migración de formato), el schema y el payload | S2, S4 | cliente | `74fcccb` |
 | O4 | La UI del objetivo: los campos al elegir y su lugar en la tarjeta | S2, S4 | cliente | pendiente |
 | O5 | E2E del objetivo | S2 | e2e | pendiente |
 
@@ -39,7 +39,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 
 - [x] **O1** El selector por secciones. **Cerrada** en `5372d35`, 3 tests nuevos. La lista plana pasó a ser secciones con encabezado por grupo muscular, en el orden en que el catálogo los devuelve, y cada ejercicio **adentro** de la suya; lo que no tiene grupo va último, en una sección propia, porque un ejercicio propio se puede crear sin grupo y dejarlo afuera lo escondería. Los chips se mantienen filtrando qué secciones se ven. La jerarquía se anuncia (la sección se nombra y nombra su lista). **Dos cosas aparecieron por correr los tests contra el selector viejo**: la versión plana renderizaba la lista **aunque estuviera vacía** (decisión de T3.5), y con secciones no hay lista cuando nada coincide —correcto, una sección vacía sería ruido— pero el helper esperaba una y dos tests ajenos a secciones se colgaron 5 s; y el fixture de grupos estaba en un orden que el servidor **nunca devuelve** (los ordena alfabéticamente), así que mis aserciones fijaban un layout inexistente. Ver `L4`.
 - [x] **O2** Servidor: `workout_exercise_targets` y el paso de `save_workout` que la escribe, en la misma transacción que las series y los récords. **Cerrada** en `ba28a6b`. **`Files=5, Tests=73, Result: PASS` contra la base local y contra el proyecto hosted**, con RED observado antes (la tabla no existía, 13/13 fallidas). La clave lleva la **posición** porque el objetivo es de la tarjeta y el mismo ejercicio puede aparecer dos veces. Los tres valores son opcionales e independientes, y **`min < max` no se valida a propósito**: se tipean de a uno, y un CHECK convertiría un rango a medio escribir en un guardado que falla entero. De paso apareció un defecto de seguridad preexistente: el stack local era más permisivo que producción (ver `L5` y la migración `0010`).
-- [ ] **O3** Cliente: el objetivo en el draft (con **migración de formato**, `version: 2`), en el schema Zod y en `toSaveWorkoutPayload`. El schema va en snake_case como el resto (`target_reps`, `target_weight_min`, `target_weight_max`) porque son los nombres que lee el RPC.
+- [x] **O3** Cliente: el objetivo en el draft (con **migración de formato a `version: 2`**), en el schema Zod y en `toSaveWorkoutPayload`. **Cerrada** en `74fcccb`, 11 tests nuevos (274 → **285/285 en 34 archivos**), typecheck y lint limpios. **RED observado** en los tres archivos antes de implementar. Lo que importa del diseño: el payload numera los objetivos por la **posición de la tarjeta** y no por su lugar en el array — numerarlos por orden de aparición archivaría el objetivo contra el ejercicio equivocado el día que el mismo ejercicio aparezca dos veces, que es justo el día para el que existe la posición en la clave. Y una tarjeta con los tres campos vacíos **no viaja**: es una tarjeta que nunca se completó, y una fila de tres nulos no diría nada y sería igual una fila. Ver `L6`.
 - [ ] **O4** La UI del objetivo: los tres campos aparecen **al elegir el ejercicio** —que es lo que el usuario pidió— y quedan también en la tarjeta para poder ajustarlos durante la sesión. El selector pierde por esto su "un toque y afuera" de T3.5: es un cambio deliberado y pedido, a cambio de poder fijar el objetivo al agregar.
 - [ ] **O5** E2E: el flujo crítico suma el objetivo —fijarlo al agregar el ejercicio y verlo después de guardar— contra el stack local.
 
@@ -111,3 +111,19 @@ Cerrada en `ba28a6b`. **`Files=5, Tests=73, Result: PASS`** contra la **base loc
 
 1. Dejé la sesión con el rol `authenticated` al salir de cada bloque, así que las aserciones no podían leer su propia tabla temporal (`permission denied for table t_ctx`). El patrón del resto de la suite vuelve a `postgres` al terminar cada `do`; el mío no.
 2. **Y al corregirlo metí la pata justo en el caso que más importa.** Puse la restauración de rol en los nueve bloques, incluido el de RLS —cuya razón de ser es dejar la sesión **como B** para que la aserción mida lo que B ve—. Corriendo como superusuario la lectura atraviesa RLS y ve todo, así que **"B no ve ningún objetivo de A" pasaba siempre**. Lo destapó el `have: 3, want: 0`. Queda como la única excepción al patrón, comentada con esas palabras, porque es exactamente la clase de "arreglo" que alguien podría repetir.
+
+---
+
+### L6 · O3 cerrada: el objetivo en el draft, el schema y el payload (2026-10-13)
+
+Cerrada en `74fcccb`. **285/285 unit tests en 34 archivos** (11 nuevos: 3 del schema, 4 del draft, 4 del payload), typecheck y lint limpios, con **RED observado en los tres archivos** antes de implementar.
+
+**Qué entró**: los tres valores viven en la tarjeta del draft, viajan en el payload en snake_case y el draft pasó a `version: 2` con migración. Y una decisión que es la razón de todo el diseño: **el payload numera los objetivos por la posición de la tarjeta y no por su lugar en el array**. Numerarlos 1, 2, 3 por orden de aparición archivaría el objetivo contra el ejercicio equivocado el día que el mismo ejercicio aparezca dos veces — que es exactamente el día para el que existe la posición en la clave de la base.
+
+**Una tarjeta con los tres campos vacíos no viaja**: es una tarjeta que el usuario nunca completó, y una fila de tres nulos no diría nada y sería igual una fila.
+
+**La migración se escribió idempotente para las dos versiones viejas**: `customExercises` llegó en la v1 y los tres campos en la v2, así que a un draft de cualquiera de los dos builds le falta lo posterior. Leerlo como `undefined` llegaría al payload como `undefined` donde el servidor espera `null`: el tipo de falla que se ve como un guardado roto en el peor momento posible.
+
+**Lo que costó, y lo anoto porque fue mi error.** Mi primera edición del test del store **reemplazó las aserciones y los cierres del test anterior** y dejó un `describe` adentro de un `it`, o sea un `Transform failed`. Como el archivo no compilaba, **sus tests no corrían**, y la primera lectura que hice fue "el RED está incompleto" en vez de "el archivo está roto". Lo destapó que los números no cerraban: 27 tests cuando esperaba alrededor de 39. Después aparecieron dos más de mi parte: referencié `PRESS_BANCA` cuando ese archivo llama a la constante `EXERCISE_ID`, y tipé el `emptyTarget` como *patch* (campos opcionales) cuando tiene que ser la forma completa. Los tres los marcó el typecheck o la propia suite, no yo.
+
+**La lección que me llevo**: un archivo de test que no compila **no falla, no corre** — y un recuento de tests que no cierra es la única señal de que algo así pasó.
