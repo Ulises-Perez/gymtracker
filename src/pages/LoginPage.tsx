@@ -50,7 +50,13 @@ export function LoginPage() {
       footer={
         <>
           ¿No tenés cuenta?{' '}
-          <Link to="/register" state={{ from }} className="text-primary-soft underline">
+          {/* A link that only navigates: ink with the printed rule under it. The soft red is a ground
+              tint used as a text colour, which on paper reads as an error rather than a link. */}
+          <Link
+            to="/register"
+            state={{ from }}
+            className="text-text decoration-rule hover:decoration-text underline"
+          >
             Creá una
           </Link>
         </>
@@ -80,7 +86,10 @@ export function LoginPage() {
           {formState.isSubmitting ? 'Entrando…' : 'Entrar'}
         </Button>
         <p className="text-center text-sm">
-          <Link to="/forgot-password" className="text-primary-soft underline">
+          <Link
+            to="/forgot-password"
+            className="text-text decoration-rule hover:decoration-text underline"
+          >
             Olvidé mi contraseña
           </Link>
         </p>

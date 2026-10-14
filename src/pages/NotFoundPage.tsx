@@ -3,12 +3,14 @@ import { Link } from 'react-router';
 export function NotFoundPage() {
   return (
     <section className="space-y-3">
-      <h1 className="text-2xl font-semibold tracking-tight">Pantalla no encontrada</h1>
+      {/* The display face at its own weight, like every page title in this world, and no label above
+          it. The words stay exactly as they were: the route fallback identifies this screen by this
+          heading. */}
+      <h1 className="font-display text-3xl font-black tracking-tight">Pantalla no encontrada</h1>
       <p className="text-muted text-sm">La ruta que pediste no existe.</p>
-      <Link
-        to="/"
-        className="inline-flex rounded-md bg-gradient-to-r from-primary to-primary-soft px-4 py-2 text-sm font-medium text-bg"
-      >
+      {/* It only navigates, so it is ink with the printed rule under it: the gradient from the old
+          world is gone, and the soft red it landed on is a ground tint, not a text colour. */}
+      <Link to="/" className="text-text decoration-rule hover:decoration-text underline">
         Volver al inicio
       </Link>
     </section>

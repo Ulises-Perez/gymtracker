@@ -59,7 +59,7 @@ export function RegisterPage() {
         title="Revisá tu correo"
         subtitle={`Te mandamos un link a ${askedToConfirm} para confirmar la cuenta.`}
         footer={
-          <Link to="/login" className="text-primary-soft underline">
+          <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
             Volver a entrar
           </Link>
         }
@@ -76,7 +76,9 @@ export function RegisterPage() {
       footer={
         <>
           ¿Ya tenés cuenta?{' '}
-          <Link to="/login" className="text-primary-soft underline">
+          {/* Ink and the printed rule, like every link that only navigates: the soft red is a ground
+              tint, and a tint used as a text colour is wrong on paper. */}
+          <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
             Entrá
           </Link>
         </>

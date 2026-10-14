@@ -44,7 +44,7 @@ export function ForgotPasswordPage() {
         title="Revisá tu correo"
         subtitle={`Si ${sentTo} tiene cuenta, le mandamos un link para elegir una contraseña nueva.`}
         footer={
-          <Link to="/login" className="text-primary-soft underline">
+          <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
             Volver a entrar
           </Link>
         }
@@ -61,7 +61,7 @@ export function ForgotPasswordPage() {
       title="Recuperar contraseña"
       subtitle="Te mandamos un link para elegir una contraseña nueva."
       footer={
-        <Link to="/login" className="text-primary-soft underline">
+        <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
           Volver a entrar
         </Link>
       }
