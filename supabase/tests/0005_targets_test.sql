@@ -2,7 +2,8 @@
 -- GymTracker · 0005_targets_test — el objetivo por ejercicio de una sesión
 -- Corre con: npx supabase test db   (local)   ·   npx supabase test db --linked   (hosted)
 --
--- Cubre 0009: la tabla `workout_exercise_targets` y su escritura desde `save_workout`.
+-- Cubre 0009: la tabla `workout_exercise_targets` y su escritura desde `save_workout`; y 0011:
+-- el guard de dueño del ejercicio que la función aplica a series y objetivos.
 --
 -- Las aserciones que más valen no son las del camino feliz:
 --   · el mismo ejercicio en DOS tarjetas guarda DOS objetivos distintos, que es la única razón
@@ -11,6 +12,9 @@
 --   · B no ve los objetivos de A, y tampoco puede escribir sobre el workout de A. Son dos
 --     caminos distintos: la lectura directa la protege la policy, y el INSERT de la función lo
 --     protege el check de ownership de `save_workout`, porque SECURITY DEFINER **no** pasa por RLS.
+--   · la FK sola no alcanza para el `exercise_id`: exige que la fila exista, no que sea visible.
+--     Adivinar el UUID del custom ajeno permitía colgarle filas propias y dejarlo indeleble, así
+--     que la función también valida el dueño de cada ejercicio que inserta (0011).
 --
 -- Impersonación con el patrón del resto de la suite: `set local role authenticated` +
 -- `request.jwt.claims`, y las aserciones de vuelta como `postgres`. Todo termina en rollback, así
@@ -24,7 +28,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(13);
+select plan(19);
 
 -- ---------- fixtures ----------
 insert into auth.users (id, email) values
@@ -39,6 +43,9 @@ select
   '77777777-7777-4777-8777-777777777777'::uuid as workout_cascade,
   '66666666-6666-4666-8666-666666666666'::uuid as custom_a,
   '88888888-8888-4888-8888-888888888888'::uuid as set_a,
+  '99999999-9999-4999-8999-999999999999'::uuid as workout_b,
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid as custom_b,
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid as set_b,
   (select id from public.exercises where name = 'Press Banca' and is_custom = false) as press_banca;
 
 -- ---------- caso 1: A guarda un workout con tres objetivos ----------
@@ -346,6 +353,179 @@ select is(
    where workout_id = (select workout_cascade from t_ctx)),
   0,
   'borrar el entrenamiento se lleva sus objetivos: la cascada está puesta'
+);
+
+-- ---------- caso 10: B no puede apuntar una SERIE al custom de A ----------
+-- La FK de `workout_sets.exercise_id` sólo exige que la fila exista: sin este guard, adivinar el
+-- UUID del custom de otro alcanzaba para colgarle una serie propia, y con eso su dueño —ni el
+-- administrador— podía borrar el ejercicio (el FK lo frenaba con 23503).
+do $case10$
+declare
+  c record;
+begin
+  select * into c from t_ctx;
+  perform set_config('request.jwt.claims', json_build_object('sub', c.user_b)::text, true);
+  set local role authenticated;
+
+  perform public.save_workout(jsonb_build_object(
+    'id', c.workout_b,
+    'date', '2026-03-03',
+    'sets', jsonb_build_array(
+      jsonb_build_object(
+        'id', c.set_b, 'exercise_id', c.custom_a, 'set_number', 1,
+        'reps', 10, 'weight_kg', 40, 'is_warmup', false
+      )
+    )
+  ));
+exception when others then
+  perform set_config('gt.err_set_foreign', sqlerrm, true);
+  set local role postgres;
+end;
+$case10$;
+
+select is(
+  current_setting('gt.err_set_foreign', true),
+  'Forbidden',
+  'B no puede guardar una serie apuntando al ejercicio custom de A: la FK sola no alcanzaba'
+);
+
+-- ---------- caso 11: lo mismo con un OBJETIVO ----------
+do $case11$
+declare
+  c record;
+begin
+  select * into c from t_ctx;
+  perform set_config('request.jwt.claims', json_build_object('sub', c.user_b)::text, true);
+  set local role authenticated;
+
+  perform public.save_workout(jsonb_build_object(
+    'id', c.workout_b,
+    'date', '2026-03-03',
+    'sets', jsonb_build_array(),
+    'exercise_targets', jsonb_build_array(
+      jsonb_build_object('exercise_id', c.custom_a, 'position', 1, 'target_reps', 10)
+    )
+  ));
+exception when others then
+  perform set_config('gt.err_target_foreign', sqlerrm, true);
+  set local role postgres;
+end;
+$case11$;
+
+select is(
+  current_setting('gt.err_target_foreign', true),
+  'Forbidden',
+  'tampoco puede apuntarle un objetivo al mismo custom ajeno'
+);
+
+-- ---------- caso 12: el custom PROPIO y el catálogo GLOBAL sí pasan ----------
+-- El guard no puede ser un `created_by = v_user_id` a secas: el catálogo compartido tiene
+-- `created_by IS NULL` y sigue siendo de todos. Este caso prueba los dos lados que deben pasar,
+-- en series y en objetivos.
+do $case12$
+declare
+  c record;
+begin
+  select * into c from t_ctx;
+  perform set_config('request.jwt.claims', json_build_object('sub', c.user_b)::text, true);
+  set local role authenticated;
+
+  perform public.save_workout(jsonb_build_object(
+    'id', c.workout_b,
+    'date', '2026-03-03',
+    'title', 'Dia de B',
+    'custom_exercises', jsonb_build_array(
+      jsonb_build_object('id', c.custom_b, 'name', 'Remo con banda', 'muscle_group_id', null)
+    ),
+    'sets', jsonb_build_array(
+      jsonb_build_object(
+        'id', c.set_b, 'exercise_id', c.custom_b, 'set_number', 1,
+        'reps', 10, 'weight_kg', 30, 'is_warmup', false
+      ),
+      jsonb_build_object(
+        'exercise_id', c.press_banca, 'set_number', 2,
+        'reps', 8, 'weight_kg', 50, 'is_warmup', false
+      )
+    ),
+    'exercise_targets', jsonb_build_array(
+      jsonb_build_object('exercise_id', c.custom_b, 'position', 1, 'target_reps', 12),
+      jsonb_build_object('exercise_id', c.press_banca, 'position', 2, 'target_reps', 10)
+    )
+  ));
+  set local role postgres;
+end;
+$case12$;
+
+select is(
+  (select count(*)::int from public.workout_sets
+   where workout_id = (select workout_b from t_ctx)),
+  2,
+  'el custom propio de B y el ejercicio global guardan su serie: el guard no los bloquea'
+);
+
+select is(
+  (select count(*)::int from public.workout_exercise_targets
+   where workout_id = (select workout_b from t_ctx)),
+  2,
+  'y lo mismo en los objetivos: propio y global pasan'
+);
+
+-- ---------- caso 13: posición cero ----------
+do $case13$
+declare
+  c record;
+begin
+  select * into c from t_ctx;
+  perform set_config('request.jwt.claims', json_build_object('sub', c.user_a)::text, true);
+  set local role authenticated;
+
+  perform public.save_workout(jsonb_build_object(
+    'id', c.workout_a,
+    'date', '2026-03-03',
+    'sets', jsonb_build_array(),
+    'exercise_targets', jsonb_build_array(
+      jsonb_build_object('exercise_id', c.press_banca, 'position', 0, 'target_reps', 8)
+    )
+  ));
+exception when others then
+  perform set_config('gt.state_position_zero', sqlstate, true);
+  set local role postgres;
+end;
+$case13$;
+
+select is(
+  current_setting('gt.state_position_zero', true),
+  '23514',
+  'la posición cero la frena la base: no es un lugar válido de la sesión'
+);
+
+-- ---------- caso 14: posición negativa ----------
+do $case14$
+declare
+  c record;
+begin
+  select * into c from t_ctx;
+  perform set_config('request.jwt.claims', json_build_object('sub', c.user_a)::text, true);
+  set local role authenticated;
+
+  perform public.save_workout(jsonb_build_object(
+    'id', c.workout_a,
+    'date', '2026-03-03',
+    'sets', jsonb_build_array(),
+    'exercise_targets', jsonb_build_array(
+      jsonb_build_object('exercise_id', c.press_banca, 'position', -1, 'target_reps', 8)
+    )
+  ));
+exception when others then
+  perform set_config('gt.state_position_negative', sqlstate, true);
+  set local role postgres;
+end;
+$case14$;
+
+select is(
+  current_setting('gt.state_position_negative', true),
+  '23514',
+  'y la negativa tampoco: la posición es un orden, no un desplazamiento'
 );
 
 select * from finish();
