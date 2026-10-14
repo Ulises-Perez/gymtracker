@@ -78,6 +78,15 @@ test('records a workout offline and syncs it when the connection comes back', as
    */
   await page.getByRole('button', { name: 'Press Banca', exact: true }).click();
 
+  /*
+   * The target the session sets for itself, typed on the card. It travels in the payload, and a
+   * payload the RPC cannot read fails the whole save -- so the records arriving at the end of this
+   * test are also the evidence that these three values reached the database, not just the screen.
+   */
+  await page.getByLabel('Reps del objetivo').fill('8');
+  await page.getByLabel('Peso mínimo del objetivo').fill('60');
+  await page.getByLabel('Peso máximo del objetivo').fill('80');
+
   for (const [index, [reps, weight]] of SETS.entries()) {
     const position = index + 1;
 
