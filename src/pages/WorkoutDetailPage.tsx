@@ -1,11 +1,13 @@
-import { useMemo } from 'react';
-import { Link, useParams } from 'react-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail.ts';
 import type { WorkoutSetDetail } from '../lib/history-api.ts';
+import { softDeleteWorkout } from '../lib/history-api.ts';
 import { formatIsoDate } from '../lib/utils.ts';
 
 /**
@@ -19,8 +21,24 @@ import { formatIsoDate } from '../lib/utils.ts';
 export function WorkoutDetailPage() {
   const { workoutId = '' } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
   const detail = useWorkoutDetail(workoutId);
   const catalog = useCatalog(user?.id ?? '');
+
+  const remove = useMutation({
+    mutationFn: () => softDeleteWorkout(workoutId),
+    onSuccess: async () => {
+      /*
+       * The cached list still holds a workout that is now gone from the server. Invalidating before
+       * navigating back is what makes the screen the user lands on agree with what they just did;
+       * navigating first would show the row for as long as the refetch takes.
+       */
+      await queryClient.invalidateQueries({ queryKey: ['history'] });
+      void navigate('/history', { replace: true });
+    },
+  });
 
   const names = useMemo(
     () => new Map((catalog.data?.exercises ?? []).map((exercise) => [exercise.id, exercise.name])),
@@ -77,6 +95,56 @@ export function WorkoutDetailPage() {
           </ul>
         </section>
       ))}
+
+      {detail.isSuccess ? (
+        <div className="mt-8">
+          {confirming ? (
+            <div className="space-y-2">
+              {/*
+               * The truth about a soft delete, said out loud: the workout stops appearing, and the
+               * sets it produced stay. Promising that it is recoverable would be a promise the app
+               * cannot keep — there is no screen that brings it back.
+               */}
+              <p role="alert" className="text-sm">
+                ¿Borrar este entrenamiento? Va a dejar de aparecer, pero sus series quedan
+                guardadas.
+              </p>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => remove.mutate()}
+                  disabled={remove.isPending}
+                  className="bg-danger min-h-12 flex-1 rounded-md px-4 font-medium text-white disabled:opacity-50"
+                >
+                  Sí, borrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="ring-white/15 hover:bg-bg min-h-12 flex-1 rounded-md px-4 ring-1"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="ring-danger/40 text-danger hover:bg-danger/10 min-h-12 w-full rounded-md px-4 ring-1"
+            >
+              Borrar este entrenamiento
+            </button>
+          )}
+
+          {remove.isError ? (
+            <p role="alert" className="text-danger mt-2 text-sm">
+              No pudimos borrarlo. Probá de nuevo.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

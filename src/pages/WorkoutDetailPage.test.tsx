@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -108,5 +108,32 @@ describe('WorkoutDetailPage', () => {
     renderPage();
 
     expect(screen.getByRole('link', { name: '← Historial' })).toBeInTheDocument();
+  });
+
+  it('asks before deleting, and says what deleting means', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Borrar este entrenamiento' }));
+
+    // A soft delete stops showing it and keeps the sets, and the confirmation says exactly that
+    // instead of promising it can be brought back — there is no screen that does that.
+    expect(await screen.findByRole('alert')).toHaveTextContent('sus series quedan guardadas');
+  });
+
+  it('does not delete when the confirmation is cancelled', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Borrar este entrenamiento' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+
+    /*
+     * Asserted on the steps of the last query and not on `from` having been called: the page reads
+     * `workouts` on mount to show the detail, so the call itself proves nothing. What matters is that
+     * no `update` was issued and that the destructive button is gone.
+     */
+    const calls = (fake.from.mock.results.at(-1)?.value as { calls: string[] }).calls;
+
+    expect(calls.some((call) => call.startsWith('update'))).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Sí, borrar' })).not.toBeInTheDocument();
   });
 });
