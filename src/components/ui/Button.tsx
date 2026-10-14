@@ -31,7 +31,7 @@ export function Button({
       type={type}
       disabled={disabled || pending}
       aria-busy={pending || undefined}
-      className={`bg-primary hover:bg-primary-strong min-h-12 inline-flex items-center justify-center rounded-md px-4 text-base font-medium text-white transition-colors motion-reduce:transition-none disabled:opacity-60 ${className ?? ''}`.trim()}
+      className={`bg-primary hover:bg-primary-strong min-h-12 inline-flex items-center justify-center rounded-sm px-4 text-base font-medium text-white transition-colors motion-reduce:transition-none disabled:opacity-60 ${className ?? ''}`.trim()}
       {...rest}
     />
   );

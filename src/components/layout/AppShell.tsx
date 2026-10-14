@@ -14,7 +14,7 @@ export function AppShell() {
     <div className="mx-auto flex min-h-svh w-full max-w-lg flex-col">
       <a
         href="#contenido"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-sm focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
       >
         Saltar al contenido
       </a>

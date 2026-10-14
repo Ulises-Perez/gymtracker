@@ -22,7 +22,7 @@ export function BottomNav() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `relative flex flex-col items-center gap-1 rounded-md py-2.5 text-[11px] font-medium transition-colors motion-reduce:transition-none ${
+                `relative flex flex-col items-center gap-1 rounded-sm py-2.5 text-[11px] font-medium transition-colors motion-reduce:transition-none ${
                   // Ink for where you are, muted for the rest, and the accent stays out of it: the
                   // red is for what was replaced and for what can be pressed, and the current tab is
                   // a state, not a press.
