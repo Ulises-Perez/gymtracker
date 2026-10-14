@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react';
+
 import { useLastSets } from '../../hooks/useCatalog.ts';
 import type { LastSet } from '../../lib/catalog-api.ts';
 import { parseDecimalInput } from '../../lib/utils.ts';
@@ -65,19 +67,26 @@ export function WorkoutExerciseCard({
   }
 
   return (
-    <section className="bg-surface rounded-lg p-4">
+    <section className="border-text border-t-2 pt-4">
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold">{name}</h2>
+          {/*
+           * The display face at its own weight, not the interface face pushed heavier: the craft
+           * floor is explicit that the closest installed face is a failure and not a fallback. The
+           * name of the exercise is a printed title in this notebook.
+           */}
+          <h2 className="font-display truncate text-lg font-extrabold tracking-tight uppercase">
+            {name}
+          </h2>
           {history.length > 0 ? (
-            <p className="text-muted mt-1 text-sm">{formatHistory(history)}</p>
+            <p className="text-muted tabular mt-1 text-sm">{formatHistory(history)}</p>
           ) : null}
         </div>
         <button
           type="button"
           onClick={onRemoveExercise}
           aria-label={`Quitar ${name}`}
-          className="ring-white/15 hover:bg-bg focus-visible:ring-primary inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-md ring-1 focus-visible:ring-2 focus-visible:outline-none"
+          className="text-muted hover:text-danger inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center"
         >
           <CloseGlyph />
         </button>
@@ -113,7 +122,7 @@ export function WorkoutExerciseCard({
         </div>
       </div>
 
-      <ul aria-label={`Series de ${name}`} className="mt-3 space-y-3">
+      <ul aria-label={`Series de ${name}`} className="mt-3">
         {card.sets.map((set, index) => (
           <SetRow
             key={set.id}
@@ -128,7 +137,7 @@ export function WorkoutExerciseCard({
       <button
         type="button"
         onClick={() => onAddSet(seedForNextSet())}
-        className="ring-white/15 hover:bg-bg focus-visible:ring-primary mt-3 min-h-12 w-full rounded-md px-4 text-sm ring-1 focus-visible:ring-2 focus-visible:outline-none"
+        className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4 text-sm"
       >
         + serie
       </button>
@@ -171,9 +180,16 @@ function SetRow({
   onChange: (patch: WorkoutSetPatch) => void;
   onRemove: () => void;
 }) {
+  const reps = useCorrection(set.reps, (value) => onChange({ reps: value }));
+  const weight = useCorrection(set.weightKg, (value) => onChange({ weightKg: value }));
+
   return (
-    <li className="grid grid-cols-[1.25rem_1fr_1fr_3rem] items-end gap-2">
-      <span className="text-muted pb-3 text-sm">{position}ª</span>
+    <li className="border-rule grid grid-cols-[1.25rem_1fr_1fr_2.5rem] items-end gap-2 border-b pb-2">
+      {/* The margin's number, which is where a notebook writes it. The set is already named in
+          every label of the row, so this one is decoration for assistive technology. */}
+      <span aria-hidden="true" className="font-display text-muted pb-3 text-base leading-none">
+        {position}ª
+      </span>
 
       {/*
        * Text inputs with a decimal keyboard rather than `type="number"`: a number
@@ -189,20 +205,24 @@ function SetRow({
         label={`Reps serie ${position}`}
         shortLabel="Reps"
         value={set.reps}
-        onChange={(reps) => onChange({ reps })}
+        replaced={reps.replaced}
+        onFocus={reps.takeHold}
+        onChange={reps.correct}
       />
       <NumberCell
         label={`Peso en kg serie ${position}`}
         shortLabel="Peso en kg"
         value={set.weightKg}
-        onChange={(weightKg) => onChange({ weightKg })}
+        replaced={weight.replaced}
+        onFocus={weight.takeHold}
+        onChange={weight.correct}
       />
 
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Borrar serie ${position}`}
-        className="text-muted hover:text-danger focus-visible:ring-primary inline-flex min-h-12 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
+        className="text-muted hover:text-danger inline-flex min-h-12 items-center justify-center"
       >
         <CloseGlyph />
       </button>
@@ -211,37 +231,92 @@ function SetRow({
 }
 
 /**
+ * The notebook's correction mark, per cell.
+ *
+ * The value is taken hold of when the field is touched (`takeHold`) and not on every keystroke,
+ * because a keystroke is not a correction: from 100, typing 102,5 goes through "1" and "10", and
+ * crossing those out would be marking the typing instead of what was replaced. What gets crossed is
+ * the value that was really in the row when the hand arrived, and it is crossed only while the
+ * committed value is a different one: type the original back and nothing was replaced, so nothing
+ * is crossed.
+ *
+ * It lives here and not in the draft on purpose. This is what happened in front of the user, not part
+ * of the session: persisting it would put a display decision into a payload the server already knows
+ * the shape of, and into a table that has no column for it.
+ */
+function useCorrection(committed: number | null, commit: (value: number | null) => void) {
+  const held = useRef<number | null>(null);
+  const [replaced, setReplaced] = useState<number | null>(null);
+
+  return {
+    replaced,
+    takeHold: () => {
+      held.current = committed;
+    },
+    correct: (value: number | null) => {
+      commit(value);
+      setReplaced(held.current !== null && value !== held.current ? held.current : null);
+    },
+  };
+}
+
+/**
  * The visible text is a substring of the accessible name on purpose: a screen
  * reader hears "Peso en kg serie 1", which is what the eye reads plus which set.
  * They cannot all be called "Peso" — three identical names on screen are unusable
  * with assistive technology.
+ *
+ * The crossed value is announced as "Valor anterior" instead of being swept out of the tree: the
+ * correction is information, and the users who cannot see the crossing are the ones who would lose
+ * it. The figures are tabular so a column does not move while it is being written.
  */
 function NumberCell({
   label,
   shortLabel,
   value,
+  replaced = null,
+  onFocus,
   onChange,
 }: {
   label: string;
   shortLabel: string;
   value: number | null;
+  replaced?: number | null;
+  onFocus?: () => void;
   onChange: (value: number | null) => void;
 }) {
   return (
     <div className="space-y-1">
-      <span aria-hidden="true" className="text-muted block text-xs">
-        {shortLabel}
+      <span className="flex items-baseline justify-between gap-1">
+        <span aria-hidden="true" className="text-muted text-xs">
+          {shortLabel}
+        </span>
+        {replaced !== null ? (
+          <span className="text-xs whitespace-nowrap">
+            <span className="sr-only">Valor anterior: </span>
+            <s className="text-muted decoration-primary decoration-2">{formatNumber(replaced)}</s>
+          </span>
+        ) : null}
       </span>
       <input
         aria-label={label}
         defaultValue={value === null ? '' : String(value)}
         inputMode="decimal"
         autoComplete="off"
+        onFocus={onFocus}
         onChange={(event) => onChange(parseDecimalInput(event.target.value))}
-        className="bg-bg ring-white/15 focus-visible:ring-primary min-h-12 w-full rounded-md px-2 text-base ring-1 outline-none focus-visible:ring-2"
+        className="border-rule focus:border-primary tabular min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 text-base"
       />
     </div>
   );
+}
+
+/**
+ * A number as it is written by hand here: with a comma and without the trailing zeros of a decimal
+ * column. The arguments are reps and kilos, and both are written the same way.
+ */
+function formatNumber(value: number): string {
+  return String(value).replace('.', ',');
 }
 
 /**

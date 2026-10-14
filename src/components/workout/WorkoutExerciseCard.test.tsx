@@ -265,4 +265,44 @@ describe('WorkoutExerciseCard', () => {
     expect(within(rows[0] as HTMLElement).getByLabelText('Reps serie 1')).toHaveValue('10');
     expect(within(rows[1] as HTMLElement).getByLabelText('Reps serie 2')).toHaveValue('8');
   });
+
+  /**
+   * The memorable moment of the world: you correct a weight you had already written, and the one you
+   * replaced stays there, crossed out, where it was. It is the notebook's own mark, and the only thing
+   * on the screen that says "this was wrong and it got fixed" without saying a word.
+   */
+  it('keeps the value it replaced, struck through, when a set is corrected', () => {
+    renderCard(cardWith([setWith({ reps: 5, weightKg: 100 })]));
+
+    const weight = screen.getByLabelText('Peso en kg serie 1');
+
+    // Tapping the field is what takes hold of the value; the correction happens in the typing.
+    fireEvent.focus(weight);
+    fireEvent.change(weight, { target: { value: '102,5' } });
+
+    expect(screen.getByText('100', { selector: 's' })).toBeInTheDocument();
+    expect(weight).toHaveValue('102,5');
+
+    /*
+     * And what is crossed is the value it replaced, not every keystroke on the way: from 100, typing
+     * 102,5 passes through "1" and "10", and marking those would be marking typing instead of
+     * correcting. One mark, the one that was really there.
+     */
+    fireEvent.change(weight, { target: { value: '1' } });
+
+    expect(screen.getAllByText('100', { selector: 's' })).toHaveLength(1);
+  });
+
+  /**
+   * Nothing was replaced, so nothing is crossed out. The mark is the record of a correction, not a
+   * decoration the row always carries -- and on an untouched row it would be a number that was never
+   * written there.
+   */
+  it('crosses out nothing on a row that was never corrected', () => {
+    renderCard(cardWith([setWith({ reps: 5, weightKg: 100 })]));
+
+    const list = screen.getByRole('list', { name: 'Series de Press Banca' });
+
+    expect(list.querySelector('s')).toBeNull();
+  });
 });

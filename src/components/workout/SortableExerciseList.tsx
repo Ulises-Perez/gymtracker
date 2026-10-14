@@ -95,7 +95,7 @@ export function SortableExerciseList({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <ul aria-label="Ejercicios del entrenamiento" className="mt-6 space-y-3">
+        <ul aria-label="Ejercicios del entrenamiento" className="mt-4 space-y-6">
           {cards.map((card) => (
             <SortableExercise
               key={card.id}
@@ -159,9 +159,13 @@ function SortableExercise({
           {...attributes}
           {...listeners}
           aria-label={`Mover ${name}`}
-          className="text-muted hover:text-text focus-visible:ring-primary flex min-h-12 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
+          className="text-rule hover:text-text flex min-h-12 w-8 shrink-0 cursor-grab touch-none items-center justify-center"
         >
-          <span aria-hidden="true">⠿</span>
+          {/* Drawn, not typed: the project already decided against glyphs as icons, and the braille
+              character that used to sit here renders differently on every platform. */}
+          <span aria-hidden="true">
+            <GripGlyph />
+          </span>
         </button>
 
         {/*
@@ -184,5 +188,19 @@ function SortableExercise({
         </motion.div>
       </div>
     </li>
+  );
+}
+
+/** Two ruled rows of dots, which is a drag handle drawn in the world's own language. */
+function GripGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 12 20" className="h-5 w-3" fill="currentColor">
+      <circle cx="3" cy="5" r="1.5" />
+      <circle cx="9" cy="5" r="1.5" />
+      <circle cx="3" cy="10" r="1.5" />
+      <circle cx="9" cy="10" r="1.5" />
+      <circle cx="3" cy="15" r="1.5" />
+      <circle cx="9" cy="15" r="1.5" />
+    </svg>
   );
 }
