@@ -29,7 +29,7 @@
 | D1 | `init`: escribir `PRODUCT.md` con el usuario | S4 | skill | `b006a37` |
 | D2 | `new-work`: elegir el mundo de reemplazo y escribir el contrato de dirección | S2, S6 | skill | `38b022f` |
 | D3 | Los tokens y los componentes base | S2 | cliente | `c3de6df` + `70d13a0` |
-| D4 | Las pantallas del flujo de entrenamiento | S2, S4 | cliente | pendiente |
+| D4 | Las pantallas del flujo de entrenamiento | S2, S4 | cliente | `b2b7b67` · `0e758e8` · `36bace9` |
 | D5 | Historial, detalle y progreso | S2 | cliente | pendiente |
 | D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | pendiente |
 | D7 | Las pantallas de autenticación | S2 | cliente | pendiente |
@@ -41,7 +41,7 @@
 - [x] **D1** `init`: `PRODUCT.md` en la raíz del proyecto, con la verdad del producto confirmada por el usuario (el escenario del gimnasio, las restricciones y las ausencias que no se pueden inventar). **Cerrada.** El paso 5 de `init` no aplica: `impeccable context` no reportó generación de imágenes, sólo conversores, así que el camino es **code-first** y **no se escribe ningún `buildPath`** — un valor tomado del silencio sería un default que nadie eligió.
 - [x] **D2** `new-work`: el mundo de reemplazo elegido (**el cuaderno de entrenamiento**, `L4`/`L5`) y **el contrato de dirección** escrito en el brief de la superficie (`.impeccable/surfaces/src-pages-workoutpage-tsx.md`, `38b022f`). **Cerrada**, con la corrección de `L3`: en un mundo de reemplazo `DESIGN.md` se escribe **al final y desde lo construido**, así que cierra en D9.
 - [x] **D3** Los tokens y los componentes base. **Cerrada** en dos tramos: los tokens con los valores movidos y **sin tocar un solo layout** (`c3de6df`), y los componentes base (`70d13a0`). La cara de despliegue (**Archivo**, autoalojada) entra acá, con su costo medido en `L6`.
-- [ ] **D4** El flujo de entrenamiento — donde la app promete el offline y donde el escenario de S4 es literal. **Es el tramo que sigue**, y arrastra las pantallas que todavía llevan las clases del mundo viejo (`ring-white/15` sobre papel es un borde invisible).
+- [x] **D4** El flujo de entrenamiento — donde la app promete el offline y donde el escenario de S4 es literal. **Cerrada** en tres tramos (D4a `b2b7b67`, D4b `0e758e8`, D4c el commit de este tramo), todos registrados abajo.
 - [ ] **D5** Historial, detalle del entrenamiento y progreso por ejercicio (con la gráfica).
 - [ ] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords.
 - [ ] **D7** Las pantallas de autenticación, que son la primera impresión.
@@ -177,3 +177,15 @@ De las cuatro cartas presentadas —la asignada por el sorteo, mi número uno, e
 **Lo que este tramo NO toca, y es el siguiente**: **el selector de ejercicios** (`ExercisePickerDialog`) sigue con las clases del mundo viejo, igual que Inicio, historial, perfil y las pantallas de autenticación. Es **D4c** en el caso del selector y D5/D6/D7 para el resto. **Un dato que sí queda decidido por el contrato y que D4c tiene que respetar**: el selector es un diálogo que **se revisa contra el piso de oficio** ("ningún modal para una tarea que no necesita interrupción ni foco protegido"), o sea que la pregunta no es cómo se viste el modal, sino **si tiene que seguir siendo un modal**.
 
 **Verificación del tramo**: **365/365 unit tests en 44 archivos** (362 + los tres de `formatLongDate`), typecheck y lint limpios. Commits: `b2b7b67`+`5fe5289` (D4a) y el de este tramo (D4b).
+
+### L9 · D4, tercer tramo: el selector y los récords, y la pregunta que el piso de oficio obliga a contestar (2026-10-14)
+
+**La pregunta, contestada antes de vestir nada**: el piso de oficio pide revisar todo diálogo contra *"ningún modal para una tarea que no necesita interrupción ni foco protegido"*. **Sigue siendo un diálogo**, y no por costumbre: adentro hay **un campo de búsqueda y un formulario de alta que puede quedar a medio escribir**, o sea foco que proteger y un cierre que tiene que ser deliberado. Lo que el piso prohíbe es el modal de una tarea que no necesita ninguna de las dos. **La pregunta era si seguía siendo modal, no cómo se vestía el modal** — y la respuesta quedó escrita en el código, al lado del `Dialog.Content`, para que el próximo que lo lea no tenga que rehacer el razonamiento.
+
+**Lo que cambió de ropa, y todo sale del mundo**: el velo pasa de `bg-black/60` a **`bg-text/60`** (tinta, no negro); la hoja deja de ser una tarjeta flotante redondeada y pasa a ser **una esquina de página: fondo de papel, filete arriba y esquinas rectas** (`rounded-t-2xl` → nada), porque en este mundo los radios son de control y no de contenedor; el título sube a la **cara de despliegue**; **los ejercicios son renglones reglados** con su filete, no botones en cajas; el formulario de alta es un **bloque reglado**, y el `select` vuelve a ser **un renglón** como el resto de los campos.
+
+**Una decisión de acento, la misma que en la navegación**: **el chip seleccionado es tinta, no rojo**. Con seis grupos musculares, pintar el filtro activo con el acento gastaba el rojo —que está reservado a **lo que fue reemplazado** y **a lo que avanza el entrenamiento**— en decir cuál filtro está puesto. El chip sigue anunciando su estado por `aria-pressed` y no sólo por color.
+
+**Los récords (`PersonalRecords`) también son del flujo, y acá el acento sí corresponde**: el panel muestra **valores que fueron reemplazados por otros mejores**, que es exactamente lo que el rojo significa. Pasa de tarjeta con anillo a **filete rojo al margen** (una sola forma de elevación: borde, no borde más sombra) y **pierde el emoji de festejo** — el proyecto ya había decidido contra los glifos como iconos, y en un cuaderno impreso un confeti es una ilustración que nadie dibujó. Las frases se conservan **palabra por palabra** (`antes 110.0 kg → 116.7 kg de 1RM`), porque los tests las afirman y porque el texto no era el problema.
+
+**D4 cerrada**: los cinco componentes del flujo (pantalla, tarjeta, lista ordenable, selector y récords) están en el mundo nuevo. **Lo que sigue es D5** (historial, detalle del entrenamiento y progreso por ejercicio), donde quedan cuatro pantallas con el `ring-white/15` del mundo viejo.
