@@ -106,7 +106,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T4.2b+T4.3 · pantalla del ejercicio + uPlot diferido sobre `exercise_progress` | S7, S11 | cliente | `5cf041e` |
 | T4.4 · toggle kg/lb solo UI + helper de soft-delete | S7, S15 | pendiente | — |
 | T4.5 · borrar workout / historial | S7 | pendiente | — |
-| T5.1 · `dashboard_summary()` en una llamada | S8 | pendiente | — |
+| T5.1 · `dashboard_summary()` en una llamada | S8 | cliente | `9482c43` |
 | T5.2 · skeletons + prefetch de historial y catálogo | S8, S16 | pendiente | — |
 | T6.1 · nombre, avatar, unidad preferida | S9 | pendiente | — |
 | T6.2 · stats derivadas + peso corporal | S9 | pendiente | — |
@@ -200,7 +200,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 #### Fase 5 — Dashboard
 
-- [ ] **T5.1** `dashboard_summary()` en una llamada: saludo, dots semanales, racha, PRs, último workout, FAB.
+- [x] **T5.1** `dashboard_summary()` en una llamada: saludo, dots semanales, racha, PRs, último workout y FAB. **Cerrada** en `9482c43`. **336/336 unit tests en 41 archivos**, typecheck y lint limpios. **Sin migración**: la función existe desde la Fase 1 y devuelve `streak`, `week_days`, `recent_prs` (hasta 5, con el nombre del ejercicio), `last_workout` y `total_workouts`. Los tipos generados la ven como `Json` opaco, así que un schema Zod sostiene el contrato y se **parsea**, no se castea. Ver `L35`.
 - [ ] **T5.2** Skeletons + prefetch de historial y catálogo.
 
 #### Fase 6 — Perfil + Extras
@@ -853,3 +853,17 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Un error propio más, y es el mismo patrón que el de T4.2a**: escribí `expect(fake.from).not.toHaveBeenCalledWith('workouts')` para afirmar que cancelar no borra, y la pantalla **sí** consulta `workouts` al montar, para mostrar el detalle. La aserción era falsa por construcción. Lo que dice "no se escribió" es **la forma del último query**, no la llamada: el resultado de una lectura y el de una escritura se parecen, la forma no. Los dos errores son de la misma familia — afirmar sobre lo que es fácil de leer en el test en vez de sobre lo que distingue el comportamiento.
 
 **Fase 4 cerrada.** El DoD de S7 era "lista paginada + detalle workout + gráfica real de 1 ejercicio", y las tres están. **T4.4b (el toggle kg/lb) se movió a Fase 6**, que es donde vive la preferencia que lo alimenta: acá habría sido un control sin dónde guardarlo, y con la etiqueta "Peso en kg serie N" en juego en los tests y en la E2E.
+
+---
+
+### L35 · T5.1 cerrada: el inicio desde una sola llamada (2026-10-13)
+
+**336/336 unit tests en 41 archivos**, typecheck y lint limpios.
+
+**Sin migración, otra vez**: `dashboard_summary()` existe desde la Fase 1 y ya devuelve todo lo que la pantalla necesita, con la racha contada desde hoy o desde ayer según corresponda. **Una llamada y no cinco**: cinco lecturas serían cinco viajes de ida y vuelta en la conexión para la que está hecha esta app, y **cada una vería un momento distinto**, así que la pantalla podría mostrar una racha que no coincide con el entrenamiento que lista debajo.
+
+**El contrato se parsea, no se castea.** Los tipos generados ven el resultado como `Json` opaco —igual que el payload de `save_workout`— así que un schema Zod es lo que sostiene el SQL y la pantalla juntos. Parsear es donde un resumen que cambió de forma **se frena**, en vez de llegar a la pantalla como un `undefined` en medio de una frase.
+
+**Lo que la pantalla calcula es el saludo y qué cuadradito de la semana encender.** Las dos cosas tienen que ver con el reloj del usuario y con nada más: la base no tiene por qué saber qué hora es donde está. La tira se arma **pasando un `Date` local y formateando cada paso con el mismo helper local del resto de la app**, así que la comparación contra los días que mandó la base es entre dos strings `YYYY-MM-DD` y **nada pasa por UTC** — la trampa que ya apareció en la lista del historial y en el eje de la gráfica.
+
+**Un error propio que valió el test de rutas.** Puse el saludo como `h1`, y el test de rutas identifica al inicio por el encabezado **"Inicio"**: no lo encontraba y se colgaba diez segundos. El arreglo no es cambiar el test sino el diseño: **el título es "Inicio"** —es lo que dice la barra de navegación y lo que identifica a la pantalla— y **el saludo va abajo**. Un título que cambia con el reloj no lo puede buscar un test ni usar alguien para orientarse. Quedó con su propia aserción en el test de la pantalla, para que no vuelva a perderse.
