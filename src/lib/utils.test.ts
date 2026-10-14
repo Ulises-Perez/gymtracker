@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   durationMinutes,
-  kgToLb,
-  lbToKg,
   localIsoDate,
   normalizeForSearch,
   parseDecimalInput,
@@ -34,17 +32,6 @@ describe('toNumber', () => {
     const total = weights.reduce((sum, weight) => sum + toNumber(weight), 0);
 
     expect(total).toBe(152.75);
-  });
-});
-
-describe('kg/lb conversion', () => {
-  it('converts 100 kg to 220.462 lb', () => {
-    expect(kgToLb(100)).toBeCloseTo(220.462, 3);
-  });
-
-  it('round trips within a small epsilon', () => {
-    expect(lbToKg(kgToLb(70))).toBeCloseTo(70, 10);
-    expect(kgToLb(lbToKg(154.324))).toBeCloseTo(154.324, 10);
   });
 });
 

@@ -1,15 +1,3 @@
-const KG_PER_LB = 2.20462;
-
-/** Kilograms to pounds. Display only: storage is always kg. */
-export function kgToLb(kg: number): number {
-  return kg * KG_PER_LB;
-}
-
-/** Pounds to kilograms. Display only: storage is always kg. */
-export function lbToKg(lb: number): number {
-  return lb / KG_PER_LB;
-}
-
 /**
  * How long a workout lasted, in whole minutes.
  *
