@@ -26,7 +26,7 @@ Alguien entrenando en un sótano a las siete de la tarde, bajo una luz de tubo d
 
 **STORY.** Alguien a mitad de una serie lee el peso que levantó la vez pasada sin apuntar, escribe el nuevo, y ve el anterior tacharse. Entiende que la sesión se está registrando mientras la hace, y que nada se perdió mientras no había señal.
 
-**FIRST VIEWPORT.** El día de hoy arriba, el ejercicio en curso como el bloque más grande, **su próxima serie como un renglón vacío con la anterior justo encima y tachada**. La acción primaria —agregar serie— abajo, al alcance del pulgar, y el número en figuras tabulares que no bailan al escribirse.
+**FIRST VIEWPORT.** **La fecha de hoy ES el encabezado.** "Miércoles, 14 de octubre" es lo primero y lo más grande, sin rótulo encima ni debajo: el piso de oficio prohíbe la etiqueta sobre un encabezado sin excepción, y la fecha se gana el lugar siendo el título en vez de anunciarlo. Debajo, el ejercicio en curso como el bloque mayor, **su próxima serie como un renglón vacío con la anterior justo encima y tachada**. La acción primaria —agregar serie— abajo, al alcance del pulgar, en figuras tabulares que no bailan al escribirse.
 
 **FORM.** El cuaderno de entrenamiento, primero de siete por resonancia; clave del sorteo `aae13118`; elegido por el usuario por encima de la dirección asignada.
 
@@ -36,7 +36,11 @@ Alguien entrenando en un sótano a las siete de la tarde, bajo una luz de tubo d
 
 **Estrategia de color: contenida.** El neutro sale del mundo (el papel) y se tinta desde ahí, con **un solo acento**: el rojo de corrección, reservado a lo tachado y a lo accionable. No hay segundo acento ni color decorativo.
 
-**Una sola familia tipográfica: la que ya está instalada** (`Inter Variable`), con **el peso y el tamaño haciendo toda la jerarquía**, y figuras tabulares en los números. Las razones, en orden: es una superficie Operate, donde la skill dice que un tipo de trabajo sirve bien; no suma ninguna dependencia, y el presupuesto de bundle es verdad del producto, no una preferencia; y el momento de despliegue se hace con peso 800–900 a tamaño grande, no con otra cara. **Ninguna de las caras que la skill lista como default de entrenamiento entra acá.**
+**Una cara de despliegue, autoalojada, y el costo declarado.** El piso de oficio es explícito: "the closest installed font is a failure, not a fallback", y un encabezado que se hace subiendo el peso de la letra de la interfaz es exactamente eso. Se suma **Archivo** —grotesca de imprenta, eje de peso variable hasta 900, figuras tabulares— servida desde los archivos del proyecto con `@font-face`, nunca desde un host externo. No está en la lista de caras que la skill marca como default de entrenamiento. **Cuesta**: un woff2 subseteado son del orden de 20 kB, y el bundle inicial hoy está en 118.69 kB contra un tope de 180 que es verdad del producto. Si no entra, se reporta la cifra exacta antes de decidir nada.
+
+**Lo demás que el piso de oficio prohíbe y este mundo tiene que respetar**, anotado para no redescubrirlo en la revisión final: nada de tarjetas dentro de tarjetas (hoy la app los tiene, y se van); nada de sombras de desplazamiento duro ni de brillos de color sin desplazamiento; elevación declarada **una sola vez**, borde o sombra y no las dos; radios de tarjeta entre 12 y 16 px, con las píldoras sólo para controles chicos; `letter-spacing` nunca más cerrado que -0.04em; un solo momento animado de autor y no una entrada idéntica por sección; y ningún modal para una tarea que no necesita interrupción ni foco protegido — lo que hoy son diálogos se revisa contra eso.
+
+**Y lo que el piso pide y casi todos saltean**, que acá es trabajo de D3: **las superficies del navegador también llevan el diseño** — selección de texto, el cursor de escritura, la barra de scroll, el anillo de foco, el subrayado y los números tabulares salen con defaults que no pertenecen a ningún sistema. Tenirlos con la paleta es la señal más barata de que una página se construyó en vez de armarse.
 
 ## El momento memorable
 
