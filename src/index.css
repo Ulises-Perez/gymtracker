@@ -55,7 +55,6 @@
    * its own ring.
    */
   --color-primary-soft: #e0847c;
-  --color-accent: #16171b;
   --color-danger: #a4291f;
 
   /* A printed page is square. Radii belong to controls, not to containers. */
@@ -65,10 +64,6 @@
 }
 
 @layer base {
-  :root {
-    color-scheme: dark;
-  }
-
   html,
   body,
   #root {

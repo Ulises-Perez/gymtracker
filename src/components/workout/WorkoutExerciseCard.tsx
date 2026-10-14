@@ -184,7 +184,7 @@ function SetRow({
   const weight = useCorrection(set.weightKg, (value) => onChange({ weightKg: value }));
 
   return (
-    <li className="border-rule grid grid-cols-[1.25rem_1fr_1fr_2.5rem] items-end gap-2 border-b pb-2">
+    <li className="border-rule grid grid-cols-[1.25rem_1fr_1fr_2.75rem] items-end gap-2 border-b pb-2">
       {/* The margin's number, which is where a notebook writes it. The set is already named in
           every label of the row, so this one is decoration for assistive technology. */}
       <span aria-hidden="true" className="font-display text-muted pb-3 text-base leading-none">
