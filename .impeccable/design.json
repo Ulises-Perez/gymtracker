@@ -1,0 +1,394 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-14T21:55:04.774Z",
+  "title": "Design System: GymTracker",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Papel de campo",
+        "canonical": "#f3f2ee",
+        "oklch": "oklch(96.1% 0.005 95.1)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.005 95.1)",
+          "oklch(26% 0.005 95.1)",
+          "oklch(38% 0.005 95.1)",
+          "oklch(49% 0.005 95.1)",
+          "oklch(61% 0.005 95.1)",
+          "oklch(72% 0.005 95.1)",
+          "oklch(84% 0.005 95.1)",
+          "oklch(95% 0.005 95.1)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Papel en sombra",
+        "canonical": "#e9e7e1",
+        "oklch": "oklch(92.8% 0.008 91.5)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.008 91.5)",
+          "oklch(26% 0.008 91.5)",
+          "oklch(38% 0.008 91.5)",
+          "oklch(49% 0.008 91.5)",
+          "oklch(61% 0.008 91.5)",
+          "oklch(72% 0.008 91.5)",
+          "oklch(84% 0.008 91.5)",
+          "oklch(95% 0.008 91.5)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#16171b",
+        "oklch": "oklch(20.5% 0.008 274.5)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.008 274.5)",
+          "oklch(26% 0.008 274.5)",
+          "oklch(38% 0.008 274.5)",
+          "oklch(49% 0.008 274.5)",
+          "oklch(61% 0.008 274.5)",
+          "oklch(72% 0.008 274.5)",
+          "oklch(84% 0.008 274.5)",
+          "oklch(95% 0.008 274.5)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Tinta apagada",
+        "canonical": "#6b6a66",
+        "oklch": "oklch(52.4% 0.006 95.2)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.006 95.2)",
+          "oklch(26% 0.006 95.2)",
+          "oklch(38% 0.006 95.2)",
+          "oklch(49% 0.006 95.2)",
+          "oklch(61% 0.006 95.2)",
+          "oklch(72% 0.006 95.2)",
+          "oklch(84% 0.006 95.2)",
+          "oklch(95% 0.006 95.2)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Renglón impreso",
+        "canonical": "#d8d6cf",
+        "oklch": "oklch(87.6% 0.010 93.6)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.010 93.6)",
+          "oklch(26% 0.010 93.6)",
+          "oklch(38% 0.010 93.6)",
+          "oklch(49% 0.010 93.6)",
+          "oklch(61% 0.010 93.6)",
+          "oklch(72% 0.010 93.6)",
+          "oklch(84% 0.010 93.6)",
+          "oklch(95% 0.010 93.6)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Rojo de corrección",
+        "canonical": "#c7342a",
+        "oklch": "oklch(55.0% 0.185 28.6)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.185 28.6)",
+          "oklch(26% 0.185 28.6)",
+          "oklch(38% 0.185 28.6)",
+          "oklch(49% 0.185 28.6)",
+          "oklch(61% 0.185 28.6)",
+          "oklch(72% 0.185 28.6)",
+          "oklch(84% 0.185 28.6)",
+          "oklch(95% 0.185 28.6)"
+        ]
+      },
+      "primary-strong": {
+        "role": "primary",
+        "displayName": "Rojo apretado",
+        "canonical": "#a4291f",
+        "oklch": "oklch(47.7% 0.161 29.2)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.161 29.2)",
+          "oklch(26% 0.161 29.2)",
+          "oklch(38% 0.161 29.2)",
+          "oklch(49% 0.161 29.2)",
+          "oklch(61% 0.161 29.2)",
+          "oklch(72% 0.161 29.2)",
+          "oklch(84% 0.161 29.2)",
+          "oklch(95% 0.161 29.2)"
+        ]
+      },
+      "primary-soft": {
+        "role": "primary",
+        "displayName": "Tinte de acento",
+        "canonical": "#e0847c",
+        "oklch": "oklch(71.0% 0.115 25.6)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.115 25.6)",
+          "oklch(26% 0.115 25.6)",
+          "oklch(38% 0.115 25.6)",
+          "oklch(49% 0.115 25.6)",
+          "oklch(61% 0.115 25.6)",
+          "oklch(72% 0.115 25.6)",
+          "oklch(84% 0.115 25.6)",
+          "oklch(95% 0.115 25.6)"
+        ]
+      },
+      "danger": {
+        "role": "primary",
+        "displayName": "Rojo de error",
+        "canonical": "#a4291f",
+        "oklch": "oklch(47.7% 0.161 29.2)",
+        "rampSource": "synthesized",
+        "tonalRamp": [
+          "oklch(15% 0.161 29.2)",
+          "oklch(26% 0.161 29.2)",
+          "oklch(38% 0.161 29.2)",
+          "oklch(49% 0.161 29.2)",
+          "oklch(61% 0.161 29.2)",
+          "oklch(72% 0.161 29.2)",
+          "oklch(84% 0.161 29.2)",
+          "oklch(95% 0.161 29.2)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Fecha de portada",
+        "purpose": "El encabezado de toda pantalla, que en este producto es la fecha de hoy. Cara de despliegue (Archivo) en su propio peso, sin rótulo encima ni debajo."
+      },
+      "headline": {
+        "displayName": "Título de sección",
+        "purpose": "Los h2 ('Último entrenamiento', 'Récords nuevos') y el nombre del ejercicio, que va en mayúsculas."
+      },
+      "title": {
+        "displayName": "Título de hoja",
+        "purpose": "El título del selector de ejercicios, que es una hoja de página y no un panel flotante."
+      },
+      "body": {
+        "displayName": "Interfaz",
+        "purpose": "Campos, botones y frases. La línea no se limita por ch: la limita el contenedor de 32rem."
+      },
+      "label": {
+        "displayName": "Etiqueta",
+        "purpose": "Micro-etiquetas de campo ('Reps', 'Mín kg'), etiquetas de la navegación (11px) y encabezados de grupo del selector (mayúsculas, 0.025em)."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "pr-arrive",
+        "value": "320ms ease-out",
+        "purpose": "La llegada de un récord nuevo. Corta y chica a propósito: tiene que notarse sin hacer esperar a nadie para leer un número."
+      },
+      {
+        "name": "transition-colors",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "La transición de color de los controles al pasar por encima. El hover del botón de acento oscurece, no aclara."
+      },
+      {
+        "name": "prefers-reduced-motion",
+        "value": "animation: none / transition: none",
+        "purpose": "Con menos movimiento pedido, la animación de llegada se saltea entera —mitad de una animación es sólo un parpadeo— y las transiciones de color se apagan."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "El único breakpoint del código: la hoja del selector entra por abajo en el teléfono y desde 640px pasa a panel centrado de 32rem con filete de 2px."
+      }
+    ],
+    "elevation": {
+      "strategy": "no shadows",
+      "note": "La elevación se declara una sola vez y es el borde. No existe ninguna sombra en la app.",
+      "rules": [
+        {
+          "name": "filete de tinta",
+          "value": "border-top: 2px solid var(--color-text)",
+          "purpose": "Abre una sección o un bloque. 6 apariciones."
+        },
+        {
+          "name": "filete de regla",
+          "value": "border-bottom: 1px solid var(--color-rule)",
+          "purpose": "Separa filas, cierra bloques y dibuja el borde de un control reglado. 31 apariciones de border-rule."
+        },
+        {
+          "name": "filete de acento",
+          "value": "border-left: 4px solid var(--color-primary)",
+          "purpose": "Sólo en el panel de récords nuevos: valores que fueron reemplazados por otros mejores."
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "El botón de acento, dueño único de Button.tsx. Avanza o confirma el entrenamiento; el hover oscurece y el foco no lo pinta él.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Finalizar</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; padding: 0 16px; background: var(--color-primary); color: #ffffff; font-family: var(--font-sans); font-size: 1rem; font-weight: 500; line-height: 1.5; border: 0; border-radius: var(--radius-sm); transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover, .ds-btn-primary:active { background: var(--color-primary-strong); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-btn-primary[disabled] { opacity: 0.6; } @media (prefers-reduced-motion: reduce) { .ds-btn-primary { transition: none; } }"
+    },
+    {
+      "name": "Ruled Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "El control reglado: sin relleno, filete de regla, hover sobre papel en sombra y nada de acento. Hoy está escrito a mano en varias pantallas (ver narrative.debts).",
+      "html": "<button class=\"ds-btn-ruled\" type=\"button\">Reintentar</button>",
+      "css": ".ds-btn-ruled { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; padding: 0 16px; background: transparent; color: var(--color-text); font-family: var(--font-sans); font-size: 1rem; line-height: 1.5; border: 1px solid var(--color-rule); border-radius: var(--radius-sm); transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-ruled:hover { background: var(--color-surface); } .ds-btn-ruled:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-btn-ruled[disabled] { opacity: 0.5; } @media (prefers-reduced-motion: reduce) { .ds-btn-ruled { transition: none; } }"
+    },
+    {
+      "name": "Ruled Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "El campo es un renglón, no una caja: fondo transparente, sin borde salvo el filete inferior, radio 0. El error va en palabras con role=alert y aria-describedby.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-field\">Peso en kg</label><input class=\"ds-field-input\" id=\"ds-field\" inputmode=\"decimal\" placeholder=\"75\" /><p class=\"ds-field-error\" role=\"alert\">Escribí un número</p></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; } .ds-field-label { font-family: var(--font-sans); font-size: 0.875rem; font-weight: 500; color: var(--color-text); } .ds-field-input { min-height: 48px; width: 100%; padding: 0 4px; background: transparent; color: var(--color-text); font-family: var(--font-sans); font-size: 1rem; font-variant-numeric: tabular-nums; border: 0; border-bottom: 1px solid var(--color-rule); border-radius: 0; } .ds-field-input::placeholder { color: var(--color-muted); } .ds-field-input:focus { border-bottom-color: var(--color-primary); } .ds-field-input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-field-error { margin: 0; font-family: var(--font-sans); font-size: 0.875rem; color: var(--color-danger); }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "El filtro por grupo muscular del selector. El seleccionado es tinta, no rojo: un estado se escribe en tinta. Lleva aria-pressed, así que el color no es el único canal.",
+      "html": "<button class=\"ds-chip\" type=\"button\" aria-pressed=\"false\">Tríceps</button> <button class=\"ds-chip ds-chip-selected\" type=\"button\" aria-pressed=\"true\">Espalda</button>",
+      "css": ".ds-chip { min-height: 48px; padding: 0 12px; background: transparent; color: var(--color-muted); font-family: var(--font-sans); font-size: 0.875rem; border: 1px solid var(--color-rule); border-radius: var(--radius-sm); transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-chip:hover { color: var(--color-text); } .ds-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-chip-selected, .ds-chip-selected:hover { background: var(--color-text); border-color: var(--color-text); color: var(--color-bg); } @media (prefers-reduced-motion: reduce) { .ds-chip { transition: none; } }"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "description": "La barra fija de abajo. El estado actual es tinta más una barrita de 2px, para que el estado sobreviva al gris; el acento se queda afuera.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Navegación principal\"><ul class=\"ds-nav-list\"><li class=\"ds-nav-item\"><a class=\"ds-nav-tab\" href=\"#inicio\" aria-current=\"page\"><span class=\"ds-nav-cue\" aria-hidden=\"true\"></span><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 10.75 12 3.5l9 7.25\" /><path d=\"M5.5 9.75V20.5h13V9.75\" /></svg>Inicio</a></li><li class=\"ds-nav-item\"><a class=\"ds-nav-tab\" href=\"#entrenar\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6.5 6.5v11M3.5 9v5M17.5 6.5v11M20.5 9v5M6.5 12h11\" /></svg>Entrenar</a></li><li class=\"ds-nav-item\"><a class=\"ds-nav-tab\" href=\"#historial\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 20.5h16\" /><path d=\"M7 20.5v-6M12 20.5V5M17 20.5v-9\" /></svg>Historial</a></li><li class=\"ds-nav-item\"><a class=\"ds-nav-tab\" href=\"#perfil\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"3.75\" /><path d=\"M4.5 20.5a7.5 7.5 0 0 1 15 0\" /></svg>Perfil</a></li></ul></nav>",
+      "css": ".ds-nav { position: fixed; inset-inline: 0; bottom: 0; border-top: 1px solid var(--color-rule); background: color-mix(in oklab, var(--color-bg) 85%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-family: var(--font-sans); } .ds-nav-list { display: flex; align-items: stretch; width: 100%; max-width: 32rem; margin: 0 auto; padding: 0 8px; list-style: none; } .ds-nav-item { flex: 1; } .ds-nav-tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; color: var(--color-muted); font-size: 11px; font-weight: 500; text-decoration: none; border-radius: var(--radius-sm); transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-nav-tab:hover, .ds-nav-tab[aria-current='page'] { color: var(--color-text); } .ds-nav-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-nav-icon { width: 20px; height: 20px; } .ds-nav-cue { position: absolute; inset-inline: 12px; top: 0; height: 2px; border-radius: 999px; background: var(--color-text); opacity: 0; transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-nav-tab[aria-current='page'] .ds-nav-cue { opacity: 1; } @media (prefers-reduced-motion: reduce) { .ds-nav-tab, .ds-nav-cue { transition: none; } }"
+    },
+    {
+      "name": "Ruled Row",
+      "kind": "card",
+      "refersTo": "ruled-row",
+      "description": "Lo que en el mundo anterior era una tarjeta. El historial entero son filas regladas: sin relleno, sin sombra, separadas por el filete de 1px, con las fechas en figuras tabulares.",
+      "html": "<div class=\"ds-rows\"><a class=\"ds-row\" href=\"#\"><p class=\"ds-row-title\">14/10/2026</p><p class=\"ds-row-meta\">Empuje · 52 min</p></a><a class=\"ds-row\" href=\"#\"><p class=\"ds-row-title\">12/10/2026</p><p class=\"ds-row-meta\">Pierna · 61 min</p></a></div>",
+      "css": ".ds-rows { border-top: 1px solid var(--color-rule); } .ds-row { display: block; padding: 12px 4px; border-bottom: 1px solid var(--color-rule); color: var(--color-text); text-decoration: none; } .ds-row:hover { background: var(--color-surface); } .ds-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-row-title { margin: 0; font-family: var(--font-sans); font-size: 0.875rem; font-weight: 500; font-variant-numeric: tabular-nums; } .ds-row-meta { margin: 2px 0 0; font-family: var(--font-sans); font-size: 0.875rem; color: var(--color-muted); }"
+    },
+    {
+      "name": "Section Rule",
+      "kind": "custom",
+      "description": "El bloque reglado que reemplaza a la tarjeta: cuadrado, sin relleno, abierto por un filete de tinta de 2px. Los enlaces que sólo navegan son tinta con el filete impreso de subrayado.",
+      "html": "<section class=\"ds-section\"><h2 class=\"ds-section-title\">Último entrenamiento</h2><a class=\"ds-section-link\" href=\"#\">14/10/2026 · Empuje · 52 min</a><p class=\"ds-section-meta\">5 ejercicios</p></section>",
+      "css": ".ds-section { border-top: 2px solid var(--color-text); padding-top: 16px; font-family: var(--font-sans); color: var(--color-text); } .ds-section-title { margin: 0; font-family: var(--font-display); font-size: 1.125rem; font-weight: 800; letter-spacing: -0.025em; } .ds-section-link { display: block; margin-top: 4px; color: var(--color-text); font-size: 0.875rem; font-variant-numeric: tabular-nums; text-decoration: underline; text-decoration-color: var(--color-rule); text-underline-offset: 3px; } .ds-section-link:hover { text-decoration-color: var(--color-text); } .ds-section-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-section-meta { margin: 4px 0 0; color: var(--color-muted); font-size: 0.875rem; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Correction Mark",
+      "kind": "custom",
+      "description": "El momento memorable del mundo: al corregir una serie, el valor anterior queda a la vista, tachado con un trazo de acento de 2px, y se anuncia como 'Valor anterior:' en vez de esconderse.",
+      "html": "<div class=\"ds-field\"><span class=\"ds-field-head\"><span class=\"ds-field-hint\">Peso en kg</span><span class=\"ds-correction\"><span class=\"ds-sr\">Valor anterior: </span><s class=\"ds-correction-mark\">100</s></span></span><input class=\"ds-field-input\" inputmode=\"decimal\" value=\"102,5\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; max-width: 10rem; } .ds-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; } .ds-field-hint { font-family: var(--font-sans); font-size: 0.75rem; color: var(--color-muted); } .ds-correction { font-family: var(--font-sans); font-size: 0.75rem; white-space: nowrap; } .ds-correction-mark { color: var(--color-muted); text-decoration: line-through; text-decoration-color: var(--color-primary); text-decoration-thickness: 2px; } .ds-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; white-space: nowrap; border-width: 0; clip-path: inset(50%); } .ds-field-input { min-height: 48px; width: 100%; padding: 0 4px; background: transparent; color: var(--color-text); font-family: var(--font-sans); font-size: 1rem; font-variant-numeric: tabular-nums; border: 0; border-bottom: 1px solid var(--color-rule); border-radius: 0; } .ds-field-input:focus { border-bottom-color: var(--color-primary); } .ds-field-input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }"
+    },
+    {
+      "name": "New Records Margin Rule",
+      "kind": "custom",
+      "description": "El aviso de récord nuevo, que es lo que el servidor calculó dentro de la transacción que guardó la sesión: filete de acento de 4px al margen, sin relleno ni sombra, y sin emoji de festejo.",
+      "html": "<section class=\"ds-records\" role=\"status\" aria-label=\"Récords nuevos\"><h2 class=\"ds-records-title\">Récords nuevos</h2><ul class=\"ds-records-list\"><li><span class=\"ds-record-name\">Press Banca</span><span class=\"ds-record-sentence\">antes 110.0 kg → 116.7 kg de 1RM</span></li></ul></section>",
+      "css": ".ds-records { border-left: 4px solid var(--color-primary); padding-left: 16px; font-family: var(--font-sans); color: var(--color-text); animation: ds-pr-arrive 320ms ease-out; } @keyframes ds-pr-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } } .ds-records-title { margin: 0; font-family: var(--font-display); font-size: 1.125rem; font-weight: 900; letter-spacing: -0.025em; } .ds-records-list { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; } .ds-record-name { font-weight: 500; } .ds-record-sentence { display: block; font-size: 0.875rem; color: var(--color-muted); } @media (prefers-reduced-motion: reduce) { .ds-records { animation: none; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El cuaderno de entrenamiento",
+    "overview": "Este sistema se parece al objeto que reemplaza: la libreta donde alguien anota lo que levanta, entre series, con una mano ocupada. Papel de campo off-white frío, **renglón impreso** en tinta tenue, el número puesto en el margen, tinta oscura para escribir y **un solo rojo de corrección**. Refuta de frente el arreglo por defecto de la categoría —tarjetas suaves sobre un fondo claro con un acento de color— que el contrato de dirección nombra como lo que hay que negar.\n\n**La escena decide antes que el gusto.** Alguien entrenando en un sótano a las siete de la tarde, bajo una luz de tubo dura, con el teléfono en una mano y una barra en la otra. Esa frase fuerza el claro: un fondo oscuro con reflejos de tubo es un espejo, y el papel mate no refleja. De ahí sale también la densidad —360 px de ancho, pulgares, apuro— y el alto contraste medido: **15.99:1** en el título contra el papel y **4.83:1** en el texto apagado, los dos por encima de AA sin depender del color para nada.\n\n**Qué es este cuaderno y qué no.** El número que se acaba de escribir es lo más grande de la pantalla, y el anterior **sigue visible, tachado, en el lugar donde estaba**: la corrección es un estado de la página, no un aviso que aparece y se va. Este mundo no tiene sombras, ni degradados, ni tarjetas dentro de tarjetas, ni contenedores redondeados, ni un segundo acento, ni emojis, ni glifos usados como iconos. Tampoco hay imágenes en la interfaz: la dirección se construyó en código, sin comps y sin generación de imágenes.",
+    "keyCharacteristics": [
+      "Una sola cara de despliegue (Archivo), un solo acento (el rojo) y ninguna sombra en toda la app.",
+      "La elevación es el **renglón impreso**: filete de tinta de 2 px para abrir una sección, filete de regla de 1 px para separar filas.",
+      "La página es cuadrada; los radios son de control y el único que se usa es `rounded-sm` (3px, 25 apariciones).",
+      "Toda cifra que se lee como dato —o que se escribe mientras alguien mira— lleva figuras tabulares (`.tabular`).",
+      "El navegador entra en el sistema: selección, caret, barra de scroll, outline de foco y subrayado salen de la paleta.",
+      "360 px es la medida de trabajo; el contenedor corta en `max-w-lg` (32rem) y el pie de página reserva 7rem (112px) para la barra fija."
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "El acento aparece sólo donde algo **fue reemplazado** (el tachado, el margen de un récord) o donde algo **avanza y confirma** (el botón de acento, el paso que borra). Si el rojo dice tres cosas, no dice ninguna.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Is A State Rule",
+        "body": "Un estado se escribe en **tinta**, no en rojo: la pestaña actual de la navegación, el chip de filtro seleccionado y el día entrenado de la tira semanal son tinta. Estar parado en un lugar no es una presión.",
+        "section": "colors"
+      },
+      {
+        "name": "The Own Weight Rule",
+        "body": "Un título usa la **cara de despliegue en su propio peso** (800/900) y nunca la cara de la interfaz engordada. El letter-spacing más cerrado que se permite es -0.04em y acá el más cerrado es **-0.025em** (`tracking-tight`).",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Toda cifra que se lee como dato —fechas, duraciones, kilos, series— o que se escribe mientras alguien mira lleva **figuras tabulares** (`.tabular`), para que la columna no baile.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Column Rule",
+        "body": "Una sola columna, 16 px de margen, 112 px de reserva abajo y 32rem de tope. Una pantalla nueva no inventa su ancho: hereda el del shell.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Elevation Rule",
+        "body": "La elevación se declara una sola vez y es el borde. Nada flota: nada de sombras, degradados ni superficies apiladas.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ruled Page Rule",
+        "body": "Cada bloque se abre con su filete de tinta de 2 px y cada fila se cierra con el filete de regla de 1 px. La página se lee como se lee un cuaderno: de arriba hacia abajo, por renglones.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Control Radius Rule",
+        "body": "Los radios son de **control**, no de contenedor. Si algo agrupa contenido, se separa con un filete y se queda cuadrado; si algo se aprieta con el dedo, lleva `rounded-sm` (3px) y ningún otro radio.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Ruled Control Rule",
+        "body": "Un control que no avanza ni confirma el entrenamiento es **un renglón con filete**: sin relleno, con `border-rule`, con `hover` en `surface` y sin una gota de acento. El acento se gana, no se reparte.",
+        "section": "components"
+      },
+      {
+        "name": "The No Glyphs Rule",
+        "body": "Ningún icono es un carácter: todo glifo se dibuja en **SVG en línea** (20 px, `stroke` 1.75, `aria-hidden`). Un carácter se dibuja distinto en cada plataforma y no hereda el color del texto con fiabilidad — y ya quedan dos pruebas de eso en la historia del proyecto (el asa `⠿` y el emoji de festejo).",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** abrir un bloque con el filete de tinta de 2 px (`border-t-2` en `border-text`) y separar filas con el filete de regla de 1 px (`border-b` en `border-rule`).",
+      "**Do** reservar el acento (#c7342a) para el relleno de un botón que avanza o confirma, el margen de los récords nuevos, el trazo del tachado (`decoration-primary`), la selección de texto, el caret y el outline de foco.",
+      "**Do** llevar los títulos a la cara de despliegue en su propio peso (`font-display` con `font-black` o `font-extrabold`).",
+      "**Do** dejar el foco en la declaración única de `src/index.css` (`:focus-visible` con outline de acento de 2 px y 2 px de offset): ningún componente pinta su anillo.",
+      "**Do** dar 48 px (`min-h-12`) a todo control que se toca con el dedo y `.tabular` a toda cifra que se alinea en columna o se escribe.",
+      "**Do** reforzar cada estado con algo además del color: la barrita del nav, `aria-pressed` en el chip, palabras de error más `role=\"alert\"`, y el `Valor anterior:` del tachado.",
+      "**Do** nombrar la pantalla con un landmark estable (`role=\"region\"` + `aria-label`) cuando el encabezado es la fecha de hoy."
+    ],
+    "donts": [
+      "**Don't** pintar un `ring` propio en un control, ni usar `primary-soft` como anillo de foco (2.4:1 contra el mínimo de 3:1).",
+      "**Don't** usar una sombra, un degradado, un `backdrop-filter` fuera de las dos superficies fijas, ni una tarjeta dentro de otra: la elevación es el borde y se declara una sola vez.",
+      "**Don't** usar el acento para un estado —la pestaña actual, el chip seleccionado, el día entrenado— ni para un enlace que sólo navega: un enlace que navega es tinta con el filete impreso de subrayado.",
+      "**Don't** poner un radio de contenedor: nada de curvas en bloques, hojas o secciones, y ningún radio fuera de `rounded-sm` (3px) en un control.",
+      "**Don't** poner texto blanco sobre `primary-soft` (2.4:1) ni aclarar el botón de acento con el _hover_: pasar por encima oscurece.",
+      "**Don't** usar un carácter o un emoji como icono, y no volver a introducir el asa braille ni el festejo.",
+      "**Don't** cerrar el `letter-spacing` más allá de -0.04em, ni subir el peso de la cara de la interfaz para resolver un título."
+    ],
+    "debts": [
+      {
+        "title": "El botón secundario está escrito a mano",
+        "body": "El botón reglado —sin relleno, con `border-rule`, `hover:bg-surface`, 48 px y `rounded-sm`— se repite escrito a mano en varias pantallas mientras `Button.tsx` es dueño único del de acento. En una de las dos variantes de tamaño conviven 1rem y 0.875rem según quién tocó el archivo. Es una duplicación real, no un olvido: su casa es el inventario de componentes de `DESIGN.md`, y por eso el CSS completo del control reglado viaja en `components[]` en vez de quedar repartido.",
+        "where": "src/pages/ProfilePage.tsx, src/pages/HistoryPage.tsx, src/pages/WorkoutPage.tsx, src/pages/WorkoutDetailPage.tsx, src/components/workout/ExercisePickerDialog.tsx, src/components/workout/WorkoutExerciseCard.tsx, src/components/workout/PersonalRecords.tsx (14 apariciones de hover:bg-surface)"
+      },
+      {
+        "title": "La flecha → no está en el subset latino de ninguna cara",
+        "body": "La frase de los récords usa `antes 110.0 kg → 116.7 kg de 1RM`, y el signo `→` (U+2192) no está cubierto por el subset latino de Archivo ni de Inter: los rangos declaran U+2191 y U+2193, no U+2192. Resultado: ese carácter se dibuja con la fuente del sistema, en medio de una frase. No se tocó acá; se resuelve cambiando el signo o eligiendo otro.",
+        "where": "src/components/workout/PersonalRecords.tsx (comparison), medido en el CSS construido y registrado en odd/tasks/gymtracker-rediseno.md L10"
+      }
+    ]
+  }
+}
