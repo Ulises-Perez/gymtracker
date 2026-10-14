@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** Fases 0, 1, 2 y 3 cerradas, **Fase 4 cerrada**: T3.1b/c, T3.2b, T3.2c, T3.2d, T3.4, T3.5, T3.6a, T3.7a, T3.7b, T3.8a, T3.8b, T3.9a, T3.6b, T3.9b, T3.9c, T3.9d, T3.10 y T1.9 cerradas (271/271 unit tests en 34 archivos, bundle inicial al cierre **117.99 kB gzip de 180**, JS + CSS, ver `L28`). La suite pgTAP completa corre **en verde contra la base hosted (4 archivos, 60 aserciones)**, así que la policy de `exercises` quedó verificada por dos caminos (`L16`) y los ejercicios custom tienen cobertura propia (`L17`). La verificación independiente de la durabilidad corrió y su defecto alto quedó corregido (`L10`). D2 quedó resuelta en T3.9c (`L25`) y **la suite E2E está en verde** (`L26`), que es la compuerta del DoD de S5. T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
+**Estado:** Fases 0, 1, 2 y 3 cerradas, **Fases 4 y 5 cerradas**: T3.1b/c, T3.2b, T3.2c, T3.2d, T3.4, T3.5, T3.6a, T3.7a, T3.7b, T3.8a, T3.8b, T3.9a, T3.6b, T3.9b, T3.9c, T3.9d, T3.10 y T1.9 cerradas (271/271 unit tests en 34 archivos, bundle inicial al cierre **117.99 kB gzip de 180**, JS + CSS, ver `L28`). La suite pgTAP completa corre **en verde contra la base hosted (4 archivos, 60 aserciones)**, así que la policy de `exercises` quedó verificada por dos caminos (`L16`) y los ejercicios custom tienen cobertura propia (`L17`). La verificación independiente de la durabilidad corrió y su defecto alto quedó corregido (`L10`). D2 quedó resuelta en T3.9c (`L25`) y **la suite E2E está en verde** (`L26`), que es la compuerta del DoD de S5. T2.5 bloqueada. Todo el trabajo se rutea por ODD (ver `L6`).
 **Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp`, repo propio. `node_modules` es un junction a `C:\Users\ulise\develop\gymtracker-modules\node_modules`.
 **Specs:** los `S#` citan **verbatim** `PLAN.md` §1, §3, §6, §7 y §9, que es la fuente de requisitos declarada en `L1`. Los pedidos del usuario, las decisiones y la evidencia están en el `## Log`, al final.
 
@@ -107,7 +107,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T4.4 · toggle kg/lb solo UI + helper de soft-delete | S7, S15 | pendiente | — |
 | T4.5 · borrar workout / historial | S7 | pendiente | — |
 | T5.1 · `dashboard_summary()` en una llamada | S8 | cliente | `9482c43` |
-| T5.2 · skeletons + prefetch de historial y catálogo | S8, S16 | pendiente | — |
+| T5.2 · skeletons + prefetch de historial y catálogo | S8, S16 | cliente | `3d205b5` |
 | T6.1 · nombre, avatar, unidad preferida | S9 | pendiente | — |
 | T6.2 · stats derivadas + peso corporal | S9 | pendiente | — |
 | T6.3 · "Repetir workout" + export CSV + logout | S9 | pendiente | — |
@@ -201,7 +201,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 #### Fase 5 — Dashboard
 
 - [x] **T5.1** `dashboard_summary()` en una llamada: saludo, dots semanales, racha, PRs, último workout y FAB. **Cerrada** en `9482c43`. **336/336 unit tests en 41 archivos**, typecheck y lint limpios. **Sin migración**: la función existe desde la Fase 1 y devuelve `streak`, `week_days`, `recent_prs` (hasta 5, con el nombre del ejercicio), `last_workout` y `total_workouts`. Los tipos generados la ven como `Json` opaco, así que un schema Zod sostiene el contrato y se **parsea**, no se castea. Ver `L35`.
-- [ ] **T5.2** Skeletons + prefetch de historial y catálogo.
+- [x] **T5.2** Skeletons + prefetch en background del historial y el catálogo. **Cerrada** en `3d205b5`. **338/338 unit tests en 41 archivos**, typecheck y lint limpios. El prefetch espera a que el resumen llegue, para que sea una tarea de fondo y no un competidor por el primer byte; ninguno de los dos se espera ni se atrapa, y las dos mitades tienen test. Ver `L36`.
 
 #### Fase 6 — Perfil + Extras
 
@@ -867,3 +867,17 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Lo que la pantalla calcula es el saludo y qué cuadradito de la semana encender.** Las dos cosas tienen que ver con el reloj del usuario y con nada más: la base no tiene por qué saber qué hora es donde está. La tira se arma **pasando un `Date` local y formateando cada paso con el mismo helper local del resto de la app**, así que la comparación contra los días que mandó la base es entre dos strings `YYYY-MM-DD` y **nada pasa por UTC** — la trampa que ya apareció en la lista del historial y en el eje de la gráfica.
 
 **Un error propio que valió el test de rutas.** Puse el saludo como `h1`, y el test de rutas identifica al inicio por el encabezado **"Inicio"**: no lo encontraba y se colgaba diez segundos. El arreglo no es cambiar el test sino el diseño: **el título es "Inicio"** —es lo que dice la barra de navegación y lo que identifica a la pantalla— y **el saludo va abajo**. Un título que cambia con el reloj no lo puede buscar un test ni usar alguien para orientarse. Quedó con su propia aserción en el test de la pantalla, para que no vuelva a perderse.
+
+---
+
+### L36 · T5.2 cerrada, y la Fase 5 cerrada (2026-10-13)
+
+**338/338 unit tests en 41 archivos**, typecheck y lint limpios.
+
+**Lo que entró**: el prefetch del catálogo y de la primera página del historial, disparado **cuando el resumen ya llegó** y no antes. Eso es lo que lo hace una tarea de fondo y no un competidor: tres pedidos en vuelo por el primer byte que el usuario está esperando es la forma equivocada en la conexión para la que está hecha esta app.
+
+**Ninguno de los dos se espera y ninguno se atrapa.** Es una ventaja, no un requisito: si falla, el inicio queda exactamente igual de útil y la pantalla que necesitaba el dato lo vuelve a pedir cuando se abre. Las dos mitades tienen test — que el calentamiento **llegue a la caché**, y que un calentamiento que falla **deje el inicio entero** — y la segunda es la que importa: es la diferencia entre una optimización y un punto de falla nuevo en la primera pantalla de la app.
+
+**Un aviso del typecheck que valía la pena**: `prefetchInfiniteQuery` exige `getNextPageParam` aunque se pida una sola página. Tiene sentido apenas se piensa: una consulta infinita precargada **sigue siendo infinita**, y sin saber cómo continuar no es la misma consulta que la pantalla va a pedir después, así que la caché no le serviría.
+
+**Fase 5 cerrada.** El DoD de S8 era "una llamada `dashboard_summary()` pinta todo; prefetch en background", y **las dos mitades están**. Como en la Fase 4, **no hizo falta ninguna migración**: la función existe desde la Fase 1, igual que `exercise_progress`. Dos fases seguidas donde el trabajo fue leer lo que la base ya sabía hacer.
