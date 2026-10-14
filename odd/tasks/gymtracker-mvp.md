@@ -108,7 +108,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T4.5 · borrar workout / historial | S7 | pendiente | — |
 | T5.1 · `dashboard_summary()` en una llamada | S8 | cliente | `9482c43` |
 | T5.2 · skeletons + prefetch de historial y catálogo | S8, S16 | cliente | `3d205b5` |
-| T6.1 · nombre, avatar, unidad preferida | S9 | pendiente | — |
+| T6.1a · la capa de datos del perfil (nombre, avatar y unidad) | S9 | cliente | `d7f3590` |
 | T6.2 · stats derivadas + peso corporal | S9 | pendiente | — |
 | T6.3 · "Repetir workout" + export CSV + logout | S9 | pendiente | — |
 | T7.1 · manifest + iconos maskable + splash iOS | S10 | pendiente | — |
@@ -205,7 +205,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 #### Fase 6 — Perfil + Extras
 
-- [ ] **T6.1** Nombre, avatar (bucket `avatars`), unidad preferida.
+- [x] **T6.1a** La capa de datos del perfil: leer nombre, avatar y unidad, y escribir la preferencia. **Cerrada** en `d7f3590`. **350/350 unit tests en 43 archivos**, typecheck y lint limpios. **Sin migración**: `profiles` ya tenía `weight_unit` y `avatar_url`. **`updateWeightUnit` escribe la preferencia y nunca un peso**: es el DoD de S9 en una función, y el test afirma **las columnas que se escriben** porque una escritura que llevara un peso reescribiría el historial. Una unidad desconocida se lee como kilos. Ver `L38`.
+- [ ] **T6.1b** La pantalla de perfil (nombre, avatar en el bucket `avatars`, y el selector de unidad), con **T4.4b**: el toggle kg/lb que se movió acá, y las etiquetas de peso del resto de las pantallas.
 - [ ] **T6.2** Stats derivadas (no columnas) + peso corporal.
 - [ ] **T6.3** "Repetir workout" + export CSV + logout.
 
@@ -893,3 +894,17 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Nada se redondea acá.** La columna es `DECIMAL(6,2)`, así que la precisión la decide la base donde corresponde, y redondear dos veces es como una conversión empieza a derivar. El ida y vuelta a través de esos dos decimales quedó **con test y no como suposición**, para que nadie "arregle" la deriva guardando libras.
 
 **Y el hallazgo se repite por tercera fase consecutiva**: `profiles` **ya tiene `weight_unit`** (y `avatar_url`), y `body_measurements` ya tiene `weight_kg` con su `deleted_at`. La Fase 6 **tampoco necesita migración** para la preferencia de unidad. Tres fases seguidas — Fase 4 con `exercise_progress`, Fase 5 con `dashboard_summary`, Fase 6 con `weight_unit` — donde el trabajo es **leer lo que la Fase 1 ya había construido**. Vale escribirlo porque cambia lo que hay que buscar primero: **antes de diseñar una tabla, mirar si ya está**.
+
+---
+
+### L38 · T6.1a cerrada: leer y escribir la preferencia (2026-10-13)
+
+**350/350 unit tests en 43 archivos**, typecheck y lint limpios.
+
+**Sin migración, tercera fase seguida**: `profiles` ya tenía `weight_unit` y `avatar_url`, y `body_measurements` ya tenía `weight_kg`. El patrón de las Fases 4, 5 y 6 es el mismo — **leer lo que la Fase 1 construyó** — y ya no es una anécdota: tres veces seguidas. Lo que hay que buscar primero, entonces, no es cómo modelar una tabla nueva sino **si la tabla ya está**.
+
+**`updateWeightUnit` escribe la preferencia y nunca un peso.** Ese es el DoD de S9 —"cambiar kg/lb no altera ningún dato histórico"— en una sola función, y el test afirma **las columnas que se escriben**: una escritura que llevara un `weight_kg` reescribiría el historial en el momento en que alguien cambia de idea sobre cómo leerlo. Es la misma clase de aserción que el borrado suave de `L33`: **la forma de la escritura**, no su resultado.
+
+**Una unidad que este build no conoce se lee como kilos.** La columna es texto libre, así que un valor escrito por una versión futura —o a mano— no puede llegar a una pantalla como una unidad que nada sabe formatear. Kilos es la unidad en la que la app guarda, así que el respaldo **es la verdad y no una adivinanza**.
+
+**Y un perfil que no existe es un error, no un usuario sin configurar**: la fila se crea con la cuenta (un trigger), así que "no hay fila" significa que algo está mal.
