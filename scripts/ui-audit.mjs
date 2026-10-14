@@ -4,8 +4,8 @@
  * Screenshots need eyes; these measurements do not. It checks the things a
  * visual review would otherwise guess at: contrast ratios computed from the
  * rendered colours, tap-target sizes, content hidden behind the fixed nav,
- * horizontal overflow at the narrowest supported width, and whether the
- * self-hosted font actually won over the system fallback.
+ * horizontal overflow at the narrowest supported width, and whether the two
+ * self-hosted faces actually rendered.
  *
  *   node scripts/ui-audit.mjs
  */
@@ -23,6 +23,10 @@ const viewports = [
 // Without a session every gated route lands on the login screen, so the auth
 // screens are measured here too. /reset-password bounces to /forgot-password,
 // which is exactly what a visitor without a recovery link should see.
+//
+// That also means the numbers that belong to the shell -- the nav's height, its tap
+// targets, its contrast -- are absent in a run without a session, and the report says
+// so instead of leaving them as nulls for a reader to compare against a threshold.
 const routes = [
   '/',
   '/workout',
@@ -53,9 +57,7 @@ function parseRgb(value) {
 }
 
 function relativeLuminance({ r, g, b }) {
-  return (
-    0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b)
-  );
+  return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
 }
 
 function contrastRatio(foreground, background) {
@@ -73,7 +75,13 @@ for (const viewport of viewports) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     locale: 'es-AR',
-    colorScheme: 'dark',
+    /*
+     * The browser preference the page inherits, and it is `light` because the world is a page of
+     * paper: the stylesheet declares `color-scheme: light`, and a context asking for dark made the
+     * native controls, the scrollbar and the caret render for a theme this app does not have. This
+     * was `dark` while the app was dark.
+     */
+    colorScheme: 'light',
   });
   const page = await context.newPage();
 
@@ -91,9 +99,29 @@ for (const viewport of viewports) {
       const style = (element, property) =>
         element ? getComputedStyle(element).getPropertyValue(property) : null;
 
+      /*
+       * The width of what is on the heading, in one named face and in the generic fallback. Off
+       * screen and off the flow, so measuring it cannot move the page it is measuring.
+       */
+      const measureWidth = (element, family) => {
+        if (!element?.textContent) return null;
+
+        const computed = getComputedStyle(element);
+        const span = document.createElement('span');
+
+        span.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font-size:${computed.fontSize};font-weight:${computed.fontWeight};font-family:${family}`;
+        span.textContent = element.textContent;
+        element.parentElement?.append(span);
+
+        const width = Number(span.getBoundingClientRect().width.toFixed(2));
+
+        span.remove();
+
+        return width;
+      };
+
       return {
-        overflowX:
-          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         bodyBackground: style(document.body, 'background-color'),
         navHeight: nav ? Math.round(nav.getBoundingClientRect().height) : null,
         mainPaddingBottom: main ? Number.parseFloat(style(main, 'padding-bottom')) : null,
@@ -108,6 +136,20 @@ for (const viewport of viewports) {
             }
           : null,
         paragraphColor: paragraph ? style(paragraph, 'color') : null,
+        paragraphFamily: paragraph ? style(paragraph, 'font-family') : null,
+        /*
+         * Which face really rendered, and not which one the stack names first.
+         *
+         * `font-family` on a heading reads `"Archivo Variable", "Inter Variable", system-ui, ...`:
+         * the display token carries the interface face as its own fallback, so a check that looked
+         * for the substring `Inter Variable` answered `true` on a display-face heading as well. Two
+         * measurements instead: the face declares itself ready, and the same string measured in that
+         * face is a different width than in the generic fallback. The second is the one that cannot
+         * be satisfied by a font that never loaded.
+         */
+        displayFaceLoaded: document.fonts.check('900 30px "Archivo Variable"'),
+        displayFaceWidth: measureWidth(heading, '"Archivo Variable"'),
+        fallbackWidth: measureWidth(heading, 'system-ui'),
         tapTargets: links.map((link) => {
           const box = link.getBoundingClientRect();
           const indicator = link.querySelector('span[aria-hidden="true"]');
@@ -125,9 +167,12 @@ for (const viewport of viewports) {
     });
 
     const background = parseRgb(measured.bodyBackground);
+    const hasSession = measured.navHeight !== null;
     const checks = {
       viewport: viewport.name,
       route,
+      /* False on every gated route without a session: the shell is not on screen at all. */
+      hasSession,
       overflowX: measured.overflowX,
       navHeight: measured.navHeight,
       mainPaddingBottom: measured.mainPaddingBottom,
@@ -135,7 +180,13 @@ for (const viewport of viewports) {
         measured.navHeight !== null &&
         measured.mainPaddingBottom !== null &&
         measured.navHeight > measured.mainPaddingBottom,
-      fontResolvedToInter: measured.heading?.fontFamily?.includes('Inter Variable') ?? null,
+      headingFontFamily: measured.heading?.fontFamily ?? null,
+      /* The face declared itself ready AND measures differently from the fallback. */
+      displayFaceWon:
+        measured.displayFaceLoaded === true &&
+        measured.displayFaceWidth !== null &&
+        measured.displayFaceWidth !== measured.fallbackWidth,
+      bodyFontIsInter: measured.paragraphFamily?.includes('Inter Variable') ?? null,
       headingFontSize: measured.heading?.fontSize,
       headingAboveFold: measured.heading ? measured.heading.top < viewport.height : null,
       contrast: {
@@ -149,9 +200,20 @@ for (const viewport of viewports) {
       navLinkContrast: measured.tapTargets.map((target) => ({
         label: target.label,
         state: target.current === 'page' ? 'active' : 'idle',
-        ratio: background ? Number(contrastRatio(parseRgb(target.color), background).toFixed(2)) : null,
+        ratio: background
+          ? Number(contrastRatio(parseRgb(target.color), background).toFixed(2))
+          : null,
       })),
-      minTapTargetHeight: Math.min(...measured.tapTargets.map((target) => target.height)),
+      minTapTargetHeight: hasSession
+        ? Math.min(...measured.tapTargets.map((target) => target.height))
+        : null,
+      /*
+       * Named so the absence is readable: `null` next to a 44 px threshold looks like a failure and
+       * is not one, it is a route measured without the shell.
+       */
+      tapTargetsNote: hasSession
+        ? null
+        : 'sin sesión: el shell no está en pantalla, así que no hay nav que medir',
       activeNavLabels: measured.tapTargets
         .filter((target) => target.current === 'page')
         .map((target) => target.label),

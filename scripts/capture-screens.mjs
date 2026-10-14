@@ -7,6 +7,12 @@
  *
  *   node scripts/capture-screens.mjs            # against the dev server
  *   BASE_URL=http://localhost:4173 node scripts/capture-screens.mjs   # built artefact
+ *
+ * Two things it cannot do on its own, and neither is a defect to fix here. Without a session
+ * every gated route lands on the login screen -- including the unknown one, because the guard
+ * catches it too -- so the ten captures come out as two distinct screens; reviewing the rest
+ * needs the local stack running and a signed-in context. And the pixels need an eye: this script
+ * produces the evidence, it does not read it.
  */
 import { mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
@@ -35,7 +41,12 @@ for (const viewport of viewports) {
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: viewport.scale,
     locale: 'es-AR',
-    colorScheme: 'dark',
+    /*
+     * The world is a page of paper: the stylesheet declares `color-scheme: light`, and asking the
+     * context for dark made the native controls, the scrollbar and the caret render for a theme this
+     * app does not have. This said `dark` while the app was dark, and outlived it.
+     */
+    colorScheme: 'light',
   });
   const page = await context.newPage();
 
