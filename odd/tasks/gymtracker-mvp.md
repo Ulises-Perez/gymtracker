@@ -102,7 +102,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T3.10 · E2E Playwright del flujo crítico contra Supabase local | S5 | e2e | `1df85ca`, `aa41c59` |
 | T3.close · Medición del bundle al cierre de la fase + cierre del documento | S11 | inline | `269f998`, `L28` |
 | T4.1 · lista `useInfiniteQuery` con paginación keyset | S7 | cliente | `1efd81d` |
-| T4.2 · detalle de workout y de ejercicio | S7 | pendiente | — |
+| T4.2a · detalle del workout (T4.2b, el del ejercicio, va con T4.3) | S7 | cliente | `24c5f08` |
 | T4.3 · uPlot lazy sobre `exercise_progress` | S7, S11 | pendiente | — |
 | T4.4 · toggle kg/lb solo UI + helper de soft-delete | S7, S15 | pendiente | — |
 | T4.5 · borrar workout / historial | S7 | pendiente | — |
@@ -192,7 +192,8 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 #### Fase 4 — Historial + Progreso
 
 - [x] **T4.1** Lista `useInfiniteQuery` con paginación keyset. **Cerrada** en `1efd81d`. **303/303 unit tests en 36 archivos**, typecheck y lint limpios. Los cuatro estados de la pantalla (cargando, vacío, error y la lista), el encabezado presente en todos, y la paginación por **keyset sobre `(date, id)`** — el id es lo que la hace keyset: dos entrenamientos pueden compartir fecha y con la fecha sola la segunda página arrancaría adentro de ese tramo repetiendo o salteando filas. Ver `L30`.
-- [ ] **T4.2** Detalle workout y detalle ejercicio.
+- [x] **T4.2a** Detalle del workout: la fecha, el título, la duración y las series agrupadas por ejercicio con los nombres del catálogo. **Cerrada** en `24c5f08`. **310/310 unit tests en 37 archivos**, typecheck y lint limpios. Los nombres salen del catálogo ya cacheado y no de una segunda lectura; los grupos salen en el orden de las series porque la base no guarda el orden de las tarjetas. Ver `L31`.
+- [ ] **T4.2b** Detalle del ejercicio, con T4.3: la gráfica se cuelga de esa pantalla, así que son una sola pieza de trabajo.
 - [ ] **T4.3** uPlot lazy (peso máx / volumen / 1RM) sobre `exercise_progress`.
 - [ ] **T4.4** Toggle kg/lb solo UI + helper de soft-delete (**M2**).
 - [ ] **T4.5** Borrar workout / historial (**M2**).
@@ -794,3 +795,19 @@ Cerrado con `0010_revoke_anon_table_privileges.sql`, aplicada a local y al hoste
 **El doble de PostgREST se extendió, y el orden de esa decisión importa.** `order` resolvía en vez de encadenar y no existía `limit`, así que la consulta de paginación —dos `order` y un `limit`— no entraba en el doble. La salida fácil era deformar la consulta para que terminara en `order`; hacerlo habría sido **escribir el código de producción alrededor del test**. El builder ahora encadena y además es *thenable*, así que las consultas que ya terminaban ahí siguen funcionando sin tocarlas.
 
 **El encabezado se renderiza en todos los estados**, y hay un test que lo fija. Es lo que identifica a la pantalla en el test de rutas: si desapareciera mientras carga, ese test fallaría **reportando el motivo equivocado**.
+
+---
+
+### L31 · T4.2a cerrada: el detalle del workout (2026-10-13)
+
+**310/310 unit tests en 37 archivos**, typecheck y lint limpios.
+
+**Los nombres del detalle salen del catálogo y no de una segunda lectura.** Es la misma lista con la que el selector agregó el ejercicio, ya está cacheada y sigue funcionando sin conexión. Leerlos otra vez sería una segunda fuente para el mismo nombre, y dos fuentes se contradicen el día que una cambia.
+
+**La base no guarda el orden de las tarjetas**, sólo el número de cada serie dentro de su ejercicio. Los grupos salen en ese orden: es estable sin pretender ser el orden original de la sesión, que nada registra. Queda anotado como limitación real.
+
+**Un peso sin escribir se imprime como guion, nunca como cero.** La columna es nullable a propósito y un cero sería una afirmación que nadie hizo.
+
+**El detalle del ejercicio se fue con T4.3, y es una decisión.** La gráfica se cuelga de esa pantalla: hacerla ahora y volver a abrirla en la tarea siguiente sería construirla dos veces.
+
+**Un error propio que vale anotar**: al convertir cada fila de la lista en un enlace, el test de esa pantalla —que la montaba sin router— empezó a reventar en el render, y el `findBy` se quedaba esperando **cinco segundos** en vez de fallar con un mensaje que dijera qué pasó. El síntoma (una espera larga en una aserción que antes pasaba) fue lo que llevó al motivo: un `Link` fuera de un `<Router>` no avisa que falta el router, tira el render entero.
