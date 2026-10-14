@@ -61,6 +61,7 @@ export function WorkoutPage() {
   const addExercise = useWorkoutStore((state) => state.addExercise);
   const addCustomExercise = useWorkoutStore((state) => state.addCustomExercise);
   const removeExercise = useWorkoutStore((state) => state.removeExercise);
+  const setTarget = useWorkoutStore((state) => state.setTarget);
   const reorderExercises = useWorkoutStore((state) => state.reorderExercises);
   const addSet = useWorkoutStore((state) => state.addSet);
   const updateSet = useWorkoutStore((state) => state.updateSet);
@@ -242,6 +243,7 @@ export function WorkoutPage() {
             onUpdateSet={updateSet}
             onRemoveSet={removeSet}
             onRemoveExercise={removeExercise}
+            onSetTarget={setTarget}
           />
         </Suspense>
       )}

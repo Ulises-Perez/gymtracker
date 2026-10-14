@@ -5,6 +5,7 @@ import type {
   WorkoutExerciseDraft,
   WorkoutSetDraft,
   WorkoutSetPatch,
+  WorkoutTargetPatch,
 } from '../../stores/workout-store.ts';
 
 /**
@@ -25,6 +26,7 @@ type WorkoutExerciseCardProps = {
   onUpdateSet: (setId: string, patch: WorkoutSetPatch) => void;
   onRemoveSet: (setId: string) => void;
   onRemoveExercise: () => void;
+  onSetTarget: (patch: WorkoutTargetPatch) => void;
 };
 
 export function WorkoutExerciseCard({
@@ -34,6 +36,7 @@ export function WorkoutExerciseCard({
   onUpdateSet,
   onRemoveSet,
   onRemoveExercise,
+  onSetTarget,
 }: WorkoutExerciseCardProps) {
   const lastSets = useLastSets(card.exerciseId);
   const history = lastSets.data ?? [];
@@ -79,6 +82,36 @@ export function WorkoutExerciseCard({
           <CloseGlyph />
         </button>
       </header>
+
+      {/*
+       * The target lives on the card and not in the picker. In the picker it would change the
+       * "one tap and out" the dialog was built around and put the aim behind a second screen, and
+       * once set there would be no way to correct it mid-session — which is exactly when someone
+       * finds out the range they typed was wrong.
+       */}
+      <div className="mt-3">
+        <p className="text-muted text-xs">Objetivo (opcional)</p>
+        <div className="mt-1 grid grid-cols-3 gap-2">
+          <NumberCell
+            label="Reps del objetivo"
+            shortLabel="Reps"
+            value={card.targetReps}
+            onChange={(value) => onSetTarget({ targetReps: value })}
+          />
+          <NumberCell
+            label="Peso mínimo del objetivo"
+            shortLabel="Mín kg"
+            value={card.targetWeightMin}
+            onChange={(value) => onSetTarget({ targetWeightMin: value })}
+          />
+          <NumberCell
+            label="Peso máximo del objetivo"
+            shortLabel="Máx kg"
+            value={card.targetWeightMax}
+            onChange={(value) => onSetTarget({ targetWeightMax: value })}
+          />
+        </div>
+      </div>
 
       <ul aria-label={`Series de ${name}`} className="mt-3 space-y-3">
         {card.sets.map((set, index) => (

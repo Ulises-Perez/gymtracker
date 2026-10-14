@@ -54,6 +54,7 @@ function renderList() {
     onUpdateSet: vi.fn(),
     onRemoveSet: vi.fn(),
     onRemoveExercise: vi.fn(),
+    onSetTarget: vi.fn(),
   };
 
   render(

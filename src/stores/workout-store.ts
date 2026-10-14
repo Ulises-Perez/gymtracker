@@ -119,8 +119,12 @@ type WorkoutStore = {
   discard: () => void;
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
-  addExercise: (exerciseId: string) => void;
-  addCustomExercise: (name: string, muscleGroupId: string | null) => void;
+  addExercise: (exerciseId: string, target?: WorkoutTargetPatch) => void;
+  addCustomExercise: (
+    name: string,
+    muscleGroupId: string | null,
+    target?: WorkoutTargetPatch,
+  ) => void;
   removeExercise: (cardId: string) => void;
   reorderExercises: (from: number, to: number) => void;
   addSet: (cardId: string, seed?: WorkoutSetPatch) => void;
@@ -241,14 +245,21 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
       setNotes: (notes) => set((state) => edit(state, (draft) => ({ ...draft, notes })) ?? state),
 
-      addExercise: (exerciseId) =>
+      /**
+       * Adds a catalogue exercise, with the target the user set on the way in.
+       *
+       * The target arrives here and not in a second call, so the card is never briefly without it: a
+       * screen that added the card first and patched it afterwards would show an aimless card for a
+       * frame, and an interruption in between would leave one behind.
+       */
+      addExercise: (exerciseId, target) =>
         set(
           (state) =>
             edit(state, (draft) => ({
               ...draft,
               exercises: [
                 ...draft.exercises,
-                { ...emptyTarget, id: newId(), exerciseId, sets: [] },
+                { ...emptyTarget, ...target, id: newId(), exerciseId, sets: [] },
               ],
             })) ?? state,
         ),
@@ -263,7 +274,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
        * refuse it, with a message meant for a person and a test each; repeating the
        * rule in a third place is how the three drift apart.
        */
-      addCustomExercise: (name, muscleGroupId) =>
+      addCustomExercise: (name, muscleGroupId, target) =>
         set(
           (state) =>
             edit(state, (draft) => {
@@ -277,7 +288,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
                 ],
                 exercises: [
                   ...draft.exercises,
-                  { ...emptyTarget, id: newId(), exerciseId, sets: [] },
+                  { ...emptyTarget, ...target, id: newId(), exerciseId, sets: [] },
                 ],
               };
             }) ?? state,

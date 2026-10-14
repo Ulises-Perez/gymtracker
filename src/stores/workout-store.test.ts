@@ -393,6 +393,51 @@ describe('the target a card sets for itself', () => {
     expect(draft()?.exercises[0]).toMatchObject({ targetReps: REPS, targetWeightMax: 80 });
   });
 
+  /**
+   * The target is set on the way in and not in a second call, so the card is never briefly without
+   * it. A screen that added the card and patched it afterwards would render an aimless card for a
+   * frame, and an interruption in between would leave one.
+   */
+  it('takes the target with the exercise, in the same action', () => {
+    store().start();
+
+    store().addExercise(EXERCISE_ID, {
+      targetReps: REPS,
+      targetWeightMin: 60,
+      targetWeightMax: 80,
+    });
+
+    expect(draft()?.exercises[0]).toMatchObject({
+      targetReps: REPS,
+      targetWeightMin: 60,
+      targetWeightMax: 80,
+    });
+  });
+
+  it('takes it with a custom exercise too', () => {
+    store().start();
+
+    store().addCustomExercise('Press con banda', null, { targetReps: REPS });
+
+    expect(draft()?.exercises[0]).toMatchObject({
+      targetReps: REPS,
+      targetWeightMin: null,
+      targetWeightMax: null,
+    });
+  });
+
+  it('still works without one, because a target is optional', () => {
+    store().start();
+
+    store().addExercise(EXERCISE_ID);
+
+    expect(draft()?.exercises[0]).toMatchObject({
+      targetReps: null,
+      targetWeightMin: null,
+      targetWeightMax: null,
+    });
+  });
+
   it('refuses to set one on a workout that is already finished', () => {
     store().start();
     store().addExercise(EXERCISE_ID);

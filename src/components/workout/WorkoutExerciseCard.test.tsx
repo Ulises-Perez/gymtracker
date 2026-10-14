@@ -52,6 +52,7 @@ function renderCard(card: WorkoutExerciseDraft, name = 'Press Banca') {
     onUpdateSet: vi.fn(),
     onRemoveSet: vi.fn(),
     onRemoveExercise: vi.fn(),
+    onSetTarget: vi.fn(),
   };
 
   render(
@@ -73,6 +74,36 @@ beforeEach(() => {
 });
 
 describe('WorkoutExerciseCard', () => {
+  it('shows an empty target to begin with, because all three are optional', () => {
+    renderCard(cardWith([]));
+
+    expect(screen.getByLabelText('Reps del objetivo')).toHaveValue('');
+    expect(screen.getByLabelText('Peso mínimo del objetivo')).toHaveValue('');
+    expect(screen.getByLabelText('Peso máximo del objetivo')).toHaveValue('');
+  });
+
+  it('shows the target that is already set', () => {
+    renderCard({ ...cardWith([]), targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 });
+
+    expect(screen.getByLabelText('Reps del objetivo')).toHaveValue('10');
+    expect(screen.getByLabelText('Peso mínimo del objetivo')).toHaveValue('60');
+    expect(screen.getByLabelText('Peso máximo del objetivo')).toHaveValue('80');
+  });
+
+  /**
+   * A patch carries only the field that moved. The three are typed one at a time, so sending the
+   * others along as `undefined` would clear whatever the user had already written.
+   */
+  it('reports only the field that changed', () => {
+    const handlers = renderCard({ ...cardWith([]), targetReps: 10 });
+
+    fireEvent.change(screen.getByLabelText('Peso máximo del objetivo'), {
+      target: { value: '80' },
+    });
+
+    expect(handlers.onSetTarget).toHaveBeenCalledWith({ targetWeightMax: 80 });
+  });
+
   it('names the exercise it belongs to', () => {
     renderCard(cardWith([]));
 

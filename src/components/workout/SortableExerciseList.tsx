@@ -18,7 +18,11 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { isSwipeToDelete, reorderRequest } from '../../lib/gestures.ts';
-import type { WorkoutExerciseDraft, WorkoutSetPatch } from '../../stores/workout-store.ts';
+import type {
+  WorkoutExerciseDraft,
+  WorkoutSetPatch,
+  WorkoutTargetPatch,
+} from '../../stores/workout-store.ts';
 import { WorkoutExerciseCard } from './WorkoutExerciseCard.tsx';
 
 /**
@@ -42,6 +46,7 @@ type SortableExerciseListProps = {
   onUpdateSet: (cardId: string, setId: string, patch: WorkoutSetPatch) => void;
   onRemoveSet: (cardId: string, setId: string) => void;
   onRemoveExercise: (cardId: string) => void;
+  onSetTarget: (cardId: string, patch: WorkoutTargetPatch) => void;
 };
 
 export function SortableExerciseList({
@@ -52,6 +57,7 @@ export function SortableExerciseList({
   onUpdateSet,
   onRemoveSet,
   onRemoveExercise,
+  onSetTarget,
 }: SortableExerciseListProps) {
   const sensors = useSensors(
     /*
@@ -104,6 +110,7 @@ export function SortableExerciseList({
                 onUpdateSet={(setId, patch) => onUpdateSet(card.id, setId, patch)}
                 onRemoveSet={(setId) => onRemoveSet(card.id, setId)}
                 onRemoveExercise={() => onRemoveExercise(card.id)}
+                onSetTarget={(patch) => onSetTarget(card.id, patch)}
               />
             </SortableExercise>
           ))}
