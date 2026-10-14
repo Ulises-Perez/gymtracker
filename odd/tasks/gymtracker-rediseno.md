@@ -26,9 +26,9 @@
 
 | ID | Qué | S# | Ruta | Commit |
 | --- | --- | --- | --- | --- |
-| D1 | `init`: escribir `PRODUCT.md` con el usuario | S4 | skill | pendiente |
-| D2 | `new-work`: elegir el mundo de reemplazo y escribir `DESIGN.md` | S2, S6 | skill | pendiente |
-| D3 | Los tokens y los componentes base | S2 | cliente | pendiente |
+| D1 | `init`: escribir `PRODUCT.md` con el usuario | S4 | skill | `b006a37` |
+| D2 | `new-work`: elegir el mundo de reemplazo y escribir el contrato de dirección | S2, S6 | skill | `38b022f` |
+| D3 | Los tokens y los componentes base | S2 | cliente | `c3de6df` + `70d13a0` |
 | D4 | Las pantallas del flujo de entrenamiento | S2, S4 | cliente | pendiente |
 | D5 | Historial, detalle y progreso | S2 | cliente | pendiente |
 | D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | pendiente |
@@ -39,9 +39,9 @@
 ### Detalle por tarea
 
 - [x] **D1** `init`: `PRODUCT.md` en la raíz del proyecto, con la verdad del producto confirmada por el usuario (el escenario del gimnasio, las restricciones y las ausencias que no se pueden inventar). **Cerrada.** El paso 5 de `init` no aplica: `impeccable context` no reportó generación de imágenes, sólo conversores, así que el camino es **code-first** y **no se escribe ningún `buildPath`** — un valor tomado del silencio sería un default que nadie eligió.
-- [ ] **D2** `new-work`: elegir el mundo de reemplazo y escribir `DESIGN.md`. Es donde vive la decisión visual de S2, y **la mirada actual entra como anti-referencia**, no como base.
-- [ ] **D3** Los tokens y los componentes base. Antes de las pantallas, porque el mundo nuevo tiene que existir una sola vez.
-- [ ] **D4** El flujo de entrenamiento — donde la app promete el offline y donde el escenario de S4 es literal.
+- [x] **D2** `new-work`: el mundo de reemplazo elegido (**el cuaderno de entrenamiento**, `L4`/`L5`) y **el contrato de dirección** escrito en el brief de la superficie (`.impeccable/surfaces/src-pages-workoutpage-tsx.md`, `38b022f`). **Cerrada**, con la corrección de `L3`: en un mundo de reemplazo `DESIGN.md` se escribe **al final y desde lo construido**, así que cierra en D9.
+- [x] **D3** Los tokens y los componentes base. **Cerrada** en dos tramos: los tokens con los valores movidos y **sin tocar un solo layout** (`c3de6df`), y los componentes base (`70d13a0`). La cara de despliegue (**Archivo**, autoalojada) entra acá, con su costo medido en `L6`.
+- [ ] **D4** El flujo de entrenamiento — donde la app promete el offline y donde el escenario de S4 es literal. **Es el tramo que sigue**, y arrastra las pantallas que todavía llevan las clases del mundo viejo (`ring-white/15` sobre papel es un borde invisible).
 - [ ] **D5** Historial, detalle del entrenamiento y progreso por ejercicio (con la gráfica).
 - [ ] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords.
 - [ ] **D7** Las pantallas de autenticación, que son la primera impresión.
@@ -122,3 +122,26 @@ De las cuatro cartas presentadas —la asignada por el sorteo, mi número uno, e
 **El contrato de dirección quedó escrito en el brief de la superficie** (`src/pages/WorkoutPage.tsx`), con los seis bloques que la skill exige, la clave del sorteo y la línea `FINISH` textual. **La escena forzó la decisión difícil**: claro u oscuro no se elige por gusto — se escribe la escena (sótano, tubo duro, una mano) y ella decide. Un fondo oscuro con reflejos de tubo es un espejo; el papel mate no refleja y es lo que el objeto reemplazado ya era.
 
 **Sin comps, por contrato y no por deriva**: superficie Operate + sin generación de imágenes → camino `code-led` ✓. La ambición vive en el primer viewport y en el momento memorable (ver una serie tacharse), y el revisor la audita **en el comportamiento**.
+
+### L6 · El registro se pone al día, y los tokens que cambiaron la piel sin tocar un layout (2026-10-14)
+
+**Una falta de proceso propia, primero**: entre `L5` y esta entrada hubo **cinco commits sin registrar** (`db683be`, `c3de6df`, `4b3a157`, `4bd1d0a`, `f35d06d`). El trabajo estaba hecho y verificado en el árbol; **el documento es el que se había quedado atrás**. Se anota porque el registro que no sigue al trabajo deja de ser el registro: la próxima vez que alguien lea "D2 pendiente" va a buscar trabajo que ya está hecho.
+
+**`db683be` — el piso de oficio corrigió dos cosas que yo ya había escrito.** Dos llamadas del contrato de dirección no pasaban el piso: la etiqueta sobre un encabezado (sin excepción) y un `letter-spacing` fuera del límite. **El brief es el documento que se corrige, no el piso el que se ablanda.**
+
+**`c3de6df` — los tokens.** Los **nombres** son los que las pantallas ya usaban (`bg`, `surface`, `text`, `muted`, `primary`…); lo que se movió fueron **los valores**, a propósito: **la app entera cambia de piel en un commit sin un solo cambio de layout**, y las pantallas migran al lenguaje del cuaderno —filas regladas en vez de tarjetas— **de a una**. Se suma **Archivo** (grotesca de imprenta, eje de peso hasta 900, figuras tabulares) autoalojada con `@fontsource-variable/archivo`: el piso prohíbe resolver un encabezado subiendo el peso de la letra de la interfaz.
+
+**`4b3a157` + `4bd1d0a` — el peso de la letra: una alarma mía, mal medida, corregida en el mismo día.** Se alarmó que las dos caras traen todos sus subsets (`cyrillic`, `greek`, `vietnamese`) y que `dist` quedaba en **308 kB de woff2** para una app que sólo habla español. **Eso es peso de despliegue, no lo que un teléfono descarga**: los paquetes declaran `unicode-range`, el navegador pide sólo los rangos que el texto de la página usa, y el español nunca matchea cirílico → **el costo real de una sesión son los archivos latinos, ~66 kB**. Subsetear a mano no cambiaría nada de una sesión. **El error es el mismo que el método del bundle se escribió para prevenir: medir lo que hay en disco en vez de lo que se pide por la red.** Se revirtió el subsetting, se conservó la medición, y la nota quedó en `src/index.css` en vez de perderse.
+
+**`f35d06d` — las superficies del navegador.** `color-scheme: light` (para que los controles nativos, la barra de scroll y el caret sigan la página y no el sistema operativo), la barra como margen reglado, `::selection` con el acento, `caret-color` con el acento, `:focus-visible` como **outline del acento declarado una sola vez** y `text-underline-offset` en los enlaces. Es lo que el piso llama la señal más barata de que una página se construyó en vez de armarse, y lo que casi todos saltean.
+
+**Los componentes base (D3, este tramo).** Cuatro decisiones, todas derivadas del contrato y ninguna de gusto:
+
+1. **El acento se queda fuera de la navegación.** La pestaña actual pasa a **tinta**, no a rojo: el rojo está reservado a **lo que fue reemplazado** y **a lo que se puede apretar**, y estar parado en un lugar es un **estado**, no una presión. Con el rojo en la barra, el rojo del tachado y el rojo del botón, el acento decía tres cosas y no decía ninguna. Se conserva la barrita superior como cue que sobrevive al gris (el test que la exige sigue verde).
+2. **El foco se declara una sola vez.** El outline global de `index.css` es el tratamiento de foco de toda la app; **el botón y el campo dejaron de pintar su propio `ring`**. Hacerlo por control era la segunda declaración de la misma regla, y además medía mal: el anillo `primary-soft` sobre papel da **2.4:1** y el mínimo para contraste no textual es **3:1**.
+3. **El botón oscurece al pasar por encima, no aclara.** `primary-soft` es un tinte **para fondo**: blanco sobre él da **2.4:1** y no lleva etiqueta. Blanco sobre el rojo son **5.3:1** y sobre el rojo apretado **7.2:1**. Se agrega `primary-strong`, que coincide en valor con `danger` por aritmética (los dos son el mismo rojo bajado hasta que el blanco pasa AA) y se mantiene como **nombre separado** porque son dos significados distintos.
+4. **El campo es un renglón, no una caja.** Se va el `ring-white/15` —que en el mundo oscuro dibujaba un borde y sobre papel es **invisible**— y queda la **línea impresa** del cuaderno. El error sigue siendo la única cosa que usa el rojo en un formulario, y sigue siendo una región viva.
+
+**Lo que este tramo NO hace, y hay que decirlo**: hay pantallas que todavía llevan las clases del mundo viejo —`ring-white/15`, `text-primary-soft` en enlaces— y que **sobre papel se leen mal**. Los tokens cambiaron la piel de toda la app, pero la migración de las pantallas es **D4 a D7**, una por una. **El árbol está verde; la app está a medio vestir, y es el estado previsto de este punto del plan.**
+
+**Verificación del tramo**: **360/360 unit tests en 44 archivos** (los mismos 360 que antes: el tramo no agrega comportamiento, cambia la piel y el foco), typecheck limpio, lint limpio, `prettier --check` limpio. Commit `70d13a0`. **Lo que sigue: D4** (el flujo de entrenamiento), que es donde el escenario de S4 es literal y donde vive el primer viewport de la fecha.
