@@ -14,6 +14,8 @@ vi.mock('../hooks/useAuth.ts', () => ({
   useAuth: () => ({ user: { id: '00000000-0000-4000-a000-000000000001' } }),
 }));
 
+const USER_ID = '00000000-0000-4000-a000-000000000001';
+
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
 
@@ -120,5 +122,39 @@ describe('DashboardPage', () => {
     renderPage();
 
     expect(screen.getByRole('link', { name: '+ Nuevo workout' })).toBeInTheDocument();
+  });
+
+  /**
+   * The other half of S8: while the user reads this, the two screens one tap away are fetched.
+   */
+  it('warms the catalogue and the history while the user reads the dashboard', async () => {
+    fake.setTableResult('exercises', {
+      data: [{ id: 'ex-1', name: 'Press Banca', muscle_group_id: null, is_custom: false }],
+      error: null,
+    });
+    fake.setTableResult('muscle_groups', { data: [], error: null });
+    fake.setTableResult('workouts', { data: [], error: null });
+
+    renderPage();
+    await screen.findByText('Racha de 3 días.');
+
+    await vi.waitFor(() => {
+      expect(client.getQueryData(['catalog', USER_ID])).toBeDefined();
+      expect(client.getQueryData(['history', USER_ID])).toBeDefined();
+    });
+  });
+
+  /**
+   * A head start, not a requirement: if the warming fails the dashboard must be exactly as useful as
+   * it was. Awaiting the prefetch would have made the first screen of the app depend on two requests it
+   * does not need.
+   */
+  it('stays whole when the background fetch fails', async () => {
+    fake.setTableResult('exercises', { data: null, error: { message: 'permission denied' } });
+
+    renderPage();
+
+    expect(await screen.findByText('Racha de 3 días.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

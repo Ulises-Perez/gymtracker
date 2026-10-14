@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useDashboard } from '../hooks/useDashboard.ts';
+import { usePrefetch } from '../hooks/usePrefetch.ts';
 import { formatIsoDate, localIsoDate } from '../lib/utils.ts';
 
 /**
@@ -18,6 +19,9 @@ export function DashboardPage() {
   const { user } = useAuth();
   const dashboard = useDashboard(user?.id ?? '');
   const summary = dashboard.data;
+
+  // The catalogue and the history, while the user is reading this. See `usePrefetch`.
+  usePrefetch(user?.id ?? '', dashboard.isSuccess);
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
