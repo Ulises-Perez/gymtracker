@@ -101,7 +101,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T3.9d · PRs: lista y animación tras guardar | S5, S6 | cliente | `d4c2d95` |
 | T3.10 · E2E Playwright del flujo crítico contra Supabase local | S5 | e2e | `1df85ca`, `aa41c59` |
 | T3.close · Medición del bundle al cierre de la fase + cierre del documento | S11 | inline | `269f998`, `L28` |
-| T4.1 · lista `useInfiniteQuery` con paginación keyset | S7 | pendiente | — |
+| T4.1 · lista `useInfiniteQuery` con paginación keyset | S7 | cliente | `1efd81d` |
 | T4.2 · detalle de workout y de ejercicio | S7 | pendiente | — |
 | T4.3 · uPlot lazy sobre `exercise_progress` | S7, S11 | pendiente | — |
 | T4.4 · toggle kg/lb solo UI + helper de soft-delete | S7, S15 | pendiente | — |
@@ -191,7 +191,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 #### Fase 4 — Historial + Progreso
 
-- [ ] **T4.1** Lista `useInfiniteQuery` con paginación keyset.
+- [x] **T4.1** Lista `useInfiniteQuery` con paginación keyset. **Cerrada** en `1efd81d`. **303/303 unit tests en 36 archivos**, typecheck y lint limpios. Los cuatro estados de la pantalla (cargando, vacío, error y la lista), el encabezado presente en todos, y la paginación por **keyset sobre `(date, id)`** — el id es lo que la hace keyset: dos entrenamientos pueden compartir fecha y con la fecha sola la segunda página arrancaría adentro de ese tramo repetiendo o salteando filas. Ver `L30`.
 - [ ] **T4.2** Detalle workout y detalle ejercicio.
 - [ ] **T4.3** uPlot lazy (peso máx / volumen / 1RM) sobre `exercise_progress`.
 - [ ] **T4.4** Toggle kg/lb solo UI + helper de soft-delete (**M2**).
@@ -778,3 +778,19 @@ No salió de la Fase 3 sino del alcance nuevo (`odd/tasks/gymtracker-objetivos.m
 `0003` documentó que Supabase expone las tablas nuevas de `public` a `anon`/`authenticated` por un default de plataforma que **sólo se aplica en el stack local** —`db push` no lo aplica— y decidió no depender de él otorgando `GRANT` explícitos. **Nunca revocó `anon`**, que era justamente la mitad cuya seguridad descansaba en ese default. Consecuencia: en cualquier Postgres con el default de Supabase, `anon` puede leer `workouts` y `exercises`; y en local la suite pgTAP fallaba dos aserciones que contra el hosted pasan.
 
 Cerrado con `0010_revoke_anon_table_privileges.sql`, aplicada a local y al hosted. Recomendado y **no** aplicado: `auto_expose_new_tables = false` en `config.toml`, porque necesita un reset del stack y hay datos de prueba en uso.
+
+---
+
+### L30 · T4.1 cerrada: la lista del historial (2026-10-13)
+
+**303/303 unit tests en 36 archivos**, typecheck y lint limpios.
+
+**Qué entró**: `history-api.ts` (la lectura paginada), `useWorkoutHistory` (`useInfiniteQuery` con `initialPageParam` nulo, así la primera página empieza por lo más nuevo) y la pantalla —que era un placeholder— con sus cuatro estados: cargando, vacío, error y la lista con "Cargar más".
+
+**La paginación es keyset y el id es lo que la hace keyset.** Dos entrenamientos pueden compartir fecha —alguien que entrena dos veces en un día— y con la fecha sola la segunda página arrancaría adentro de ese tramo y repetiría o saltearía las filas del borde. La consulta ordena por fecha **y después por id**, que es el mismo orden que camina el cursor: un orden que discrepara con el cursor paginaría una lista que nadie está mirando. El test lo fija **sobre las llamadas registradas al doble y no sobre el resultado**, porque una consulta a la que le falte el segundo `order` devuelve lo mismo en un test y otra cosa en producción.
+
+**La fecha se formatea desde el string y nunca a través de un `Date`.** La columna es `DATE` y llega como `YYYY-MM-DD`, que JavaScript lee como medianoche UTC: al oeste de Greenwich, un entrenamiento del 13 se leería como el 12 — una respuesta equivocada producida por un formateador. Es la misma familia de trampa que A5 (los `DECIMAL` que vuelven como string): el valor llega bien y lo rompe la conversión.
+
+**El doble de PostgREST se extendió, y el orden de esa decisión importa.** `order` resolvía en vez de encadenar y no existía `limit`, así que la consulta de paginación —dos `order` y un `limit`— no entraba en el doble. La salida fácil era deformar la consulta para que terminara en `order`; hacerlo habría sido **escribir el código de producción alrededor del test**. El builder ahora encadena y además es *thenable*, así que las consultas que ya terminaban ahí siguen funcionando sin tocarlas.
+
+**El encabezado se renderiza en todos los estados**, y hay un test que lo fija. Es lo que identifica a la pantalla en el test de rutas: si desapareciera mientras carga, ese test fallaría **reportando el motivo equivocado**.
