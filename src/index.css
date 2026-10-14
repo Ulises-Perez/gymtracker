@@ -1,4 +1,15 @@
 @import 'tailwindcss';
+/*
+ * Both faces ship every subset their package carries -- cyrillic, greek, vietnamese -- which measured
+ * 308 kB of woff2 in dist for an app that only ever speaks Spanish, on the connection its own product
+ * truth describes as usually bad. That is real weight, and it is recorded as a pending fix instead of
+ * hidden: these packages organise their entry points by axis (wght, wdth, standard) and not by subset,
+ * so trimming it means writing the @font-face declarations by hand against the latin files. Latin-only
+ * measures around 66 kB instead of 308.
+ *
+ * The first attempt at that imported '@fontsource-variable/archivo/latin.css', which does not exist, and
+ * broke the build. Reverted first, optimisation second.
+ */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/archivo';
 
