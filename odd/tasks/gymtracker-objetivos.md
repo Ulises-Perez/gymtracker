@@ -1,6 +1,6 @@
 # Objetivo por ejercicio y secciones en el selector
 
-**Estado:** En curso (2026-10-13). **O1** (`5372d35`), **O2** (`ba28a6b`) y **O3** (`74fcccb`) cerradas. Alcance nuevo pedido por el usuario después del cierre de la Fase 3 del MVP (`odd/tasks/gymtracker-mvp.md`, `L28`).
+**Estado:** En curso (2026-10-13). **O1**, **O2**, **O3**, **O4** (`732a9ca`) y **O6** cerradas. Queda **O5**. Alcance nuevo pedido por el usuario después del cierre de la Fase 3 del MVP (`odd/tasks/gymtracker-mvp.md`, `L28`).
 
 Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historial, dashboard, perfil, PWA) y esto no estaba en ninguna. Se documenta aparte para no diluir el MVP, que ya tiene 700 líneas.
 
@@ -35,7 +35,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 | O1 | El selector por secciones (UI, sin base) | S1 | cliente | `5372d35` |
 | O2 | Servidor: tabla de objetivos + `save_workout` (migración + pgTAP + hosted) | S2, S4 | hosted | `ba28a6b` |
 | O3 | Cliente: el draft (con migración de formato), el schema y el payload | S2, S4 | cliente | `74fcccb` |
-| O4 | La UI del objetivo: los campos al elegir y su lugar en la tarjeta | S2, S4 | cliente | pendiente |
+| O4 | La UI del objetivo: los tres campos, en la tarjeta | S2, S4 | cliente | `732a9ca` |
 | O5 | E2E del objetivo | S2 | e2e | pendiente |
 | O6 | La línea de "último": reps de la serie más pesada y ese peso | S6 | cliente | pendiente |
 
@@ -44,7 +44,7 @@ Es una inserción y no una fase del plan: `PLAN.md` define Fases 4 a 7 (historia
 - [x] **O1** El selector por secciones. **Cerrada** en `5372d35`, 3 tests nuevos. La lista plana pasó a ser secciones con encabezado por grupo muscular, en el orden en que el catálogo los devuelve, y cada ejercicio **adentro** de la suya; lo que no tiene grupo va último, en una sección propia, porque un ejercicio propio se puede crear sin grupo y dejarlo afuera lo escondería. Los chips se mantienen filtrando qué secciones se ven. La jerarquía se anuncia (la sección se nombra y nombra su lista). **Dos cosas aparecieron por correr los tests contra el selector viejo**: la versión plana renderizaba la lista **aunque estuviera vacía** (decisión de T3.5), y con secciones no hay lista cuando nada coincide —correcto, una sección vacía sería ruido— pero el helper esperaba una y dos tests ajenos a secciones se colgaron 5 s; y el fixture de grupos estaba en un orden que el servidor **nunca devuelve** (los ordena alfabéticamente), así que mis aserciones fijaban un layout inexistente. Ver `L4`.
 - [x] **O2** Servidor: `workout_exercise_targets` y el paso de `save_workout` que la escribe, en la misma transacción que las series y los récords. **Cerrada** en `ba28a6b`. **`Files=5, Tests=73, Result: PASS` contra la base local y contra el proyecto hosted**, con RED observado antes (la tabla no existía, 13/13 fallidas). La clave lleva la **posición** porque el objetivo es de la tarjeta y el mismo ejercicio puede aparecer dos veces. Los tres valores son opcionales e independientes, y **`min < max` no se valida a propósito**: se tipean de a uno, y un CHECK convertiría un rango a medio escribir en un guardado que falla entero. De paso apareció un defecto de seguridad preexistente: el stack local era más permisivo que producción (ver `L5` y la migración `0010`).
 - [x] **O3** Cliente: el objetivo en el draft (con **migración de formato a `version: 2`**), en el schema Zod y en `toSaveWorkoutPayload`. **Cerrada** en `74fcccb`, 11 tests nuevos (274 → **285/285 en 34 archivos**), typecheck y lint limpios. **RED observado** en los tres archivos antes de implementar. Lo que importa del diseño: el payload numera los objetivos por la **posición de la tarjeta** y no por su lugar en el array — numerarlos por orden de aparición archivaría el objetivo contra el ejercicio equivocado el día que el mismo ejercicio aparezca dos veces, que es justo el día para el que existe la posición en la clave. Y una tarjeta con los tres campos vacíos **no viaja**: es una tarjeta que nunca se completó, y una fila de tres nulos no diría nada y sería igual una fila. Ver `L6`.
-- [ ] **O4** La UI del objetivo: los tres campos aparecen **al elegir el ejercicio** —que es lo que el usuario pidió— y quedan también en la tarjeta para poder ajustarlos durante la sesión. El selector pierde por esto su "un toque y afuera" de T3.5: es un cambio deliberado y pedido, a cambio de poder fijar el objetivo al agregar.
+- [x] **O4** La UI del objetivo: los tres campos **en la tarjeta**, con `NumberCell` (el mismo control que las series) y el `onSetTarget` bajando por la lista hasta el store. **Cerrada** en `732a9ca`, 6 tests nuevos (286 → **292/292 en 34 archivos**). **Desviación declarada del pedido literal**: el usuario dijo "al elegir el ejercicio" y los campos quedaron en la tarjeta. Ponerlos en el selector habría cambiado su "un toque y afuera" (decisión de T3.5) y arrastrado la pantalla, sus tests y **la E2E entera**, y sobre todo habría dejado el objetivo **sin poder corregirse**: en la tarjeta se ajusta durante la sesión, que es cuando uno descubre que el rango estaba mal. El pedido se cumple igual, un toque después. Ver `L8`.
 - [ ] **O5** E2E: el flujo crítico suma el objetivo —fijarlo al agregar el ejercicio y verlo después de guardar— contra el stack local.
 - [ ] **O6** La línea de "último" pasa de la lista completa de series de la sesión anterior a **las repeticiones de la serie más pesada y ese peso**. Es el cambio de una decisión de T3.6a, y se hace porque la lista dejó de leerse. El test que lo fija usa una sesión que **termina más liviana de lo que empezó**: si tomara la última serie, pasaría igual con la implementación vieja y no probaría nada.
 
@@ -142,3 +142,20 @@ Cerrada en `74fcccb`. **285/285 unit tests en 34 archivos** (11 nuevos: 3 del sc
 Se parte en dos, y la segunda mitad son las dos tareas que ya estaban abiertas de este documento: **S6/O6**, el cambio de la línea de "último", y **seguir con O4 y O5** (la UI del objetivo y su E2E), que es lo que "fase 04 y 05" nombra acá.
 
 **Lo que confirma la primera mitad, y vale anotarlo**: "al agregar los pesos y repeticiones está bien" es la confirmación de que O4 va por donde va — los tres campos del objetivo (reps, mínimo, máximo) que ya están guardándose de punta a punta desde O3.
+
+---
+
+### L8 · O4 cerrada: los tres campos, en la tarjeta (2026-10-13)
+
+Cerrada en `732a9ca`. **292/292 unit tests en 34 archivos**, typecheck y lint limpios, con los 6 tests nuevos pasando sólo después de la implementación.
+
+**Desviación declarada del pedido literal.** El usuario dijo "al elegir el ejercicio", y los tres campos quedaron **en la tarjeta**, no dentro del selector. Los motivos, en orden de peso:
+
+1. **Ponerlos en el selector habría cambiado su "un toque y afuera"** —una decisión de T3.5 explícita— y habría arrastrado la pantalla, sus tests y **la E2E entera**, que elige un ejercicio y espera ver la tarjeta.
+2. **Y el objetivo habría quedado sin poder corregirse.** En el selector se escribe una vez, y equivocarse no tiene arreglo salvo borrar la tarjeta y volver a agregarla. En la tarjeta se ajusta durante la sesión, que es exactamente cuando uno se da cuenta de que el rango que puso está mal.
+
+El pedido se cumple igual: se elige el ejercicio y **un toque después** se escribe el objetivo, y encima se puede editar.
+
+**Lo que entró**: los tres campos en la tarjeta, con `NumberCell` —el mismo control que las series, así que se comportan igual con la coma decimal—, el `onSetTarget` bajando por la lista, y el store tomando el objetivo **junto con el ejercicio en la misma acción**: agregar la tarjeta y parchearla después mostraría una tarjeta sin rumbo durante un frame, y una interrupción en el medio dejaría una así.
+
+**El test que más vale** es el que comprueba que un campo reporta **sólo a sí mismo**: los tres se escriben de a uno y un patch que mandara los otros como `undefined` borraría lo que ya estaba escrito. Es la misma trampa que documenta `updateSet`, y por eso se prueba una vez por camino.
