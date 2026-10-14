@@ -67,3 +67,21 @@ La skill exige sondear una vez antes de inferir desde el brief, y sus **pasos de
 **Una corrección de proceso propia**: la primera pregunta (el mundo visual) pertenece a `new-work`, no a `init` — la referencia de `init` dice explícitamente que no se pregunta por dirección estética ahí. La respuesta queda registrada donde se usa, en S2 y en D2, así que no se pierde; el orden en que se preguntó fue el equivocado, no el contenido.
 
 **Estado del árbol al abrir este documento**: verde — 360/360 unit tests en 44 archivos, typecheck y lint limpios, y el trabajo de la revisión commiteado hasta `1d0b040`.
+
+### L3 · El sorteo del mundo, y por qué no hay comps (2026-10-14)
+
+`new-work` exige un sorteo antes de escribir código, y no como formalidad: **"escribir código antes de que este script corra y su asignación sea reconocida es una violación de contrato, sin importar el harnés, el modelo ni la presión de tiempo"**. Corrido:
+
+- **Clave del sorteo: `aae13118`** (modo `operate`, catálogo `c3b204a1eed6`, 306/564 aprobados por humanos). Es reproducible con `concept-seed --scope direction --mode operate --from aae13118 --candidate-count 7`.
+- **La asignación es el índice 6 de MI PROPIA lista de direcciones**, no una entrada del catálogo: "the assignment never points at a challenger… your top-ranked direction is what every run would ship, so the script decides which grounded direction gets built". O sea que **todavía falta derivar las siete** desde el mundo del usuario —el gimnasio, su gráfica, sus rituales— ordenadas por resonancia, y **construir la sexta**.
+- **Y algo que la skill prohíbe explícitamente**: los siete no pueden salir de las herramientas que el usuario opera. Un tablero, un instrumento o una consola "vuelven como un disfraz de esa herramienta"; tienen que salir de las tradiciones gráficas, los lugares y los rituales de su mundo.
+- **Seis desafíos repartidos** desde el catálogo, de familias deliberadamente distintas: campo de datamatics de Ikeda; muro de pósters en filas con la tarjeta enfocada; partitura de Labanotation; pase de embarque con tablero de puertas; superficie de consumo cálida con una sola acción saturada; y espécimen reticulado de Crouwel. **Ninguno se construye**: son material para fusionar y juzgar (gana / compite / se rechaza). Un rechazo **dona una disciplina** —no la ropa— a la dirección asignada, que se presenta ya elevada y con esas líneas nombradas.
+
+**Dos consecuencias del modo que simplifican mucho el trabajo:**
+
+1. **Esta superficie es `operate`** —una pantalla de trabajo, no de persuasión— y **no hay generación de imágenes** → **el camino es `code-led`**, sin comps ni compuertas de fidelidad contra una imagen. La ambición vive en el contrato de dirección (el primer viewport y la interacción de firma) y el revisor la audita **en el comportamiento**.
+2. **`DESIGN.md` no se escribe ahora.** En un mundo de reemplazo la skill lo escribe **al final, desde lo construido**, porque "un reglamento escrito antes de construir se defiende de la realidad en vez de describirla". Lo que corresponde antes es **el contrato de dirección**, en el brief de la superficie.
+
+**Corregido en el seguimiento**: D2 decía "elegir el mundo y escribir `DESIGN.md`"; es **elegir el mundo y escribir el contrato de dirección**, y `DESIGN.md` cierra la fase en D9.
+
+**Nota de proceso que la skill exige decir en la primera respuesta, no esconder**: la ronda de decisión se presenta por la página de la skill o, cuando el harnés no puede sostener un `--wait` bloqueante —que es el caso acá, donde el shell devuelve los comandos largos en segundo plano—, **por la herramienta estructurada**. Es una sustitución declarada, no un atajo.
