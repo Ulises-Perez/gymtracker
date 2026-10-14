@@ -35,6 +35,13 @@ type ExercisePickerDialogProps = {
   localExercises?: CatalogExercise[];
 };
 
+type ExerciseSection = {
+  /** The muscle group, or null for the exercises that have none. */
+  id: string | null;
+  name: string;
+  exercises: CatalogExercise[];
+};
+
 /** How far fuse is allowed to stray. Loose enough for a typo, tight enough to stay useful. */
 const FUZZINESS = 0.34;
 
@@ -116,6 +123,41 @@ export function ExercisePickerDialog({
 
     return normalized === '' ? scoped : fuse.search(normalized).map((match) => match.item.exercise);
   }, [fuse, query, scoped]);
+
+  /**
+   * The results, in the sections S1 asks for.
+   *
+   * The groups are ordered by the catalogue — alphabetically, as the server returns them — and
+   * not by the order the exercises happen to arrive, so a section does not move around as the
+   * search narrows.
+   *
+   * Whatever has no group goes last, in a section of its own. A custom exercise can be created
+   * without a group, and a grouped list that dropped those would hide them from the only screen
+   * that can add them to a workout.
+   */
+  const sections = useMemo<ExerciseSection[]>(() => {
+    const byGroup = new Map<string | null, CatalogExercise[]>();
+
+    for (const exercise of results) {
+      const group = exercise.muscleGroupId;
+
+      byGroup.set(group, [...(byGroup.get(group) ?? []), exercise]);
+    }
+
+    const named: ExerciseSection[] = muscleGroups
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        exercises: byGroup.get(group.id) ?? [],
+      }))
+      .filter((section) => section.exercises.length > 0);
+
+    const ungrouped = byGroup.get(null) ?? [];
+
+    return ungrouped.length > 0
+      ? [...named, { id: null, name: 'Sin grupo', exercises: ungrouped }]
+      : named;
+  }, [muscleGroups, results]);
 
   const hasQuery = query.trim() !== '';
   const trimmedName = newName.trim();
@@ -274,28 +316,47 @@ export function ExercisePickerDialog({
               </p>
             ) : (
               <>
-                {results.length === 0 ? (
+                {sections.length === 0 ? (
                   <p className="text-muted py-6 text-sm">
                     {hasQuery
                       ? 'No encontramos ejercicios con ese nombre.'
                       : 'Todavía no hay ejercicios disponibles.'}
                   </p>
                 ) : null}
-                {/* Rendered even when empty, so "no results" is an empty list
-                    rather than a missing one. */}
-                <ul aria-label="Ejercicios" className="space-y-1">
-                  {results.map((exercise) => (
-                    <li key={exercise.id}>
-                      <button
-                        type="button"
-                        onClick={() => choose(exercise)}
-                        className="ring-white/10 hover:bg-bg focus-visible:ring-primary min-h-12 w-full rounded-md px-3 text-left ring-1 focus-visible:ring-2 focus-visible:outline-none"
+                {sections.map((section) => {
+                  // One id per section, used twice: it names the region and it names the list
+                  // inside it, so a screen reader hears which group an exercise belongs to.
+                  const headingId = `seccion-${section.id ?? 'sin-grupo'}`;
+
+                  return (
+                    <section
+                      key={headingId}
+                      aria-labelledby={headingId}
+                      className="mt-5 first:mt-0"
+                    >
+                      <h3
+                        id={headingId}
+                        className="text-muted mb-1 text-xs font-medium tracking-wide uppercase"
                       >
-                        {exercise.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                        {section.name}
+                      </h3>
+
+                      <ul aria-labelledby={headingId} className="space-y-1">
+                        {section.exercises.map((exercise) => (
+                          <li key={exercise.id}>
+                            <button
+                              type="button"
+                              onClick={() => choose(exercise)}
+                              className="ring-white/10 hover:bg-bg focus-visible:ring-primary min-h-12 w-full rounded-md px-3 text-left ring-1 focus-visible:ring-2 focus-visible:outline-none"
+                            >
+                              {exercise.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })}
               </>
             )}
           </div>

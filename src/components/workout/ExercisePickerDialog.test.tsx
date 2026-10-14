@@ -36,9 +36,12 @@ const PAJAROS = {
 };
 
 const MUSCLE_GROUPS = [
+  // In the order the server returns them — `fetchCatalog` sorts by name — because the picker
+  // now shows the groups as sections in the order they arrive. A fixture in another order
+  // would have made the test assert a layout production never produces.
+  { id: 'mg-hombros', name: 'Hombros', icon: null },
   { id: 'mg-pecho', name: 'Pecho', icon: null },
   { id: 'mg-triceps', name: 'Tríceps', icon: null },
-  { id: 'mg-hombros', name: 'Hombros', icon: null },
   // Deliberately empty: the seed shipped groups like this (M5) and a filter chip
   // that leads to an empty list is worse than no chip.
   { id: 'mg-cardio', name: 'Cardio', icon: null },
@@ -101,11 +104,31 @@ function renderPicker({
 
 const search = () => screen.getByLabelText('Buscar');
 
-/** Names of the exercises currently offered, in order. */
+/**
+ * Names of the exercises currently offered, in the order they appear.
+ *
+ * It waits for the catalogue rather than for a list, and that is not the same thing any more:
+ * with the exercises grouped into sections, nothing matching means the picker legitimately
+ * renders no list at all, so an assertion that waited for one would sit there until it timed
+ * out. Reading the lists after the skeletons are gone is what "the results have settled" means.
+ */
 async function offeredNames(): Promise<string[]> {
-  const list = await screen.findByRole('list', { name: 'Ejercicios' });
+  await waitFor(() => {
+    expect(screen.queryByRole('status', { name: 'Cargando ejercicios' })).not.toBeInTheDocument();
+  });
 
-  return [...list.querySelectorAll('button')].map((button) => button.textContent ?? '');
+  return screen
+    .queryAllByRole('list')
+    .flatMap((list) =>
+      [...list.querySelectorAll('button')].map((button) => button.textContent ?? ''),
+    );
+}
+
+/** The headings the sections are titled with, in the order they are shown. */
+async function sectionNames(): Promise<string[]> {
+  await offeredNames();
+
+  return screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent ?? '');
 }
 
 beforeEach(() => {
@@ -128,10 +151,54 @@ describe('ExercisePickerDialog', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('lists the catalogue once it arrives', async () => {
+  it('lists every exercise in the catalogue, grouped by section', async () => {
     renderPicker();
 
-    expect(await offeredNames()).toEqual(['Press Banca', 'Extensión en Polea', 'Pájaros']);
+    expect(await offeredNames()).toEqual(['Pájaros', 'Press Banca', 'Extensión en Polea']);
+  });
+
+  it('groups the exercises into the section of their muscle group', async () => {
+    renderPicker();
+
+    /*
+     * The groups in the order the catalogue gives them, which arrives alphabetical: Hombros,
+     * Pecho, Tríceps. Within a section the exercises keep the order the catalogue gave them, so
+     * the sections do not jump around as the search narrows.
+     */
+    expect(await sectionNames()).toEqual(['Hombros', 'Pecho', 'Tríceps']);
+    expect(await offeredNames()).toEqual(['Pájaros', 'Press Banca', 'Extensión en Polea']);
+
+    // And each one is *inside* its group, which is what "by sections" has to mean: a heading
+    // with its exercises filed under the next one would look right and be wrong.
+    const triceps = await screen.findByRole('list', { name: 'Tríceps' });
+
+    expect([...triceps.querySelectorAll('button')].map((button) => button.textContent)).toEqual([
+      'Extensión en Polea',
+    ]);
+  });
+
+  it('gives the exercises with no group a section of their own, at the end', async () => {
+    renderPicker({
+      localExercises: [
+        { id: 'local-1', name: 'Press con banda', muscleGroupId: null, isCustom: true },
+      ],
+    });
+
+    // A custom exercise can be created without a group, and a section list that left those out
+    // would hide them from the only screen that can put them in a workout.
+    expect(await sectionNames()).toEqual(['Hombros', 'Pecho', 'Tríceps', 'Sin grupo']);
+    expect(await offeredNames()).toContain('Press con banda');
+  });
+
+  it('keeps only the sections that have a match while searching', async () => {
+    renderPicker();
+    await offeredNames();
+
+    fireEvent.change(search(), { target: { value: 'extension' } });
+
+    await waitFor(async () => {
+      expect(await sectionNames()).toEqual(['Tríceps']);
+    });
   });
 
   it('shows skeletons, not a spinner, while the catalogue is on its way', async () => {
