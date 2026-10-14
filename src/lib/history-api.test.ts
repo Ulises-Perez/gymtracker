@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
-import { fetchWorkoutDetail, fetchWorkoutPage } from './history-api.ts';
+import { fetchWorkoutDetail, fetchWorkoutPage, softDeleteWorkout } from './history-api.ts';
 import { getSupabase } from './supabase.ts';
 
 vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -138,5 +138,22 @@ describe('fetchWorkoutDetail', () => {
     fake.setTableResult('workout_sets', { data: null, error: { message: 'permission denied' } });
 
     await expect(fetchWorkoutDetail(row(1).id)).rejects.toThrow('permission denied');
+  });
+});
+
+describe('softDeleteWorkout', () => {
+  it('sets the moment instead of removing the row', async () => {
+    await softDeleteWorkout(row(1).id);
+
+    // Asserted on the shape of the write: an UPDATE is a soft delete, a DELETE would be the other
+    // convention — and one of the two takes the sets and the records with it.
+    expect(lastBuilder()?.calls).toContain('update deleted_at');
+    expect(lastBuilder()?.calls).toContain(`eq id ${row(1).id}`);
+  });
+
+  it('throws the error whole when the update is refused', async () => {
+    fake.setTableResult('workouts', { data: null, error: { message: 'permission denied' } });
+
+    await expect(softDeleteWorkout(row(1).id)).rejects.toThrow('permission denied');
   });
 });

@@ -137,6 +137,30 @@ export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDeta
   };
 }
 
+/**
+ * Marks a workout as deleted without removing anything.
+ *
+ * This is the convention the whole project follows — `body_measurements` set it in 0006. A soft delete
+ * keeps the row, so a workout the user removes today stops appearing while the records it produced
+ * stay attributable. Deleting the row would take its sets with it through the cascade and silently
+ * rewrite history: someone's personal best would vanish from a workout they had already looked at.
+ *
+ * The moment is an instant, not a date: the column is a `TIMESTAMPTZ`, and this records when it
+ * happened rather than which day it was.
+ */
+export async function softDeleteWorkout(workoutId: string): Promise<void> {
+  const supabase = await getSupabase();
+
+  const { error } = await supabase
+    .from('workouts')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', workoutId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function fetchWorkoutPage(
   userId: string,
   cursor: WorkoutCursor | null,

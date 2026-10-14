@@ -60,6 +60,19 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    /*
+     * Fifteen seconds per test, where the default is five.
+     *
+     * Several screens resolve lazy chunks — the exercise list carries dnd-kit and Motion, the
+     * exercise screen carries uPlot — so a test that looks like a render is also waiting on a dynamic
+     * `import()`. Under a full parallel run that wait has gone past five seconds, and the file passes
+     * on its own while the suite fails it.
+     *
+     * This is the knob that was actually needed. The first attempt raised Testing Library's
+     * `asyncUtilTimeout` instead, which governs how long a `findBy` waits and not how long a test may
+     * run; the number not moving at all when it was raised is what said so.
+     */
+    testTimeout: 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
   },
 });

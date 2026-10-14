@@ -120,6 +120,7 @@ export type QueryBuilderStub = {
   is: (column: string, value: unknown) => QueryBuilderStub;
   or: (filter: string) => QueryBuilderStub;
   eq: (column: string, value: unknown) => QueryBuilderStub;
+  update: (values: Record<string, unknown>) => QueryBuilderStub;
   order: (column: string) => QueryBuilderStub;
   limit: (count: number) => QueryBuilderStub;
   /** Thenable, so both `await …select().order()` and a longer chain resolve. */
@@ -158,6 +159,11 @@ export function createQueryBuilder(result: { data: unknown; error: unknown }): Q
     },
     eq(column, value) {
       builder.calls.push(`eq ${column} ${String(value)}`);
+
+      return builder;
+    },
+    update(values) {
+      builder.calls.push(`update ${Object.keys(values).sort().join(',')}`);
 
       return builder;
     },

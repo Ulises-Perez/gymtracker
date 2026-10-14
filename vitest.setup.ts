@@ -13,16 +13,17 @@ import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 /*
- * Finding an element waits five seconds and not the default one.
+ * Finding an element waits ten seconds and not the default one.
  *
- * The workout screen loads its exercise list on demand, because that is where dnd-kit and Motion
- * live, so several of its assertions are waiting on a dynamic `import()` rather than on a render.
- * Under a full parallel run that chunk took over three seconds to arrive — measured, not
- * guessed — and the spec passed on its own while failing in the suite. The wait is not hiding a
- * hang: it is the shape of the app now, and a timeout belongs in one place instead of being
- * widened in whichever test happened to notice.
+ * The workout screen loads its exercise list on demand — that is where dnd-kit and Motion live — and
+ * the exercise screen does the same with uPlot, so several assertions are waiting on a dynamic
+ * `import()` rather than on a render. Under a full parallel run that import has taken over eight
+ * seconds. The wait is not hiding a hang: it is the shape of the app, and a timeout belongs in one
+ * place instead of being widened in whichever test noticed first.
+ *
+ * It was five seconds until the history screens added two more chunks to import.
  */
-configure({ asyncUtilTimeout: 5000 });
+configure({ asyncUtilTimeout: 10_000 });
 
 /*
  * Testing Library only auto-registers its cleanup when the test globals are
