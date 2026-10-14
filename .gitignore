@@ -33,3 +33,7 @@ Thumbs.db
 
 # Local agent runtime state
 .atl/
+
+# Estado local de la skill de diseño (el sorteo, sus mocks y la pagina de decision).
+# La verdad del producto vive en PRODUCT.md y en odd/tasks/gymtracker-rediseno.md.
+.impeccable/
