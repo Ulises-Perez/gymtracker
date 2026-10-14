@@ -41,6 +41,19 @@
   --color-rule: #d8d6cf;
   /* One accent, reserved for what was struck through and for what can be pressed. Nothing else. */
   --color-primary: #c7342a;
+  /*
+   * A pressed fill, not a tint. It coincides with `danger` by arithmetic -- both are the same red
+   * pushed down until white text clears AA -- and they stay separate names because they are
+   * separate meanings: one is a button under the finger, the other is an error.
+   */
+  --color-primary-strong: #a4291f;
+  /*
+   * The tint, for ground and never for a fill behind white text: at 2.4:1 against the paper it
+   * cannot carry a label, and as a focus ring it misses the 3:1 that non-text contrast needs.
+   *
+   * Focus is the accent outline declared once at the bottom of this file, so no control paints
+   * its own ring.
+   */
   --color-primary-soft: #e0847c;
   --color-accent: #16171b;
   --color-danger: #a4291f;

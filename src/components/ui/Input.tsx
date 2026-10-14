@@ -8,6 +8,10 @@ import type { InputHTMLAttributes } from 'react';
  * `aria-describedby` points at the message, so assistive technology announces
  * the reason and not just a red border. The error is also a live region, since
  * it appears after the user acts.
+ *
+ * The field is a ruled line with no box around it, which is the line the notebook
+ * already prints. It does not declare focus either: the outline comes from
+ * `index.css`, so the state looks the same wherever it lands.
  */
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
@@ -28,7 +32,7 @@ export function Input({ label, error, id, className, ...rest }: InputProps) {
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={`bg-bg placeholder:text-muted ring-white/15 focus-visible:ring-primary min-h-12 w-full rounded-md px-3 text-base ring-1 outline-none focus-visible:ring-2 ${className ?? ''}`.trim()}
+        className={`border-rule placeholder:text-muted focus:border-primary min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 text-base ${className ?? ''}`.trim()}
         {...rest}
       />
       {error ? (

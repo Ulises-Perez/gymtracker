@@ -25,7 +25,7 @@ export function SyncBadge() {
       // A live region: a write can be queued while the user is looking somewhere else, and
       // there is no other sign of it anywhere in the app.
       role="status"
-      className="bg-surface text-muted mx-4 mb-2 rounded-md px-3 py-2 text-center text-sm"
+      className="border-rule bg-surface text-muted mx-4 mb-2 rounded-sm border px-3 py-2 text-center text-sm"
     >
       {waiting === 1
         ? '1 entrenamiento pendiente de sincronizar'

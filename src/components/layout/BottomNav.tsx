@@ -13,7 +13,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-bg/85"
+      className="bottom-nav border-rule bg-bg/85 fixed inset-x-0 bottom-0 z-40 border-t"
     >
       <ul className="mx-auto flex w-full max-w-lg items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
         {items.map(({ to, label, Icon, end }) => (
@@ -23,7 +23,10 @@ export function BottomNav() {
               end={end}
               className={({ isActive }) =>
                 `relative flex flex-col items-center gap-1 rounded-md py-2.5 text-[11px] font-medium transition-colors motion-reduce:transition-none ${
-                  isActive ? 'text-primary-soft' : 'text-muted hover:text-text'
+                  // Ink for where you are, muted for the rest, and the accent stays out of it: the
+                  // red is for what was replaced and for what can be pressed, and the current tab is
+                  // a state, not a press.
+                  isActive ? 'text-text' : 'text-muted hover:text-text'
                 }`
               }
             >
@@ -36,7 +39,7 @@ export function BottomNav() {
                    */}
                   <span
                     aria-hidden="true"
-                    className={`absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary-soft transition-opacity motion-reduce:transition-none ${
+                    className={`bg-text absolute inset-x-3 top-0 h-0.5 rounded-full transition-opacity motion-reduce:transition-none ${
                       isActive ? 'opacity-100' : 'opacity-0'
                     }`}
                   />
