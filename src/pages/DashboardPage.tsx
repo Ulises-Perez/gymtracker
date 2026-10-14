@@ -4,7 +4,7 @@ import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useDashboard } from '../hooks/useDashboard.ts';
 import { usePrefetch } from '../hooks/usePrefetch.ts';
-import { formatIsoDate, localIsoDate } from '../lib/utils.ts';
+import { formatIsoDate, formatLongDate, localIsoDate } from '../lib/utils.ts';
 
 /**
  * Inicio: the whole dashboard from one call.
@@ -24,12 +24,23 @@ export function DashboardPage() {
   usePrefetch(user?.id ?? '', dashboard.isSuccess);
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <h1 className="text-2xl font-semibold">Inicio</h1>
+    <div
+      /*
+       * A landmark with a stable name, and the reason it is not the heading: the heading of this
+       * page is the date, which changes daily. Orientation for a screen reader and a hook for the
+       * route test both need a name that does not move.
+       */
+      role="region"
+      aria-label="Inicio"
+      className="mx-auto w-full max-w-lg px-4 pt-6 pb-28"
+    >
+      {/* The date is the header: the same page of the notebook the workout screen opens with, and
+          the craft floor asks for no label above or below a heading, without exception. */}
+      <h1 className="font-display text-3xl font-black tracking-tight">{formatLongDate()}</h1>
       {/*
-       * The greeting is a line under the title and not the title itself. The screen is called Inicio
-       * — that is what the nav says and what identifies it — and a title that changes with the clock
-       * is a title no test can look for and no one can navigate by.
+       * The greeting is a line under the header and not the header itself. The screen is called
+       * Inicio — that is what the nav says and what the landmark names — and a heading that changes
+       * with the clock is a heading no test can look for and no one can navigate by.
        */}
       <p className="text-muted mt-1 text-sm">{greeting(new Date())}</p>
 
@@ -43,18 +54,25 @@ export function DashboardPage() {
 
       {summary ? (
         <>
-          <p className="text-muted mt-4 text-sm">{streakSentence(summary.streak)}</p>
+          {/* A figure read as data, so it does not shift while it is being read. */}
+          <p className="text-muted tabular mt-4 text-sm">{streakSentence(summary.streak)}</p>
 
           <WeekStrip weekDays={summary.week_days} />
 
           {summary.last_workout ? (
-            <section aria-labelledby="ultimo" className="bg-surface mt-4 rounded-lg p-4">
-              <h2 id="ultimo" className="text-base font-semibold">
+            /*
+             * A ruled block and not a card: the section opens with a printed rule and its facts are
+             * rows under it, so the elevation is the border alone and nothing is nested.
+             */
+            <section aria-labelledby="ultimo" className="border-text mt-6 border-t-2 pt-4">
+              <h2 id="ultimo" className="font-display text-lg font-extrabold tracking-tight">
                 Último entrenamiento
               </h2>
+              {/* It navigates and does nothing else, so it stays ink with the printed rule
+                  underlining it -- the accent belongs to what was replaced and what commits. */}
               <Link
                 to={`/history/${summary.last_workout.id}`}
-                className="hover:text-primary-soft mt-1 block text-sm"
+                className="decoration-rule hover:decoration-text tabular mt-1 block text-sm underline"
               >
                 {formatIsoDate(summary.last_workout.date)}
                 {summary.last_workout.title ? ` · ${summary.last_workout.title}` : ''}
@@ -62,7 +80,7 @@ export function DashboardPage() {
                   ? ` · ${summary.last_workout.duration_minutes} min`
                   : ''}
               </Link>
-              <p className="text-muted mt-1 text-sm">
+              <p className="text-muted tabular mt-1 text-sm">
                 {summary.last_workout.exercise_count} ejercicios
               </p>
             </section>
@@ -74,18 +92,20 @@ export function DashboardPage() {
           )}
 
           {summary.recent_prs.length > 0 ? (
-            <section aria-labelledby="records" className="mt-4">
-              <h2 id="records" className="text-base font-semibold">
+            <section aria-labelledby="records" className="border-text mt-6 border-t-2 pt-4">
+              <h2 id="records" className="font-display text-lg font-extrabold tracking-tight">
                 Récords recientes
               </h2>
-              <ul className="mt-2 space-y-2">
+              {/* Ruled rows, not cards: the records are lines on the page, figures tabular so the
+                  column of weights holds still. */}
+              <ul className="mt-2">
                 {summary.recent_prs.map((pr) => (
                   <li
                     key={`${pr.exercise_id}-${pr.achieved_at}`}
-                    className="bg-surface rounded-lg p-3"
+                    className="border-rule border-b py-2"
                   >
                     <span className="text-sm font-medium">{pr.exercise_name}</span>
-                    <span className="text-muted block text-sm">
+                    <span className="text-muted tabular block text-sm">
                       {pr.max_weight_kg ?? '—'} kg · {pr.max_reps ?? '—'} reps ·{' '}
                       {formatIsoDate(pr.achieved_at)}
                     </span>
@@ -97,10 +117,14 @@ export function DashboardPage() {
         </>
       ) : null}
 
-      {/* The one action this screen exists to offer, within reach of a thumb. */}
+      {/*
+       * The one action this screen exists to offer, within reach of a thumb. It advances the
+       * session, so the red fill is the accent earning its keep; the corner is a control's, not the
+       * pill of a large floating thing.
+       */}
       <Link
         to="/workout"
-        className="bg-primary fixed right-4 bottom-20 z-30 flex min-h-14 items-center rounded-full px-5 font-medium text-white"
+        className="bg-primary fixed right-4 bottom-20 z-30 flex min-h-14 items-center rounded-sm px-5 font-medium text-white"
       >
         + Nuevo workout
       </Link>
@@ -129,7 +153,12 @@ function WeekStrip({ weekDays }: { weekDays: string[] }) {
           <li
             key={day}
             aria-label={didTrain ? 'entrenado' : 'sin entrenar'}
-            className={`h-8 flex-1 rounded-md ${didTrain ? 'bg-primary' : 'bg-surface'}`}
+            /*
+             * Ink for a day that was trained, an empty ruled box for one that was not. This is a
+             * mark on the page, not a press, so the accent stays out of it -- the red means what was
+             * replaced and what commits, and having trained is neither.
+             */
+            className={`h-8 flex-1 border ${didTrain ? 'bg-text border-text' : 'border-rule'}`}
           />
         );
       })}

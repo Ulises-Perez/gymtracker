@@ -47,7 +47,12 @@ describe('app routes', () => {
   it('renders the shell and the dashboard on the root route', async () => {
     renderAt('/');
 
-    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
+    /*
+     * By the region and not by the heading: the heading of this screen is today's date, which a test
+     * cannot look for and nobody can orient themselves by. The landmark carries the stable name, and
+     * the date is asserted where it is computed, in `formatLongDate`.
+     */
+    expect(await screen.findByRole('region', { name: 'Inicio' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeInTheDocument();
   });
 

@@ -64,15 +64,43 @@ beforeEach(() => {
 });
 
 describe('DashboardPage', () => {
+  /*
+   * S5: Inicio opens with today's date as its header, and it reads the local clock.
+   *
+   * The date is the `h1`, the same call the workout screen made, and the screen keeps a stable
+   * accessible name on the region: a heading that changes with the clock can be looked up by no
+   * test and oriented by nobody, so the region carries "Inicio" and the heading carries the day.
+   */
+  it("writes today's date as the header, read off the local clock", () => {
+    vi.useFakeTimers();
+
+    try {
+      /*
+       * 22:00 local: the UTC instant is already tomorrow, so a header read off it would be a day
+       * ahead. The same trap `localIsoDate` and `formatLongDate` exist to avoid.
+       */
+      vi.setSystemTime(new Date(2026, 9, 14, 22, 0));
+
+      renderPage();
+
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Miércoles, 14 de octubre',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('paints the whole screen from the one call', async () => {
     renderPage();
 
     /*
-     * The title is asserted here as well as the data, and not only because it looks right: the route
-     * test identifies this screen by it, so losing it would fail that test with a reason that has
-     * nothing to do with the routes.
+     * The landmark is asserted here as well as the data, and not only because it looks right: the
+     * route test identifies this screen by it, so losing it would fail that test with a reason that
+     * has nothing to do with the routes. The heading is today's date, which is asserted in its own
+     * test above because a test cannot look for a heading that changes with the clock.
      */
-    expect(screen.getByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Inicio' })).toBeInTheDocument();
 
     expect(await screen.findByText('Racha de 3 días.')).toBeInTheDocument();
     // The date, the title and the duration are one line: an exact match on just the title would be
