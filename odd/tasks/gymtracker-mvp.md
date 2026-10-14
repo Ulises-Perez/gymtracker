@@ -208,7 +208,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T6.1a** La capa de datos del perfil: leer nombre, avatar y unidad, y escribir la preferencia. **Cerrada** en `d7f3590`. **350/350 unit tests en 43 archivos**, typecheck y lint limpios. **Sin migración**: `profiles` ya tenía `weight_unit` y `avatar_url`. **`updateWeightUnit` escribe la preferencia y nunca un peso**: es el DoD de S9 en una función, y el test afirma **las columnas que se escriben** porque una escritura que llevara un peso reescribiría el historial. Una unidad desconocida se lee como kilos. Ver `L38`.
 - [ ] **T6.1b** La pantalla de perfil (nombre, avatar en el bucket `avatars`, y el selector de unidad), con **T4.4b**: el toggle kg/lb que se movió acá, y las etiquetas de peso del resto de las pantallas. **T4.4b decidido y en curso** (ver `L39`): la preferencia es **de lectura**, y la regla es *convierte la pantalla cuya materia es leer, no la que sirve para entrar*. **El avatar sigue pendiente**: el bucket `avatars` necesita el stack local para probarse, y Docker no está disponible en esta sesión.
 - [ ] **T6.2** Stats derivadas (no columnas) + peso corporal.
-- [ ] **T6.3** "Repetir workout" + export CSV + logout.
+- [ ] **T6.3** "Repetir workout" + export CSV + logout. **El CSV hecho** (la mitad del DoD de S9): ver `L41`. **Falta "repetir workout"**; el logout ya estaba desde la Fase 2.
 
 #### Fase 7 — PWA Polish + Deploy
 
@@ -956,3 +956,22 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Verificación del padre, corriendo las comprobaciones y no leyendo el reporte**: **382/382 unit tests en 45 archivos** (367 + uno por regla + los del hook), typecheck, lint y `prettier --check` limpios, **bundle inicial 119.04 kB de 180**, y `useProfile` confirmado en su propio chunk (fuera del bundle inicial). Los dos archivos de entrada —`WorkoutExerciseCard.tsx` y `PersonalRecords.tsx`— **verificados sin tocar** por `git status`.
 
 **Lo que le falta a la Fase 6**: **el CSV** (la otra mitad del DoD de S9: *"CSV descarga"*), **el avatar** (necesita el bucket `avatars` y el stack local para probarse), **T6.2** (peso corporal y stats derivadas) y **T6.3** (repetir workout). El CSV sale **en kilos aunque la pantalla esté en libras**, por la razón de `L39`: **un archivo exportado es dato, no una pantalla**.
+
+### L41 · La otra mitad de S9: el CSV descarga, y la verificación que sí se podía hacer sin stack (2026-10-14)
+
+**Lo que entró**: un módulo puro que arma el archivo (`CSV_HEADER` compartido con los tests para que no se despegue, separador `;`, punto decimal, comillas RFC 4180 con las internas duplicadas, **BOM UTF-8**, una fila por serie, vacío es vacío y nunca 0, series ordenadas por número), una función de datos que lee **todo** el historial con sus series por `select` anidado **paginando con `range()` hasta que una página vuelve corta**, un helper de navegador para la descarga (Blob, object URL, ancla, revocación) y el control en el perfil, que es un **botón secundario reglado** en el mundo del cuaderno.
+
+**Las decisiones, y el motivo de cada una**: **siempre kilos aunque la pantalla esté en libras** (un archivo es dato y no una pantalla, `L39`, y la columna se llama `weight_kg` para que nadie adivine); **`;` y punto decimal** (convención de la planilla es-AR y sin choque entre coma decimal y separador); **BOM** (sin él la planilla muestra `Ã±`); **una fila por serie sin omitir nada** —un entrenamiento sin ejercicios igual tiene fila, y un ejercicio con objetivo y sin series conserva su objetivo con las columnas de series vacías—; y **paginado**, porque PostgREST corta y **una exportación truncada es la peor forma de perder datos**, que es hacerlo en silencio.
+
+**La verificación que el padre hizo, y la que no se puede hacer sin stack.** El escritor reportó, con razón, que **el `select` anidado nunca se probó contra PostgREST** y que el repo no tenía ningún embed. Eso no se puede correr sin el stack local, así que **se verificó lo que sí se puede: que cada embed tenga exactamente UNA relación candidata**, que es la condición para que PostgREST no exija desambiguación. Leído en las migraciones:
+- `workout_sets` cuelga de `workouts` por **una sola** FK (`workout_id`, `0001`);
+- `workout_exercise_targets` cuelga **sólo** de la FK compuesta `(workout_id, user_id)` (`0009`) —no hay una segunda ruta a `workouts`—;
+- `workouts(id, user_id)` tiene su `UNIQUE` desde `0004`, que es lo que hace válida la FK compuesta;
+- y cada `exercise:exercises(name)` tiene una sola FK de `exercise_id`.
+**Alcance honesto de esa verificación**: prueba que la relación existe y es única, **no** prueba la forma de la respuesta en runtime ni el filtro anidado `.is('workout_sets.deleted_at', null)`. Eso necesita el stack local, y queda como el primer contrato a ejercitar cuando Docker vuelva.
+
+**Límites que el tramo deja escritos, y no escondidos**: si un mismo ejercicio aparece en dos tarjetas de la misma sesión, **sus series no se pueden atribuir a una de las dos** (las series no guardan posición), así que la exportación agrupa por ejercicio y usa el objetivo de menor posición; y `src/types/database.ts` **no tiene** `workout_exercise_targets` y **tipa `rpe` como número cuando llega como string** (como todos los `DECIMAL`), así que el tramo usa tipos locales en el borde de lectura. Regenerar los tipos necesita el stack.
+
+**Verificación del padre, corriendo las comprobaciones**: **404/404 unit tests en 48 archivos** (382 + uno por regla), typecheck, lint y `prettier --check` limpios, **bundle inicial 119.04 kB de 180** (igual que antes del tramo: el CSV vive en su propio chunk). Y una práctica del escritor que vale registrar: **chequeó que su propio test de paginado no fuera vacuo** reduciendo el bucle a una página a propósito y viendo fallar la aserción (`expected to be called 2 times, but got 1 times`), y después restauró.
+
+**Lo que queda de la Fase 6**: **"repetir workout"** (lo último de T6.3), **T6.2** (peso corporal y stats derivadas) y **el avatar de T6.1b** (necesita el bucket y el stack local).
