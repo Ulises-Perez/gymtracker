@@ -113,6 +113,19 @@ describe('DashboardPage', () => {
     expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary');
   });
 
+  it('reads the recent records in the preferred unit', async () => {
+    fake.setTableResult('profiles', {
+      data: [{ username: null, full_name: null, avatar_url: null, weight_unit: 'lb' }],
+      error: null,
+    });
+
+    renderPage();
+
+    // 100 kg is 220.5 lb. The streak and the week strip above are not weights, so they do not
+    // convert -- only the records line does.
+    expect(await screen.findByText(/220\.5 lb/)).toBeInTheDocument();
+  });
+
   it('lights up the days of this week that were trained', async () => {
     renderPage();
     await screen.findByText('Racha de 3 días.');

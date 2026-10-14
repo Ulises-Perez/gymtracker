@@ -5,8 +5,10 @@ import { Link, useParams } from 'react-router';
 import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
+import { useWeightUnit } from '../hooks/useProfile.ts';
 import { fetchExerciseProgress } from '../lib/progress-api.ts';
 import type { ExerciseProgressPoint, ProgressMetric } from '../lib/progress-api.ts';
+import { formatWeight } from '../lib/units.ts';
 import { formatIsoDate } from '../lib/utils.ts';
 
 /**
@@ -22,10 +24,10 @@ const ProgressChart = lazy(async () => {
   return { default: Chart };
 });
 
-const METRICS: { metric: ProgressMetric; label: string; series: string }[] = [
-  { metric: 'maxWeight', label: 'Peso máximo', series: 'kg' },
-  { metric: 'volume', label: 'Volumen', series: 'kg' },
-  { metric: 'oneRm', label: '1RM estimado', series: 'kg' },
+const METRICS: { metric: ProgressMetric; label: string }[] = [
+  { metric: 'maxWeight', label: 'Peso máximo' },
+  { metric: 'volume', label: 'Volumen' },
+  { metric: 'oneRm', label: '1RM estimado' },
 ];
 
 /**
@@ -39,6 +41,9 @@ export function ExerciseDetailPage() {
   const { user } = useAuth();
   const [metric, setMetric] = useState<ProgressMetric>('maxWeight');
   const catalog = useCatalog(user?.id ?? '');
+  // Reading screen: the chart and the sessions below read in the preferred unit, and the conversion
+  // happens in `buildChartSeries` and `formatWeight`, on the way to the screen.
+  const unit = useWeightUnit(user?.id ?? '');
 
   const progress = useQuery({
     queryKey: ['progress', exerciseId],
@@ -54,7 +59,6 @@ export function ExerciseDetailPage() {
   );
 
   const points = progress.data ?? [];
-  const chosen = METRICS.find((entry) => entry.metric === metric) ?? METRICS[0];
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
@@ -107,7 +111,9 @@ export function ExerciseDetailPage() {
           </div>
 
           <Suspense fallback={<Skeleton className="mt-3 h-[220px] w-full" />}>
-            <ProgressChart points={points} metric={metric} label={chosen?.series ?? ''} />
+            {/* The label is the unit itself, so the axis legend cannot disagree with the plotted
+                values: `buildChartSeries` converts the stored kilos to it. */}
+            <ProgressChart points={points} metric={metric} label={unit} />
           </Suspense>
 
           {/* The sessions as ruled rows, with the figures tabular so the column of numbers holds
@@ -115,8 +121,8 @@ export function ExerciseDetailPage() {
           <ul aria-label="Sesiones" className="mt-4">
             {points.map((point: ExerciseProgressPoint) => (
               <li key={point.date} className="border-rule tabular text-muted border-b py-1 text-sm">
-                {formatIsoDate(point.date)} · {point.maxWeight} kg máx · {point.volume} kg de
-                volumen
+                {formatIsoDate(point.date)} · {formatWeight(point.maxWeight, unit)} máx ·{' '}
+                {formatWeight(point.volume, unit)} de volumen
               </li>
             ))}
           </ul>

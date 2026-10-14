@@ -84,7 +84,7 @@ describe('buildChartSeries', () => {
   ];
 
   it('builds the x axis in seconds, from midnight UTC', () => {
-    const series = buildChartSeries(POINTS, 'maxWeight');
+    const series = buildChartSeries(POINTS, 'maxWeight', 'kg');
 
     expect(series.x).toEqual([
       Date.parse('2026-10-06T00:00:00Z') / 1000,
@@ -93,19 +93,33 @@ describe('buildChartSeries', () => {
   });
 
   it('plots the metric that was asked for', () => {
-    expect(buildChartSeries(POINTS, 'maxWeight').y).toEqual([60, 70]);
-    expect(buildChartSeries(POINTS, 'volume').y).toEqual([1200, 1750]);
-    expect(buildChartSeries(POINTS, 'oneRm').y).toEqual([70, 81.67]);
+    expect(buildChartSeries(POINTS, 'maxWeight', 'kg').y).toEqual([60, 70]);
+    expect(buildChartSeries(POINTS, 'volume', 'kg').y).toEqual([1200, 1750]);
+    expect(buildChartSeries(POINTS, 'oneRm', 'kg').y).toEqual([70, 81.67]);
   });
 
   it('has the two axes the same length, which is what uPlot requires', () => {
-    const series = buildChartSeries(POINTS, 'volume');
+    const series = buildChartSeries(POINTS, 'volume', 'kg');
 
     expect(series.x).toHaveLength(series.y.length);
   });
 
   it('returns empty axes for an exercise never trained, instead of failing', () => {
     // A brand new exercise is a real state: the screen says so rather than showing a broken chart.
-    expect(buildChartSeries([], 'maxWeight')).toEqual({ x: [], y: [] });
+    expect(buildChartSeries([], 'maxWeight', 'kg')).toEqual({ x: [], y: [] });
+  });
+
+  /**
+   * The conversion is here and not in the chart component, and the numbers prove it: 100 kg is
+   * 220.46 lb, and the series carries pounds once the preference says so. The stored points are
+   * untouched -- nothing in this function writes -- because the unit is a reading choice.
+   */
+  it('converts the plotted values to the preferred unit', () => {
+    const pounds = [{ date: '2026-10-13', maxWeight: 100, volume: 500, oneRm: 116.67, sets: 3 }];
+
+    expect(buildChartSeries(pounds, 'maxWeight', 'lb').y).toEqual([100 / 0.45359237]);
+    expect(buildChartSeries(pounds, 'maxWeight', 'kg').y).toEqual([100]);
+    // The input is the record of what happened, and reading it in pounds does not change it.
+    expect(pounds[0]?.maxWeight).toBe(100);
   });
 });

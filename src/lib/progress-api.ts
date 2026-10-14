@@ -1,4 +1,6 @@
 import { getSupabase } from './supabase.ts';
+import { toDisplayWeight } from './units.ts';
+import type { WeightUnit } from './units.ts';
 import { toNumber } from './utils.ts';
 
 /**
@@ -71,6 +73,7 @@ export type ChartSeries = {
 export function buildChartSeries(
   points: ExerciseProgressPoint[],
   metric: ProgressMetric,
+  unit: WeightUnit,
 ): ChartSeries {
   return {
     /*
@@ -80,8 +83,17 @@ export function buildChartSeries(
      * west of Greenwich.
      */
     x: points.map((point) => Date.parse(`${point.date}T00:00:00Z`) / 1000),
-    y: points.map(
-      (point) => point[metric === 'volume' ? 'volume' : metric === 'oneRm' ? 'oneRm' : 'maxWeight'],
+    /*
+     * The values are stored in kilos and the maths here stay in kilos: picking the metric is the
+     * whole computation, and the conversion to the preferred unit happens once, at the very end of
+     * this map, which is the edge of reading. That is why the unit is an argument here and not an
+     * arithmetic step inside the chart component.
+     */
+    y: points.map((point) =>
+      toDisplayWeight(
+        point[metric === 'volume' ? 'volume' : metric === 'oneRm' ? 'oneRm' : 'maxWeight'],
+        unit,
+      ),
     ),
   };
 }

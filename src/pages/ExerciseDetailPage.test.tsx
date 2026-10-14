@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -109,6 +109,21 @@ describe('ExerciseDetailPage', () => {
       { date: '2026-10-13', maxWeight: 70, volume: 1750, oneRm: 81.67, sets: 3 },
     ]);
     expect(chart).toHaveAttribute('data-label', 'kg');
+  });
+
+  it('reads the chart and the sessions in the preferred unit', async () => {
+    fake.setTableResult('profiles', {
+      data: [{ username: null, full_name: null, avatar_url: null, weight_unit: 'lb' }],
+      error: null,
+    });
+
+    renderPage();
+
+    // The axis label is the unit, and the sessions below read the same way: 70 kg is 154.3 lb.
+    await waitFor(() => {
+      expect(screen.getByTestId('grafica')).toHaveAttribute('data-label', 'lb');
+    });
+    expect(await screen.findByText(/154\.3 lb máx/)).toBeInTheDocument();
   });
 
   it('starts on the max weight and changes metric when asked', async () => {

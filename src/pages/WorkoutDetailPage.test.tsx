@@ -88,8 +88,70 @@ describe('WorkoutDetailPage', () => {
 
     // The name comes from the catalogue, which is also the list the picker used to add it.
     expect(await screen.findByRole('heading', { name: 'Press Banca' })).toBeInTheDocument();
-    expect(screen.getByText(/1ª · 10 × 70 kg/)).toBeInTheDocument();
-    expect(screen.getByText(/2ª · 8 × 75 kg/)).toBeInTheDocument();
+    /*
+     * One decimal, and that changed with T4.4b: the line is formatted by `formatWeight`, the app's
+     * single weight formatter, so a kilo and a pound read the same way. The assertion is stronger
+     * for it -- it now pins the formatter and not a coincidence of the stored value.
+     */
+    expect(screen.getByText(/1ª · 10 × 70\.0 kg/)).toBeInTheDocument();
+    expect(screen.getByText(/2ª · 8 × 75\.0 kg/)).toBeInTheDocument();
+  });
+
+  /**
+   * Rule two: a reading screen renders stored kilos in the preferred unit.
+   *
+   * The stored value is kilos and stays kilos -- nothing here writes -- and the conversion happens
+   * on the way to the screen, once, from the unit the profile stores.
+   */
+  it('reads stored kilos in the preferred unit', async () => {
+    fake.setTableResult('profiles', {
+      data: [{ username: null, full_name: null, avatar_url: null, weight_unit: 'lb' }],
+      error: null,
+    });
+    fake.setTableResult('workout_sets', {
+      data: [
+        {
+          id: 'set-1',
+          exercise_id: PRESS_BANCA,
+          set_number: 1,
+          reps: 10,
+          weight_kg: '100.00',
+          is_warmup: false,
+        },
+      ],
+      error: null,
+    });
+
+    renderPage();
+
+    // 100 kg is 220.5 lb, and the screen shows the pounds and not the kilos it stored.
+    expect(await screen.findByText(/1ª · 10 × 220\.5 lb/)).toBeInTheDocument();
+    expect(screen.queryByText(/100\.0 kg/)).not.toBeInTheDocument();
+  });
+
+  it('keeps a missing weight as a dash instead of calling it zero pounds', async () => {
+    fake.setTableResult('profiles', {
+      data: [{ username: null, full_name: null, avatar_url: null, weight_unit: 'lb' }],
+      error: null,
+    });
+    fake.setTableResult('workout_sets', {
+      data: [
+        {
+          id: 'set-1',
+          exercise_id: PRESS_BANCA,
+          set_number: 1,
+          reps: 10,
+          weight_kg: null,
+          is_warmup: false,
+        },
+      ],
+      error: null,
+    });
+
+    renderPage();
+
+    // A set left half written is a record of what happened, and "0 lb" is a claim nobody made.
+    expect(await screen.findByText(/1ª · 10 × —/)).toBeInTheDocument();
   });
 
   it('says the workout may be gone when it cannot be read', async () => {

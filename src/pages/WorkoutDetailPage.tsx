@@ -5,9 +5,12 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
+import { useWeightUnit } from '../hooks/useProfile.ts';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail.ts';
 import type { WorkoutSetDetail } from '../lib/history-api.ts';
 import { softDeleteWorkout } from '../lib/history-api.ts';
+import { formatWeight } from '../lib/units.ts';
+import type { WeightUnit } from '../lib/units.ts';
 import { formatIsoDate } from '../lib/utils.ts';
 
 /**
@@ -26,6 +29,9 @@ export function WorkoutDetailPage() {
   const [confirming, setConfirming] = useState(false);
   const detail = useWorkoutDetail(workoutId);
   const catalog = useCatalog(user?.id ?? '');
+  // This screen's subject is reading, so it speaks the unit the user prefers. The stored kilos are
+  // converted at the line below and nowhere else.
+  const unit = useWeightUnit(user?.id ?? '');
 
   const remove = useMutation({
     mutationFn: () => softDeleteWorkout(workoutId),
@@ -98,7 +104,7 @@ export function WorkoutDetailPage() {
           >
             {group.sets.map((set) => (
               <li key={set.id} className="border-rule tabular text-muted border-b py-1 text-sm">
-                {set.setNumber}ª · {formatSet(set)}
+                {set.setNumber}ª · {formatSet(set, unit)}
                 {set.isWarmup ? ' · calentamiento' : ''}
               </li>
             ))}
@@ -192,11 +198,12 @@ function groupByExercise(sets: WorkoutSetDetail[]): ExerciseGroup[] {
  * "5 × 100 kg", and whatever is known when the set was left half written.
  *
  * A missing weight says so instead of printing zero: this is a record of what happened, and "0 kg" is
- * a claim nobody made.
+ * a claim nobody made. The weight is stored in kilos and shown in the preferred unit, which is the
+ * one conversion this reading screen makes.
  */
-function formatSet(set: WorkoutSetDetail): string {
+function formatSet(set: WorkoutSetDetail, unit: WeightUnit): string {
   const reps = set.reps === null ? '—' : String(set.reps);
-  const weight = set.weightKg === null ? '—' : `${set.weightKg} kg`;
+  const weight = set.weightKg === null ? '—' : formatWeight(set.weightKg, unit);
 
   return `${reps} × ${weight}`;
 }

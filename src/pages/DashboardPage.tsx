@@ -4,6 +4,8 @@ import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useDashboard } from '../hooks/useDashboard.ts';
 import { usePrefetch } from '../hooks/usePrefetch.ts';
+import { useWeightUnit } from '../hooks/useProfile.ts';
+import { formatWeight } from '../lib/units.ts';
 import { formatIsoDate, formatLongDate, localIsoDate } from '../lib/utils.ts';
 
 /**
@@ -19,6 +21,9 @@ export function DashboardPage() {
   const { user } = useAuth();
   const dashboard = useDashboard(user?.id ?? '');
   const summary = dashboard.data;
+  // The records line is a weight someone reads, so it follows the preference. The streak and the
+  // week strip are not weights and do not convert.
+  const unit = useWeightUnit(user?.id ?? '');
 
   // The catalogue and the history, while the user is reading this. See `usePrefetch`.
   usePrefetch(user?.id ?? '', dashboard.isSuccess);
@@ -106,8 +111,10 @@ export function DashboardPage() {
                   >
                     <span className="text-sm font-medium">{pr.exercise_name}</span>
                     <span className="text-muted tabular block text-sm">
-                      {pr.max_weight_kg ?? '—'} kg · {pr.max_reps ?? '—'} reps ·{' '}
-                      {formatIsoDate(pr.achieved_at)}
+                      {pr.max_weight_kg === null || pr.max_weight_kg === undefined
+                        ? '—'
+                        : formatWeight(pr.max_weight_kg, unit)}{' '}
+                      · {pr.max_reps ?? '—'} reps · {formatIsoDate(pr.achieved_at)}
                     </span>
                   </li>
                 ))}

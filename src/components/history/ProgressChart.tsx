@@ -4,6 +4,7 @@ import 'uplot/dist/uPlot.min.css';
 
 import { buildChartSeries } from '../../lib/progress-api.ts';
 import type { ExerciseProgressPoint, ProgressMetric } from '../../lib/progress-api.ts';
+import type { WeightUnit } from '../../lib/units.ts';
 
 /**
  * The two colours this chart is painted with, copied in by value.
@@ -37,7 +38,15 @@ export function ProgressChart({
 }: {
   points: ExerciseProgressPoint[];
   metric: ProgressMetric;
-  label: string;
+  /**
+   * The unit the values are plotted in, and it is also the series' label.
+   *
+   * One prop and not two on purpose: the axis legend *is* the unit, and letting a screen pass a
+   * label that disagrees with the conversion would print "kg" over pounds. `buildChartSeries`
+   * converts the stored kilos to this unit on the way in, so uPlot only ever plots what the user
+   * reads.
+   */
+  label: WeightUnit;
 }) {
   const host = useRef<HTMLDivElement>(null);
 
@@ -48,7 +57,7 @@ export function ProgressChart({
       return;
     }
 
-    const series = buildChartSeries(points, metric);
+    const series = buildChartSeries(points, metric, label);
 
     const plot = new uPlot(
       {

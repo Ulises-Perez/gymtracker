@@ -66,6 +66,17 @@ describe('ProgressChart', () => {
     expect(call[1][1]).toEqual([1750]);
   });
 
+  it('plots the values in the unit it is labelled with', () => {
+    render(<ProgressChart points={POINTS} metric="maxWeight" label="lb" />);
+
+    const call = uplot.mock.calls[0] as [unknown, number[][]];
+
+    // 70 kg is 154.32 lb: the conversion happened in `buildChartSeries`, at the reading edge, and
+    // uPlot was handed the pounds with the axis label that names them.
+    expect(call[1][1]).toEqual([70 / 0.45359237]);
+    expect((call[0] as { series: { label?: string }[] }).series.at(1)?.label).toBe('lb');
+  });
+
   it('survives an exercise with no sessions instead of failing to draw', () => {
     // A brand new exercise is a real state, not an error: the screen says so and the chart is simply
     // not rendered, but the component must still be safe to mount.
