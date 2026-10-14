@@ -34,7 +34,7 @@
 | D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | `aa098bc` |
 | D7 | Las pantallas de autenticación | S2 | cliente | `ee11092` |
 | D8 | Rehacer los tests y la E2E contra los flujos nuevos | S3 | cliente | pendiente |
-| D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | pendiente |
+| D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | parcial: `6616e72` + `5ea87ea` |
 
 ### Detalle por tarea
 
@@ -46,7 +46,7 @@
 - [x] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords. **Cerrada** (`aa098bc`) — era el pedido original del usuario, y entra con el mismo patrón que él eligió para el flujo: ver `L12`.
 - [x] **D7** Las pantallas de autenticación, que son la primera impresión. **Cerrada** (`ee11092`), en paralelo con D6 y sobre archivos disjuntos.
 - [ ] **D8** Rehacer los tests y la E2E contra los flujos nuevos (S3). **No es opcional**: es la mitad del costo de haber dicho "puede cambiar absolutamente todo".
-- [ ] **D9** La verificación de la skill: capturas en desktop y mobile en una pasada, arreglar todo lo que muestren de una vez, confirmar con a lo sumo una ronda más, y **el detector una sola vez**, sobre lo cambiado.
+- [ ] **D9** La verificación de la skill. **Parcial**: el detector corregido y corrido sin hallazgos (`6616e72`), `DESIGN.md` y su sidecar escritos desde lo construido (`5ea87ea`), y los tres defectos que ese trabajo destapó, arreglados (`e52d21b`). **Falta lo que necesita entorno o ojos**: las capturas con sesión (necesitan el stack local) y el juicio visual de los píxeles (esta sesión no procesa imágenes).
 
 ---
 
@@ -249,3 +249,19 @@ Con el mundo ya en el flujo de entrenamiento, se midió como manda el método co
 **Un tercer arreglo, y es de lectura del reporte**: sin sesión, el shell no está en pantalla, así que `minTapTargetHeight` salía `null` — y un `null` al lado de un umbral de 44 px **se lee como un fallo y no lo es**. Ahora la fila declara `hasSession: false` y lo dice con todas las letras: *"sin sesión: el shell no está en pantalla, así que no hay nav que medir"*.
 
 **Lo que la verificación de píxeles no puede dar todavía, y hay que decirlo**: las **10 capturas son 2 pantallas**. Sin sesión, **todas** las rutas con guardia caen en el login — incluida `/ruta-inventada`, porque **el guardia también agarra la ruta desconocida** —, así que los archivos por viewport pesan exactamente lo mismo. Revisar los píxeles de las pantallas nuevas necesita **el stack local corriendo y un contexto con sesión**. **Y el juicio visual necesita ojos: el modelo de esta sesión no procesa imágenes**, así que el píxel no lo puede juzgar este orquestador. Eso queda como lo que es, una prueba que falta, en vez de darse por hecha.
+
+### L14 · `DESIGN.md` escrito desde lo construido, y los tres defectos que escribir un sistema destapa (2026-10-14)
+
+**`DESIGN.md` y su sidecar están escritos** (`5ea87ea`), con el proceso **document** de la skill en **modo scan** y el spec del reference como norma, no como inspiración: **las 8 secciones canónicas en orden**, **prosa en español** (la convención de `PRODUCT.md`) con **encabezados en inglés** (el formato los exige para que la herramienta los lea), los **colores y radios copiados literales** del bloque `@theme`, 5 roles tipográficos, 9 componentes con refs `{a.b}`, y un sidecar con lo que el esquema de 8 props no puede cargar: los **tres pesos de filete** de una elevación que no tiene sombras, los tokens de movimiento, el breakpoint, los snippets HTML/CSS autocontenidos del botón reglado, el campo reglado y **la marca de corrección**, y **la narrativa idéntica** al Markdown (verificada byte a byte).
+
+**La verificación del padre, con script propio y no con el reporte**: los **13 tokens** de `@theme` comparados uno por uno contra el frontmatter → todos coinciden; el sidecar parsea; las secciones están en el orden canónico. **Y una trampa mía que vale anotar**: la primera versión de mi script de comparación **midió mal** —el escaping del heredoc se comió un backslash y el regex quedó buscando `s*` en lugar de `\s*`— y reportó 13 tokens "faltantes" que sí estaban. Se reescribió sin regex y volvió a decir la verdad. **Una medición mal escrita no es una medición.**
+
+**Los tres defectos que aparecieron al tener que nombrar cada token** (`e52d21b`):
+
+1. **`color-scheme: dark` seguía vivo** dentro de `@layer base`, pisado por el `:root` sin capa del final del archivo. **El efecto medido era `light` —y `L13` lo afirmaba, con razón— pero el archivo decía dos cosas** y las dos sobrevivían al CSS construido. Borrado: una declaración, un solo significado.
+2. **El borrar de una serie medía 40 px de ancho** (heredaba la última columna de la grilla, `2.5rem`) por 48 de alto: **por debajo del piso de 44 px que el propio producto exige**. La columna pasa a `2.75rem`. **El detector no lo veía porque el detector mide alturas** — o sea que el defecto vivía justo en el ángulo ciego de la herramienta que lo tenía que encontrar.
+3. **`--color-accent` era un token muerto**: declarado con el valor exacto de `text` y **sin un solo consumidor en `src`**. Un nombre que dice "acento" y guarda tinta, en un mundo cuyo acento es el rojo, es vocabulario que invita a usarlo mal. Eliminado de los tres lugares.
+
+**El detector, corrido otra vez sobre el artefacto reconstruido** después de los tres arreglos: **36 filas, sin un solo hallazgo**, contraste **15.99:1** en el título y **4.83:1** en el texto apagado, desborde horizontal **0** en las cuatro anchuras y **la cara de despliegue ganando en las 36 filas**. Se volvió a correr **a propósito**: el CSS construido había cambiado, y una medición que no corresponde al artefacto commiteado es una medición vencida.
+
+**Lo que falta de D9, y no lo tapa el padre**: las **capturas con sesión** (necesitan el stack local, o sea **Docker**) y **el juicio visual de los píxeles** — el modelo de esta sesión **no procesa imágenes**, así que el píxel lo tiene que mirar un ojo humano. Las dos cosas quedan declaradas como pruebas faltantes.
