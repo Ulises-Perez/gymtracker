@@ -9,11 +9,16 @@ import { expect, test } from '@playwright/test';
  * state, not a function's, and the queue that survives it is the integration of the store, the
  * persister and TanStack's own pause/resume — none of which the other suites exercise together.
  *
- * Two things it deliberately does not prove. There is no assertion about the history screen,
- * because that is phase 4 and the route is still a placeholder. And nothing here checks *how*
- * the write reached the database; what it checks is that the server answered, which is
- * stronger: the records it shows can only come from `save_workout`, and that RPC writes the
- * workout and computes the records in one transaction.
+ * One thing it deliberately does not prove: nothing here checks *how* the write reached the
+ * database. What it checks is that the server answered, which is stronger — the records it shows
+ * can only come from `save_workout`, and that RPC writes the workout and computes the records in one
+ * transaction.
+ *
+ * It also walks the read side once the write has landed: the history lists the session, the detail
+ * shows its sets, and the exercise name opens the progress screen. That assertion used to be absent
+ * because the history was a placeholder; it is not one any more, and the read side is where a write
+ * that only half arrived would show up — every assertion above would still pass while the session
+ * was lost to the user.
  */
 
 /** Long enough for the local stack's policy, and not a real secret. */
@@ -125,6 +130,28 @@ test('records a workout offline and syncs it when the connection comes back', as
 
   // The queue drained, so the badge has nothing left to report.
   await expect(page.getByText('1 entrenamiento pendiente de sincronizar')).toBeHidden();
+
+  /*
+   * The read side, once the write has landed. Not a second suite for the history screen: it is the
+   * other half of the same sentence. A workout the server accepted and the list cannot show would
+   * pass everything above and still be lost to whoever recorded it.
+   */
+  await page.getByRole('link', { name: 'Historial' }).click();
+
+  const row = page.getByRole('link', { name: /Empuje/ });
+
+  await expect(row).toBeVisible();
+  await row.click();
+
+  // The detail lists what the card wrote, one row per set.
+  const sets = page.getByRole('list', { name: 'Series de Press Banca' });
+
+  await expect(sets.getByRole('listitem')).toHaveCount(SETS.length);
+
+  // And the exercise name is the way into its own screen, where the progress is graphed.
+  await page.getByRole('link', { name: 'Press Banca', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Press Banca' })).toBeVisible();
 
   expect([...hostedHosts]).toEqual([]);
 });
