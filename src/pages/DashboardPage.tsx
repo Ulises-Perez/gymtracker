@@ -135,9 +135,15 @@ export function DashboardPage() {
        * viewport only to lay the action against the same 32rem and the same 16px as everything else,
        * and it takes no presses of its own: a frame that spans the page and swallows its touches
        * would put the whole screen behind a curtain.
+       *
+       * The inset is 32 pixels and not 16, and that number is a sum worth naming: the shell's `main`
+       * pads by 4 and this page's own container pads by 4 as well, so the content the action floats over
+       * sits 32 from the column's edge. A `fixed` frame lives outside both, so it has to stand in for
+       * the pair -- which is why the button overhung the text by exactly the padding it was missing.
+       * Measured in the DOM, not estimated from a screenshot.
        */}
       <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30">
-        <div className="mx-auto flex w-full max-w-lg justify-end px-4">
+        <div className="mx-auto flex w-full max-w-lg justify-end px-8">
           <Link
             to="/workout"
             className="bg-primary pointer-events-auto flex min-h-14 items-center rounded-sm px-5 font-medium text-white"

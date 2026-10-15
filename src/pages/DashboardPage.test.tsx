@@ -204,7 +204,7 @@ describe('DashboardPage', () => {
     expect(frame).toHaveClass('fixed');
 
     // Inside the frame, the action keeps the screen's own cap and 16px margin.
-    expect(action.parentElement).toHaveClass('mx-auto', 'w-full', 'max-w-lg', 'px-4');
+    expect(action.parentElement).toHaveClass('mx-auto', 'w-full', 'max-w-lg', 'px-8');
     // The frame is a placeholder and not a curtain: the press has to land on the action itself.
     expect(action).toHaveClass('pointer-events-auto');
   });
