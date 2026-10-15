@@ -1,8 +1,9 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ProfileIcon } from '../components/icons.tsx';
+import { Input } from '../components/ui/Input.tsx';
 import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useExportWorkouts } from '../hooks/useExportWorkouts.ts';
@@ -106,6 +107,10 @@ export function ProfilePage() {
   const saveWeight = useSaveBodyWeight(user?.id ?? '');
   const [weightInput, setWeightInput] = useState('');
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  // The file field the picker fills, and the id that keeps it named: the field is hidden, so the
+  // label has to point at it explicitly instead of wrapping it.
+  const avatarFieldId = useId();
+  const avatarField = useRef<HTMLInputElement>(null);
   // The selector shows what the profile stores, with kilos while it is on its way: the app stores
   // kilos, so that is the honest default rather than a blank state.
   const unit = profile.data?.weightUnit ?? 'kg';
@@ -220,20 +225,43 @@ export function ProfilePage() {
              * The hint is outside the label on purpose: inside it, it would become part of the
              * input's accessible name -- "Nueva foto de perfil PNG, JPG o WebP, hasta 2 MB" -- and a
              * field whose name is a sentence is not a field a screen reader can announce.
+             *
+             * The field itself is kept out of sight: the browser draws its own words inside a file
+             * field -- "Choose File / No file chosen", in the browser's language -- and no class of
+             * ours replaces what it prints there. What the picker needs is a named field; what the
+             * page shows is the ruled control below, which presses it.
              */}
-            <label className="text-muted block text-sm">
+            <label htmlFor={avatarFieldId} className="text-muted block text-sm">
               Nueva foto de perfil
-              <input
-                type="file"
-                // A hint to the picker, never the gate: the same three types are checked on the file
-                // itself, because `accept` filters a dialog and stops nothing else.
-                accept="image/png,image/jpeg,image/webp"
-                onChange={onPickAvatar}
-                disabled={uploadAvatar.isPending}
-                aria-busy={uploadAvatar.isPending || undefined}
-                className="border-rule text-text file:bg-surface file:text-text mt-1 min-h-12 w-full rounded-sm border px-3 py-3 text-sm disabled:opacity-50"
-              />
             </label>
+            <input
+              ref={avatarField}
+              id={avatarFieldId}
+              type="file"
+              // A hint to the picker, never the gate: the same three types are checked on the file
+              // itself, because `accept` filters a dialog and stops nothing else.
+              accept="image/png,image/jpeg,image/webp"
+              onChange={onPickAvatar}
+              disabled={uploadAvatar.isPending}
+              aria-busy={uploadAvatar.isPending || undefined}
+              /*
+               * Hidden but present, and out of the tab order. `sr-only` keeps the field in the
+               * accessibility tree and out of sight, so the focus outline declared once in
+               * `index.css` would be drawn around something nobody can see: the ruled control below
+               * is the Tab stop, and that is where the ring lands.
+               */
+              tabIndex={-1}
+              className="sr-only"
+            />
+            <button
+              type="button"
+              onClick={() => avatarField.current?.click()}
+              disabled={uploadAvatar.isPending}
+              aria-busy={uploadAvatar.isPending || undefined}
+              className="border-rule hover:bg-surface mt-1 min-h-12 w-full rounded-sm border px-4 disabled:opacity-50"
+            >
+              Elegir foto
+            </button>
             <span className="text-muted mt-1 block text-xs">PNG, JPG o WebP, hasta 2 MB.</span>
           </div>
         </div>
@@ -251,16 +279,20 @@ export function ProfilePage() {
         ) : null}
 
         <form onSubmit={onSaveName} className="mt-3 flex items-end gap-2">
-          <label className="text-muted flex-1 text-sm">
-            Nombre
-            <input
+          {/*
+           * The shared field, so this one is the same ruled line as every other field in the app:
+           * a box with a control's radius was the shape the rest of the screens had already left
+           * behind.
+           */}
+          <div className="flex-1">
+            <Input
+              key={profile.data?.fullName ?? ''}
+              label="Nombre"
               type="text"
               name="fullName"
-              key={profile.data?.fullName ?? ''}
               defaultValue={profile.data?.fullName ?? ''}
-              className="border-rule text-text placeholder:text-muted mt-1 min-h-12 w-full rounded-sm border px-3"
             />
-          </label>
+          </div>
           <button
             type="submit"
             disabled={updateName.isPending}
@@ -359,18 +391,18 @@ export function ProfilePage() {
         <p className="text-muted mt-1 text-sm">Se guarda siempre en kilos; acá se lee en {unit}.</p>
 
         <form onSubmit={onSaveWeight} className="mt-2 flex items-end gap-2">
-          <label className="text-muted flex-1 text-sm">
-            Peso de hoy
-            <input
+          {/* The same shared field as the name above: a field is a ruled line, never a box. */}
+          <div className="flex-1">
+            <Input
+              label="Peso de hoy"
               type="text"
               inputMode="decimal"
               // The label names the unit, so a bare number is never ambiguous.
               aria-label={`Peso corporal en ${unit}`}
               value={weightInput}
               onChange={(event) => setWeightInput(event.target.value)}
-              className="border-rule text-text placeholder:text-muted mt-1 min-h-12 w-full rounded-sm border px-3"
             />
-          </label>
+          </div>
           <button
             type="submit"
             disabled={saveWeight.isPending || weightInput.trim() === ''}

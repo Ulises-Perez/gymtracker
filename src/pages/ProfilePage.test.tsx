@@ -379,6 +379,28 @@ describe('the body weight', () => {
 });
 
 /**
+ * The two profile fields, and the shape the notebook prints them in.
+ *
+ * The field is a rule, not a box: the page draws a line under the value and nothing around it. These
+ * two were the only fields on the screen carrying a border on all four sides and a control's radius,
+ * which is the shape the rest of the app stopped using.
+ */
+describe('the profile fields', () => {
+  it('draws the name and the body weight as ruled lines and not as boxes', async () => {
+    renderProfile();
+
+    const fields = [
+      await screen.findByLabelText('Nombre'),
+      await screen.findByLabelText('Peso corporal en kg'),
+    ];
+
+    for (const field of fields) {
+      expect(field).toHaveClass('rounded-none', 'border-0', 'border-b');
+    }
+  });
+});
+
+/**
  * The name: the profile screen has to show the one that is stored and be able to replace it.
  *
  * What it edits is `full_name`, the column `handle_new_user()` fills from the sign-up metadata, so what
@@ -517,6 +539,58 @@ describe('the avatar upload', () => {
       'No pudimos subir la foto. Probá de nuevo.',
     );
     expect(writtenCalls().some((call) => call.includes('avatar_url'))).toBe(false);
+  });
+
+  /**
+   * The control on screen is the app's own.
+   *
+   * The native file field draws its own words -- "Choose File / No file chosen" -- in the browser's
+   * language, with its own grey button and type: a Spanish app with an English widget in the middle of
+   * the page. No class on that field replaces what the browser prints inside it, so the field stops
+   * being the thing on screen. What the picker needs is a named field; what the page shows is a ruled
+   * control of ours that presses it.
+   */
+  it('opens the picker from the app’s own control, with the native field hidden and named', () => {
+    renderProfile();
+
+    const field = screen.getByLabelText('Nueva foto de perfil');
+    const chooser = screen.getByRole('button', { name: 'Elegir foto' });
+
+    // The field is still the field: named, fed by the picker, and never shown.
+    expect(field).toHaveAttribute('type', 'file');
+    expect(field).toHaveClass('sr-only');
+    // And not a Tab stop: the outline this app declares once would land on what nobody can see. The
+    // ruled control is the stop instead, so the keyboard shows where it is.
+    expect(field).toHaveAttribute('tabindex', '-1');
+
+    // The control on screen is what opens it.
+    const activated = vi.fn();
+    field.addEventListener('click', activated);
+    fireEvent.click(chooser);
+
+    expect(activated).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * PRESERVE: the picker still locks itself while an upload is in flight.
+   *
+   * The disabled state used to sit on the native field and now covers the control that opens it as
+   * well; either way the whole window between choosing a file and the upload settling is closed, so a
+   * second press cannot start a second replacement.
+   */
+  it('locks the picker while an upload of the chosen file is running', async () => {
+    renderProfile();
+    const field = await screen.findByLabelText('Nueva foto de perfil');
+
+    // The upload never settles, so pending is the only state the picker can be in.
+    fake.storage.upload.mockReturnValue(new Promise<never>(() => {}));
+
+    pick(new File([new Uint8Array(8)], 'foto.png', { type: 'image/png' }));
+
+    await waitFor(() => {
+      expect(field).toBeDisabled();
+    });
+    expect(field).toHaveAttribute('aria-busy', 'true');
   });
 });
 

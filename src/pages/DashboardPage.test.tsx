@@ -185,6 +185,31 @@ describe('DashboardPage', () => {
   });
 
   /**
+   * The floating action rides the column, not the edge of the window.
+   *
+   * The whole app is one 32rem column with a 16px margin, and this control was pinned to the
+   * viewport's right edge: on a phone that is the column's margin, so it looked right, and on a
+   * desktop it hung over the paper with nothing under it. The frame that carries it now has the
+   * column's own cap and margin -- and since it spans the viewport, it has to stay out of the way of
+   * the presses that belong to the page behind it.
+   */
+  it('anchors the floating action to the column and lets touches through around it', () => {
+    renderPage();
+
+    const action = screen.getByRole('link', { name: '+ Nuevo workout' });
+
+    // The frame floats over the viewport, so the action can be laid against the column inside it.
+    const frame = action.closest('.pointer-events-none');
+
+    expect(frame).toHaveClass('fixed');
+
+    // Inside the frame, the action keeps the screen's own cap and 16px margin.
+    expect(action.parentElement).toHaveClass('mx-auto', 'w-full', 'max-w-lg', 'px-4');
+    // The frame is a placeholder and not a curtain: the press has to land on the action itself.
+    expect(action).toHaveClass('pointer-events-auto');
+  });
+
+  /**
    * The other half of S8: while the user reads this, the two screens one tap away are fetched.
    */
   it('warms the catalogue and the history while the user reads the dashboard', async () => {

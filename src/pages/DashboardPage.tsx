@@ -128,13 +128,24 @@ export function DashboardPage() {
        * The one action this screen exists to offer, within reach of a thumb. It advances the
        * session, so the red fill is the accent earning its keep; the corner is a control's, not the
        * pill of a large floating thing.
+       *
+       * It rides the column and not the window. Pinned to the viewport's right edge it landed on the
+       * phone's own margin -- so it looked right there -- and hung off the page on a desktop, where
+       * the column is centered and the window's edge is far from it. The frame below spans the
+       * viewport only to lay the action against the same 32rem and the same 16px as everything else,
+       * and it takes no presses of its own: a frame that spans the page and swallows its touches
+       * would put the whole screen behind a curtain.
        */}
-      <Link
-        to="/workout"
-        className="bg-primary fixed right-4 bottom-20 z-30 flex min-h-14 items-center rounded-sm px-5 font-medium text-white"
-      >
-        + Nuevo workout
-      </Link>
+      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30">
+        <div className="mx-auto flex w-full max-w-lg justify-end px-4">
+          <Link
+            to="/workout"
+            className="bg-primary pointer-events-auto flex min-h-14 items-center rounded-sm px-5 font-medium text-white"
+          >
+            + Nuevo workout
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
