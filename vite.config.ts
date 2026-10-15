@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
+import { PWA_MANIFEST } from './scripts/pwa-assets.mjs';
 
 export default defineConfig({
   plugins: [
@@ -32,21 +33,9 @@ export default defineConfig({
           '**/inter-vietnamese*',
         ],
       },
-      manifest: {
-        name: 'GymTracker',
-        short_name: 'GymTracker',
-        description: 'Registrá tus entrenamientos, incluso sin señal.',
-        lang: 'es',
-        dir: 'ltr',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        orientation: 'portrait',
-        background_color: '#0a0a0f',
-        theme_color: '#0a0a0f',
-        // T7.1 replaces this with real 192/512 maskable PNGs.
-        icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
-      },
+      // The manifest lives in scripts/pwa-assets.mjs next to the icon specs it references, so the
+      // generator, the plugin and the tests read one definition instead of three copies.
+      manifest: PWA_MANIFEST,
     }),
     // Bundle budget evidence for the T0.8 baseline. Written outside dist so the
     // report is never precached by the service worker nor deployed.
@@ -73,6 +62,10 @@ export default defineConfig({
      * run; the number not moving at all when it was raised is what said so.
      */
     testTimeout: 15_000,
-    include: ['src/**/*.test.{ts,tsx}'],
+    // The icon generator is a build-time asset pipeline, not app code, so it lives in
+    // scripts/ and brings its own tests: they assert a file format and a byte-level promise
+    // (PNG signature, dimensions, determinism, the maskable safe circle), which only reads
+    // back correctly from plain Node without a DOM.
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
   },
 });
