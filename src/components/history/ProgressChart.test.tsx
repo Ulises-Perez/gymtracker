@@ -122,6 +122,34 @@ describe('ProgressChart colours', () => {
     expect(tokenValue(css, 'color-text')).toBe(CHART_INK);
     expect(tokenValue(css, 'color-rule')).toBe(CHART_RULE);
   });
+
+  it('answers the same span when uPlot hands it nothing, which is what its own rescale passes', () => {
+    render(<ProgressChart points={POINTS} metric="maxWeight" label="kg" />);
+
+    const [options] = uplot.mock.calls[0] as [
+      { scales: { x: { range: (...args: unknown[]) => [number, number] } } },
+      number[][],
+    ];
+
+    const day = Date.parse('2026-10-13T00:00:00Z') / 1000;
+
+    /*
+     * This pins a defect that shipped, and it is the one a screenshot caught and no test did.
+     *
+     * uPlot calls a range function with `(self, null, null, key)` on the path where it recomputes the
+     * axis — not with the data's bounds. The first version read those two arguments and answered
+     * `null === null` as "a single reading", producing a span around 1970 that uPlot then discarded:
+     * the axis fell back to its own zero-width range, the single point sat on the left edge, and the
+     * ticks named days that are in no reading. So the assertion is not "the span is padded" — it is
+     * that **the call with nothing in it agrees with the call that has the data**, which is what
+     * reading the series instead of the arguments buys.
+     */
+    expect(options.scales.x.range(null, null, null)).toEqual([day - 86_400, day + 86_400]);
+    // And the call carrying the data's bounds has to agree with it: one arithmetic, not two.
+    expect(options.scales.x.range(null, day, day)).toEqual(
+      options.scales.x.range(null, null, null),
+    );
+  });
 });
 
 /**

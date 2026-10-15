@@ -61,17 +61,28 @@ export async function fetchExerciseProgress(exerciseId: string): Promise<Exercis
 const DAY_SECONDS = 86_400;
 
 /**
- * The span the x axis covers.
+ * The span the x axis covers, read off the readings themselves.
  *
- * uPlot picks its own range out of the data, and a series with a single reading has no span to pick
- * from: the axis invents one and prints ticks for days that appear in no reading, which is the chart
- * claiming a history it does not have. A day either side is the smallest honest answer — it says
- * "one measurement" instead of pretending to more.
+ * **It takes the series and not the two numbers uPlot offers**, and that is the whole point of its
+ * signature. uPlot's default range for an x scale is `[dataMin, dataMax]`, so a series with a single
+ * reading has a span of **zero width**: the point lands on the left edge and the tick generator
+ * invents labels for days that are in no reading. This function answers a day either side instead.
  *
- * The padding cannot run away: after one call the two ends differ, so a second call returns the span
- * it was handed.
+ * Why it cannot take the arguments: uPlot calls a range function with `(self, null, null, key)` on
+ * the path where it recomputes the axis, not with the data's bounds. A version that read `min` and
+ * `max` answered `null === null` as "a single reading" and produced a span around 1970, which uPlot
+ * then discarded — so the axis fell back to zero width and the fix silently did nothing. Reading the
+ * series makes every call agree, whatever uPlot decides to pass.
  */
-export function axisSpan(min: number, max: number): [number, number] {
+export function axisSpan(times: number[]): [number, number] {
+  const min = Math.min(...times);
+  const max = Math.max(...times);
+
+  // No readings at all: the screen draws its empty state instead of a chart, so this is never seen.
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return [0, 1];
+  }
+
   return min === max ? [min - DAY_SECONDS, max + DAY_SECONDS] : [min, max];
 }
 

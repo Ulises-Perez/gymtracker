@@ -138,10 +138,14 @@ describe('axisSpan', () => {
   it('gives a single reading a day either side, instead of a range it never had', () => {
     const day = Date.parse('2026-10-15T00:00:00Z') / 1000;
 
-    expect(axisSpan(day, day)).toEqual([day - DAY, day + DAY]);
+    expect(axisSpan([day])).toEqual([day - DAY, day + DAY]);
   });
 
   it('leaves a real span exactly as the data has it', () => {
-    expect(axisSpan(100, 200)).toEqual([100, 200]);
+    expect(axisSpan([100, 200])).toEqual([100, 200]);
+  });
+
+  it('answers a usable span for no readings, because a range function always has to answer', () => {
+    expect(axisSpan([])).toEqual([0, 1]);
   });
 });

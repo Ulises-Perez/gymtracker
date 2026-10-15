@@ -73,14 +73,17 @@ export function ProgressChart({
         legend: { show: false },
         series: [{}, { label, stroke: CHART_INK, width: 2, points: { show: true } }],
         /*
-         * The span is given explicitly because uPlot's automatic one invents a range when the series
-         * has a single reading, and then prints ticks for days no reading happened on — the chart
-         * claiming a history it does not have. `axisSpan` is where that arithmetic is tested.
+         * The span comes from the series and **not from the two numbers uPlot passes**, which is the
+         * whole reason this is a zero-argument closure: uPlot calls a range with `(self, null, null,
+         * key)` when it recomputes the axis, and a version that trusted those arguments answered
+         * `null === null` as "a single reading" and produced a span around 1970. The axis then fell
+         * back to its own zero-width range — the point on the left edge and ticks for days that are in
+         * no reading — and the fix did nothing at all. `axisSpan` is where that is tested.
          */
         scales: {
           x: {
             time: true,
-            range: (_self: unknown, min: number, max: number) => axisSpan(min, max),
+            range: () => axisSpan(series.x),
           },
         },
         axes: [
