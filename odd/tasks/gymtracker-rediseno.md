@@ -34,7 +34,7 @@
 | D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | `aa098bc` |
 | D7 | Las pantallas de autenticación | S2 | cliente | `ee11092` |
 | D8 | Rehacer los tests y la E2E contra los flujos nuevos | S3 | cliente | cerrada: `e356ec9` |
-| D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | parcial: `6616e72` + `5ea87ea` |
+| D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | parcial: `6616e72` + `5ea87ea` + `e9c248b` (capturas con sesión; falta el juicio visual) |
 
 ### Detalle por tarea
 
@@ -46,7 +46,7 @@
 - [x] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords. **Cerrada** (`aa098bc`) — era el pedido original del usuario, y entra con el mismo patrón que él eligió para el flujo: ver `L12`.
 - [x] **D7** Las pantallas de autenticación, que son la primera impresión. **Cerrada** (`ee11092`), en paralelo con D6 y sobre archivos disjuntos.
 - [x] **D8** Rehacer los tests y la E2E contra los flujos nuevos (S3). **No es opcional**: es la mitad del costo de haber dicho "puede cambiar absolutamente todo". **Cerrada** (`e356ec9`): los unit tests se rehicieron tramo por tramo en D3-D7 (404 en verde) y la E2E suma el camino de lectura. Ver `L15`.
-- [ ] **D9** La verificación de la skill. **Parcial**: el detector corregido y corrido sin hallazgos (`6616e72`), `DESIGN.md` y su sidecar escritos desde lo construido (`5ea87ea`), y los tres defectos que ese trabajo destapó, arreglados (`e52d21b`). **Falta lo que necesita entorno o ojos**: las capturas con sesión (necesitan el stack local) y el juicio visual de los píxeles (esta sesión no procesa imágenes).
+- [ ] **D9** La verificación de la skill. **Parcial**: el detector corregido y corrido sin hallazgos (`6616e72`), `DESIGN.md` y su sidecar escritos desde lo construido (`5ea87ea`), los tres defectos que ese trabajo destapó arreglados (`e52d21b`), y **las 14 capturas con sesión y su manifiesto** (`e9c248b`, ver `L16`). **Falta lo que necesita ojos**: el juicio visual de los píxeles, que este modelo no puede hacer.
 
 ---
 
@@ -277,3 +277,21 @@ Con el mundo ya en el flujo de entrenamiento, se midió como manda el método co
 **Verificación del padre, corriendo las comprobaciones**: `npm run e2e` **en verde contra el stack local** (`1 passed (1.4m)`, `ok 1 [chromium] › records a workout offline and syncs it when the connection comes back (2.9s)`), con las credenciales leídas del stack que sirve y no de una copia; typecheck, lint, **404/404 unit tests en 48 archivos** y `prettier --check` limpios. Recordatorio del método: `e2e` levanta **el build de producción** (`npm run build && npm run preview`), no el dev server.
 
 **Lo que queda de D9, y es de ojo y no de código**: las **capturas con sesión** en desktop y mobile (`scripts/capture-screens.mjs`; hoy todas caen en login porque el script no inicia sesión) y **el juicio de los píxeles**, que este modelo no puede hacer.
+
+### L16 · D9: las capturas ya tienen sesión, y los tres defectos estaban en el script (2026-10-15)
+
+**Lo que entró** (`e9c248b`): el script de capturas **inicia sesión y graba un entrenamiento** antes de disparar, y deja un **manifiesto** al lado de las imágenes con la URL y el encabezado que cada pantalla realmente renderizó. **14 capturas**: mobile y desktop por entrenar, inicio, historial, detalle, progreso, perfil y 404.
+
+**Por qué graba en vez de sólo entrar**: una cuenta vacía renderiza el mismo estado vacío en todas las pantallas, y **el momento memorable de este mundo —la tarjeta con sus renglones— no se puede revisar desde un esqueleto**. Cuesta una cuenta nueva por viewport, porque el borrador vive en IndexedDB y un contexto de navegador es lo único que lo sostiene: no se puede llevar de un viewport al otro.
+
+**Por qué el manifiesto no es decoración**: sin él, "las capturas salieron con sesión" es algo que sólo puede afirmar quien abre los catorce archivos, y este modelo **no procesa imágenes** (comprobado: el archivo se lee y el modelo lo omite). Con el encabezado al lado, una captura que hubiera caído en login diría `Entrar` y sería obvio. **Verificado en la corrida**: todas traen su pantalla real (`Jueves, 15 de octubre`, `Historial`, `15/10/2026`, `Press Banca`, `Perfil`, `Pantalla no encontrada`).
+
+**Los tres defectos eran del script, y ninguno de la app** — pero los tres producían evidencia que no se podía creer, que es la peor clase de defecto en una herramienta de verificación:
+
+1. **La pantalla de entrenamiento se capturaba DESPUÉS de finalizar**, o sea el resumen y no la tarjeta: el único estado que importa no estaba en ningún cuadro. El orden correcto es grabar, capturar, y recién después finalizar.
+2. **Las dos pantallas detrás de un clic leían el encabezado anterior y capturaban un cuadro del que no se podía responder** — el router es del cliente, así que un clic vuelve **antes** de que React cambie la pantalla. Lo que cambia es la ruta, así que lo que se espera es la ruta. Se veía en el manifiesto: `detalle` decía `Historial` y `progreso` decía `15/10/2026`, corridos un lugar. Arreglado, dicen `15/10/2026` y `Press Banca`.
+3. **El estado de carga se esperaba con una corazonada y no con la señal de la app**: `PageSkeleton` sale con `role="status" aria-busy="true"`, así que lo que se espera es que ese elemento se vaya, no un `sleep`.
+
+**Una trampa de proceso que vale registrar**: la baja del test viejo (`0005_targets_test.sql`, que prueba una tabla que `0012` elimina) había quedado *staged* con `git rm`, y el commit del script **se la llevó adentro**: un commit de una cosa con el cuerpo de otra. Se rehizo (`git reset --soft` + unstaged selectivo) porque la rama **no tiene remoto ni upstream**, así que reescribir el último commit es local y seguro. **Un `git rm` que se hace por adelantado no es gratis: cambia lo que el próximo `git add` va a incluir.**
+
+**Lo que sigue faltando de D9, y no lo tapa el padre**: **el juicio visual**, que necesita ojos. Las imágenes están en `stats/screens/` (gitignoreado) con su manifiesto al lado.
