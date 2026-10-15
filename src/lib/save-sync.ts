@@ -4,6 +4,7 @@ import { useWorkoutStore } from '../stores/workout-store.ts';
 import { queuedMutationKind } from './queued-mutations.ts';
 import type { QueuedMutationVariables } from './queued-mutations.ts';
 import { queryClient } from './queryClient.ts';
+import { markStaleAfterSave } from './stale-after-save.ts';
 
 /**
  * Clears the draft once its write has landed, however late that is.
@@ -53,11 +54,12 @@ export function installSaveSync(client: QueryClient = queryClient): () => void {
 
     /*
      * Marked, not refetched, for the same reason the hook does it: a background request deciding
-     * the moment could turn a cached catalogue into an error screen while the user is offline. The
+     * the moment could turn a cached read into an error screen while the user is offline. The
      * invalidation is tied to the write landing and not to the draft, so it covers a resumed save
-     * even on the runs where the draft was already cleared.
+     * even on the runs where the draft was already cleared. And it is the same list the hook uses,
+     * so a read added to one of the two is not missing from the other.
      */
-    void client.invalidateQueries({ queryKey: ['catalog'], refetchType: 'none' });
+    markStaleAfterSave(client);
 
     // Guarded rather than assumed: these variables came out of a persisted entry, which is
     // to say out of JSON written by some earlier build.

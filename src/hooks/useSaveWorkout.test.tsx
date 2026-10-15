@@ -212,4 +212,44 @@ describe('what a finished save changes', () => {
 
     expect(client.getQueryState(['catalog', 'user-1'])?.isInvalidated).toBe(false);
   });
+
+  /**
+   * The defect the end-to-end suite found, and it is not about the catalogue.
+   *
+   * The first page of the history is prefetched while the user reads the dashboard and cached for a
+   * minute, so a workout recorded seconds ago is not in it: the list answers "Todavía no registraste
+   * ningún entrenamiento" about the session the user just finished, and the workout looks lost even
+   * though the server took it. The catalogue was never the only read a write changes — the summary,
+   * the exercise's progress and the "last time" hint are all reads of the same event.
+   */
+  it('marks the reads a write changes stale, so the workout shows up where it was recorded', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA);
+
+    const keys = [
+      ['catalog', 'user-1'],
+      ['history', 'user-1'],
+      ['dashboard', 'user-1'],
+      ['progress', PRESS_BANCA],
+      ['last-sets', PRESS_BANCA],
+    ];
+
+    for (const key of keys) {
+      client.setQueryData(key, {});
+    }
+
+    const { result } = renderHook(() => useSaveWorkout(), { wrapper });
+
+    result.current.finishAndQueue();
+
+    await waitFor(() => {
+      expect(client.getQueryState(['history', 'user-1'])?.isInvalidated).toBe(true);
+    });
+
+    for (const key of keys) {
+      expect(client.getQueryState(key)?.isInvalidated, `[${key.join(', ')}]`).toBe(true);
+    }
+  });
 });

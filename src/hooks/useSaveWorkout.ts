@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { dispatchQueuedMutation, SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
 import type { QueuedMutationVariables } from '../lib/queued-mutations.ts';
+import { markStaleAfterSave } from '../lib/stale-after-save.ts';
 import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
 import type { SaveWorkoutResult } from '../schemas/workout.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
@@ -23,20 +24,23 @@ export function useSaveWorkout() {
      */
     mutationFn: async (variables) => (await dispatchQueuedMutation(variables)) as SaveWorkoutResult,
     /**
-     * Defect D3: the catalogue is stale the moment the write lands, and only then.
+     * Defect D3, and the wider defect the end-to-end suite found later: a landed write makes several
+     * reads stale, and the catalogue was only the one it was first noticed on.
      *
-     * `save_workout` is what creates the custom exercises the session used, and the
-     * catalogue query is cached with `staleTime: Infinity` behind a 7-day `maxAge` — so
-     * without this, an exercise the user invented and saved stays invisible to the picker
-     * for the rest of that window, and the write looks like it was lost.
+     * `save_workout` is what creates the custom exercises the session used, and the catalogue query
+     * is cached with `staleTime: Infinity` behind a 7-day `maxAge` — so without this, an exercise the
+     * user invented and saved stays invisible to the picker for the rest of that window, and the
+     * write looks like it was lost. The history is the other end of the same sentence, and the one a
+     * person actually sees: it is warmed while the user reads the dashboard and cached for a minute,
+     * so the list answered "Todavía no registraste ningún entrenamiento" about the session just
+     * finished.
      *
-     * It waits for success rather than firing when the user taps finish, because a save
-     * made offline has not changed anything yet. Marked without refetching, so it is the
-     * picker's next mount that refreshes it: a background request deciding the moment
-     * could turn a cached catalogue into an error screen while the user is offline.
+     * It waits for success rather than firing when the user taps finish, because a save made offline
+     * has not changed anything yet. Which reads it marks lives in `stale-after-save.ts`, shared with
+     * the subscription that hears resumed writes, because the two have to agree.
      */
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['catalog'], refetchType: 'none' });
+      markStaleAfterSave(queryClient);
     },
   });
 

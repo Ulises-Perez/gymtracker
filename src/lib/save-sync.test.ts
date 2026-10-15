@@ -173,4 +173,21 @@ describe('what a landed write also changes', () => {
 
     expect(queryClient.getQueryState(['catalog', 'user-1'])?.isInvalidated).toBe(true);
   });
+
+  /**
+   * The same event, and the reads it changes besides the catalogue.
+   *
+   * A resumed write lands with no screen mounted, which is why this subscription exists at all — and
+   * the history is the read where its absence is loudest: the prefetched list is cached for a minute
+   * and would keep answering that the user has never recorded anything.
+   */
+  it('marks the reads a write changes stale on the resumed path too', async () => {
+    const workoutId = finishedWorkout();
+
+    queryClient.setQueryData(['history', 'user-1'], { pages: [{ workouts: [] }] });
+
+    await save(workoutId);
+
+    expect(queryClient.getQueryState(['history', 'user-1'])?.isInvalidated).toBe(true);
+  });
 });
