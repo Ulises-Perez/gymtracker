@@ -33,7 +33,7 @@
 | D5 | Historial, detalle y progreso | S2 | cliente | `3b7733f` |
 | D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | `aa098bc` |
 | D7 | Las pantallas de autenticación | S2 | cliente | `ee11092` |
-| D8 | Rehacer los tests y la E2E contra los flujos nuevos | S3 | cliente | pendiente |
+| D8 | Rehacer los tests y la E2E contra los flujos nuevos | S3 | cliente | cerrada: `e356ec9` |
 | D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | parcial: `6616e72` + `5ea87ea` |
 
 ### Detalle por tarea
@@ -45,7 +45,7 @@
 - [x] **D5** Historial, detalle del entrenamiento y progreso por ejercicio (con la gráfica). **Cerrada** (delegada a un escritor acotado y verificada por el padre; ver `L11`).
 - [x] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords. **Cerrada** (`aa098bc`) — era el pedido original del usuario, y entra con el mismo patrón que él eligió para el flujo: ver `L12`.
 - [x] **D7** Las pantallas de autenticación, que son la primera impresión. **Cerrada** (`ee11092`), en paralelo con D6 y sobre archivos disjuntos.
-- [ ] **D8** Rehacer los tests y la E2E contra los flujos nuevos (S3). **No es opcional**: es la mitad del costo de haber dicho "puede cambiar absolutamente todo".
+- [x] **D8** Rehacer los tests y la E2E contra los flujos nuevos (S3). **No es opcional**: es la mitad del costo de haber dicho "puede cambiar absolutamente todo". **Cerrada** (`e356ec9`): los unit tests se rehicieron tramo por tramo en D3-D7 (404 en verde) y la E2E suma el camino de lectura. Ver `L15`.
 - [ ] **D9** La verificación de la skill. **Parcial**: el detector corregido y corrido sin hallazgos (`6616e72`), `DESIGN.md` y su sidecar escritos desde lo construido (`5ea87ea`), y los tres defectos que ese trabajo destapó, arreglados (`e52d21b`). **Falta lo que necesita entorno o ojos**: las capturas con sesión (necesitan el stack local) y el juicio visual de los píxeles (esta sesión no procesa imágenes).
 
 ---
@@ -265,3 +265,15 @@ Con el mundo ya en el flujo de entrenamiento, se midió como manda el método co
 **El detector, corrido otra vez sobre el artefacto reconstruido** después de los tres arreglos: **36 filas, sin un solo hallazgo**, contraste **15.99:1** en el título y **4.83:1** en el texto apagado, desborde horizontal **0** en las cuatro anchuras y **la cara de despliegue ganando en las 36 filas**. Se volvió a correr **a propósito**: el CSS construido había cambiado, y una medición que no corresponde al artefacto commiteado es una medición vencida.
 
 **Lo que falta de D9, y no lo tapa el padre**: las **capturas con sesión** (necesitan el stack local, o sea **Docker**) y **el juicio visual de los píxeles** — el modelo de esta sesión **no procesa imágenes**, así que el píxel lo tiene que mirar un ojo humano. Las dos cosas quedan declaradas como pruebas faltantes.
+
+### L15 · D8 cerrada: la E2E camina también la mitad de la lectura (2026-10-15)
+
+**Lo que entró** (`e356ec9`): la E2E del flujo crítico deja de terminar cuando el servidor contesta y **sigue hasta donde el usuario va a buscar lo que entrenó** — el historial lista la sesión, el detalle muestra **una fila por serie** que la tarjeta escribió (`toHaveCount(SETS.length)`), y el nombre del ejercicio abre su pantalla de progreso.
+
+**Por qué es la mitad que faltaba, y no una suite nueva de historial**: todas las aserciones que ya estaban pasan mientras la escritura llegó **a medias**. El servidor puede contestar, el badge puede vaciarse, y la sesión puede igual perderse para quien la registró. La lectura es donde eso se ve. El encabezado del archivo declaraba la ausencia como deliberada porque el historial era un placeholder; dejó de serlo en D5, así que la declaración se retiró —lo que sigue declarado es lo que sigue sin comprobarse: **cómo** llegó la escritura a la base.
+
+**Los unit tests de D8 no fueron un tramo aparte, y eso hay que decirlo**: se rehicieron a medida que cada pantalla migraba, en D3-D7, y por eso D8 cierra con **404/404 en 48 archivos** en vez de con un commit propio. Lo que faltaba era la E2E, que no se podía correr sin Docker.
+
+**Verificación del padre, corriendo las comprobaciones**: `npm run e2e` **en verde contra el stack local** (`1 passed (1.4m)`, `ok 1 [chromium] › records a workout offline and syncs it when the connection comes back (2.9s)`), con las credenciales leídas del stack que sirve y no de una copia; typecheck, lint, **404/404 unit tests en 48 archivos** y `prettier --check` limpios. Recordatorio del método: `e2e` levanta **el build de producción** (`npm run build && npm run preview`), no el dev server.
+
+**Lo que queda de D9, y es de ojo y no de código**: las **capturas con sesión** en desktop y mobile (`scripts/capture-screens.mjs`; hoy todas caen en login porque el script no inicia sesión) y **el juicio de los píxeles**, que este modelo no puede hacer.
