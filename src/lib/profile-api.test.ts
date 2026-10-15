@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
-import { fetchProfile, updateWeightUnit } from './profile-api.ts';
+import {
+  bestStreak,
+  fetchPrCount,
+  fetchProfile,
+  fetchWorkoutDates,
+  updateWeightUnit,
+} from './profile-api.ts';
 import { getSupabase } from './supabase.ts';
 
 vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -12,6 +18,11 @@ let fake: ReturnType<typeof createFakeSupabase>;
 
 function lastBuilder() {
   return fake.from.mock.results.at(-1)?.value as { calls: string[] } | undefined;
+}
+
+/** A count response, which the double's result type does not name: PostgREST puts it beside `data`. */
+function counted(count: number) {
+  return { data: null, error: null, count };
 }
 
 beforeEach(() => {
@@ -98,5 +109,70 @@ describe('updateWeightUnit', () => {
     fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
 
     await expect(updateWeightUnit(USER_ID, 'kg')).rejects.toThrow('permission denied');
+  });
+});
+
+/**
+ * The best streak, derived and never stored.
+ *
+ * `dashboard_summary()` returns the streak that ends today, which is reset by missing a day; the figure
+ * the profile shows is the longest one the user has ever had, so it has to be computed from the days
+ * they trained. No column and no migration: the days are already in `workouts`.
+ */
+describe('bestStreak', () => {
+  it('is the longest run of consecutive days, not the one ending today', () => {
+    // Three in a row, a gap, then two: the best is three, while the run ending today is two.
+    expect(bestStreak(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-10', '2026-10-11'])).toBe(
+      3,
+    );
+  });
+
+  it('counts a day once when it was trained twice, and needs at least one day', () => {
+    expect(bestStreak(['2026-10-01', '2026-10-01', '2026-10-02'])).toBe(2);
+    expect(bestStreak([])).toBe(0);
+  });
+});
+
+/**
+ * The days the best streak is computed from: every live workout of the user, and no other row.
+ */
+describe('fetchWorkoutDates', () => {
+  it('reads every live workout date of the user, paged past the PostgREST cap', async () => {
+    const firstPage = Array.from({ length: 1000 }, () => ({ date: '2026-10-01' }));
+    fake.setTableResults('workouts', [
+      { data: firstPage, error: null },
+      { data: [{ date: '2026-10-02' }], error: null },
+    ]);
+
+    const dates = await fetchWorkoutDates(USER_ID);
+
+    // One request would silently truncate the history, and a truncated history is a wrong streak.
+    expect(fake.from).toHaveBeenCalledTimes(2);
+    expect(dates).toHaveLength(1001);
+
+    const calls = fake.from.mock.results.flatMap(
+      (result) => (result.value as { calls: string[] }).calls,
+    );
+
+    expect(calls).toContain(`eq user_id ${USER_ID}`);
+    expect(calls).toContain('is deleted_at null');
+    expect(calls).toContain('range 0 999');
+    expect(calls).toContain('range 1000 1999');
+  });
+});
+
+/**
+ * The total of records, and it has to be a count of the rows themselves.
+ *
+ * `recent_prs` in the summary comes back capped at five, so it can never say how many records there
+ * are; one row per exercise with a live record is the number the profile wants.
+ */
+describe('fetchPrCount', () => {
+  it('takes the exact count of the user’s record rows', async () => {
+    fake.setTableResult('personal_records', counted(12));
+
+    expect(await fetchPrCount(USER_ID)).toBe(12);
+    expect(lastBuilder()?.calls).toContain('select id');
+    expect(lastBuilder()?.calls).toContain(`eq user_id ${USER_ID}`);
   });
 });

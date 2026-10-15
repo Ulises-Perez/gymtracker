@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { fetchBodyWeights, saveBodyWeight } from '../lib/body-weight-api.ts';
 import { fetchProfile, updateWeightUnit } from '../lib/profile-api.ts';
 import type { WeightUnit } from '../lib/units.ts';
 
@@ -64,6 +65,40 @@ export function useUpdateWeightUnit(userId: string) {
     mutationFn: (unit: WeightUnit) => updateWeightUnit(userId, unit),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+    },
+  });
+}
+
+/**
+ * The body weight the user has logged, in the cache.
+ *
+ * Keyed by the user like every other read here: the cache outlives the session, so on a shared device
+ * the second account must not be served the first one's weight.
+ */
+export function useBodyWeights(userId: string) {
+  return useQuery({
+    queryKey: ['body-weights', userId],
+    queryFn: () => fetchBodyWeights(userId),
+    enabled: userId !== '',
+  });
+}
+
+/**
+ * Logs the weight of one day.
+ *
+ * The day is the key of a measurement (`0006`), so logging today again updates the row that is already
+ * there; `saveBodyWeight` is what reads the live row and decides between the update and the insert.
+ *
+ * On success the read is invalidated, so the chart and the figures follow the entry that just landed.
+ */
+export function useSaveBodyWeight(userId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (entry: { date: string; weightKg: number }) =>
+      saveBodyWeight(userId, entry.date, entry.weightKg),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['body-weights', userId] });
     },
   });
 }

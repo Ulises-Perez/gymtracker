@@ -8,6 +8,7 @@ import { useWeightUnit } from '../hooks/useProfile.ts';
 import type { WorkoutExerciseDraft } from '../stores/workout-store.ts';
 import { createQueryClient } from '../lib/queryClient.ts';
 import { getSupabase } from '../lib/supabase.ts';
+import { toStoredKg } from '../lib/units.ts';
 import { AuthProvider } from '../providers/AuthProvider.tsx';
 import { createFakeSupabase, fakeSession } from '../testing/fake-supabase.ts';
 import { ProfilePage } from './ProfilePage.tsx';
@@ -16,6 +17,8 @@ vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 
 const USER_ID = '00000000-0000-4000-a000-000000000001';
 const EXERCISE_ID = '01920000-0000-7000-8000-0000000000a1';
+const CARD_ID = '01920000-0000-7000-8000-0000000000c1';
+const MEASUREMENT_ID = '01920000-0000-7000-8000-0000000000b1';
 
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
@@ -50,6 +53,12 @@ function stubDownload() {
   });
 }
 
+/**
+ * A workout as `0012` stores it: the sets hang off their card through `workout_exercise_id`, and the
+ * card is the entity that carries the order and the target. The pre-`0012` shape this used to have is
+ * gone from the server, so a fixture that still spoke it exercised only the export's fallback instead
+ * of the real attribution.
+ */
 function workoutExportRow() {
   return {
     date: '2026-10-13',
@@ -57,6 +66,7 @@ function workoutExportRow() {
     duration_minutes: 50,
     workout_sets: [
       {
+        workout_exercise_id: CARD_ID,
         exercise_id: EXERCISE_ID,
         set_number: 1,
         reps: 5,
@@ -67,8 +77,23 @@ function workoutExportRow() {
         exercise: { name: 'Sentadilla' },
       },
     ],
-    workout_exercise_targets: [],
+    workout_exercises: [
+      {
+        id: CARD_ID,
+        position: 1,
+        exercise_id: EXERCISE_ID,
+        target_reps: null,
+        target_weight_min: null,
+        target_weight_max: null,
+        exercise: { name: 'Sentadilla' },
+      },
+    ],
   };
+}
+
+/** A count response, which the double's result type does not name: PostgREST puts it beside `data`. */
+function counted(count: number) {
+  return { data: null, error: null, count };
 }
 
 function profileRow(weightUnit: string) {
@@ -272,6 +297,82 @@ describe('the CSV export', () => {
     );
     // A failed read must produce no file at all: a header-only CSV looks like an empty history.
     expect(downloaded).toHaveLength(0);
+  });
+});
+
+/**
+ * The three figures the phase 6 definition of done names, each derived from its read and never from a
+ * column: the two the dashboard summary already returns are reused, and the best streak — which the
+ * summary does not return, because its streak ends today — is derived from the days the user trained.
+ */
+describe('the derived stats', () => {
+  it('shows the totals the server derived', async () => {
+    fake.rpc.mockResolvedValue({
+      data: {
+        streak: 2,
+        week_days: [],
+        recent_prs: [],
+        last_workout: null,
+        total_workouts: 9,
+      },
+      error: null,
+    });
+    // Three consecutive days, so the derived best streak is 3 and not the 2 the summary reports.
+    fake.setTableResult('workouts', {
+      data: [{ date: '2026-10-01' }, { date: '2026-10-02' }, { date: '2026-10-03' }],
+      error: null,
+    });
+    fake.setTableResult('personal_records', counted(12));
+
+    renderProfile();
+
+    const stats = await screen.findByTestId('estadisticas');
+
+    expect(within(stats).getByText('Entrenamientos')).toBeInTheDocument();
+    expect(await within(stats).findByText('9')).toBeInTheDocument();
+    expect(within(stats).getByText('Mejor racha')).toBeInTheDocument();
+    expect(await within(stats).findByText('3')).toBeInTheDocument();
+    expect(within(stats).getByText('Récords')).toBeInTheDocument();
+    expect(await within(stats).findByText('12')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The body weight: read in the preferred unit, stored in kilos.
+ */
+describe('the body weight', () => {
+  it('reads the weight in the preferred unit and stores the entry in kilos', async () => {
+    fake.setTableResult('profiles', { data: [profileRow('lb')], error: null });
+    // The day the section reads, the row its write finds, and the read after the write invalidates.
+    fake.setTableResults('body_measurements', [
+      { data: [{ date: '2026-10-01', weight_kg: '72.50' }], error: null },
+      { data: [{ id: MEASUREMENT_ID }], error: null },
+      { data: [{ date: '2026-10-01', weight_kg: '72.50' }], error: null },
+    ]);
+
+    renderProfile();
+
+    const input = await screen.findByLabelText('Peso corporal en lb');
+
+    fireEvent.change(input, { target: { value: '160' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const stored = String(toStoredKg(160, 'lb'));
+
+    await waitFor(() => {
+      expect(writtenCalls()).toContain(`update weight_kg=${stored}`);
+    });
+    // And never the typed number: the column is kilos, so writing 160 would store 160 kg.
+    expect(writtenCalls().some((call) => call.includes('weight_kg=160'))).toBe(false);
+  });
+
+  it('says that a second entry for the same day is an update', async () => {
+    renderProfile();
+
+    // The day is the key of a measurement, so logging today again replaces it instead of failing.
+    expect(
+      await screen.findByText('Si ya cargaste el peso de hoy, se actualiza.'),
+    ).toBeInTheDocument();
   });
 });
 
