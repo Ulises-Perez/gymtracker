@@ -213,11 +213,12 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 #### Fase 7 — PWA Polish + Deploy
 
-- [ ] **T7.1** Manifest + iconos maskable + favicon + splash iOS.
+- [ ] **T7.1** Manifest + iconos maskable + favicon + splash iOS. **Decidido por el usuario (2026-10-15)**: **los iconos los genera el proyecto desde el mundo del cuaderno** —papel off-white, tinta y el acento rojo— con **un script versionado y determinista**, y no como archivos binarios sueltos sin origen: si el mundo cambia, se regeneran. Ojo con el detalle que hace que un icono sirva: en un icono **maskable** el contenido tiene que entrar en el **círculo seguro** (el sistema recorta los bordes a su antojo). Y **sin dependencias nuevas**: no hay `sharp` ni `canvas` instalados, así que el PNG se escribe a mano (hay `zlib` en Node) y el test comprueba firma, dimensiones y determinismo. `vite.config.ts` ya declara `manifest` y el `injectManifest` ya lista el favicon y el manifest; `src/sw.ts` existe (37 líneas).
 - [ ] **T7.2** SW: precache shell, `StaleWhileRevalidate` catálogo, **nunca** cachear auth ni escrituras.
 - [ ] **T7.3** Prompt de instalación Android + instrucciones iOS + meta/OG.
 - [ ] **T7.4** Lighthouse 90+ ×4, bundle dentro del presupuesto medido en T0.8. **Sumar acá** la medición de controles de formulario en el audit de UI (alto y contraste de botones e inputs), que hoy solo mide texto y nav.
-- [ ] **T7.5** Deploy Vercel + test e2e en dispositivo real (offline → online) + README.
+- [ ] **T7.5** Deploy Vercel + test e2e en dispositivo real (offline → online) + README. **Necesita las credenciales del usuario**, y es lo único de la fase que un agente no puede hacer solo: el resto se entrega listo para que el deploy sea un paso.
+- [ ] **T7.6** **El DoD de `S10` nombra Sentry y Sentry NO se instala** (decisión del usuario, 2026-10-15): en su lugar va **un límite de errores propio** que atrapa lo que rompe el render, más **un registro liviano**, y la verificación de que **la consola queda limpia en las cuatro pantallas**. El motivo: no sumar una dependencia ni peso al bundle inicial por una función que este producto puede cubrir con lo que ya tiene. Queda escrito para que la desviación del DoD sea **una decisión registrada y no un olvido**.
 
 ---
 
