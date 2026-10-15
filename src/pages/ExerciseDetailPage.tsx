@@ -105,14 +105,15 @@ export function ExerciseDetailPage() {
                     : 'text-muted hover:text-text'
                 }`}
               >
-                {entry.label}
+                {entry.label} ({unit})
               </button>
             ))}
           </div>
 
           <Suspense fallback={<Skeleton className="mt-3 h-[220px] w-full" />}>
-            {/* The label is the unit itself, so the axis legend cannot disagree with the plotted
-                values: `buildChartSeries` converts the stored kilos to it. */}
+            {/* The label is the unit itself, so the plotted values cannot disagree with it:
+                `buildChartSeries` converts the stored kilos to it. The chart draws no legend -- the
+                unit reads on the chips above, which is where someone chooses what they look at. */}
             <ProgressChart points={points} metric={metric} label={unit} />
           </Suspense>
 

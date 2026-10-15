@@ -211,7 +211,7 @@ function SetRow({
       />
       <NumberCell
         label={`Peso en kg serie ${position}`}
-        shortLabel="Peso en kg"
+        shortLabel="kg"
         value={set.weightKg}
         replaced={weight.replaced}
         onFocus={weight.takeHold}
@@ -261,10 +261,14 @@ function useCorrection(committed: number | null, commit: (value: number | null) 
 }
 
 /**
- * The visible text is a substring of the accessible name on purpose: a screen
- * reader hears "Peso en kg serie 1", which is what the eye reads plus which set.
- * They cannot all be called "Peso" — three identical names on screen are unusable
- * with assistive technology.
+ * The visible text is short and the accessible name is not: two different strings on purpose.
+ *
+ * A screen reader hears "Peso en kg serie 1" — the unit and which set — while the eye reads just
+ * "kg", because the full phrase wrapped onto a second line the moment the correction's crossed value
+ * shared the row with it, on the row where the last value somebody typed is the whole point. The
+ * visible span is `aria-hidden`, so what gets announced is the name and never the abbreviation. And
+ * they cannot all be called "Peso": the names have to tell three sets apart for assistive
+ * technology, even when the visible text repeats.
  *
  * The crossed value is announced as "Valor anterior" instead of being swept out of the tree: the
  * correction is information, and the users who cannot see the crossing are the ones who would lose

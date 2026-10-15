@@ -131,11 +131,28 @@ describe('ExerciseDetailPage', () => {
     await screen.findByTestId('grafica');
 
     // The heaviest set is what someone opens this screen to see; the other two are a tap away.
-    expect(screen.getByRole('button', { name: 'Peso máximo', pressed: true })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Peso máximo (kg)', pressed: true }),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Volumen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Volumen (kg)' }));
 
     expect(await screen.findByTestId('grafica')).toHaveTextContent('volume');
+  });
+
+  it('names the unit on every chip, now that the chart legend is gone', async () => {
+    renderPage();
+    await screen.findByTestId('grafica');
+
+    /*
+     * The three metrics are all weights, so the unit belongs to all three chips.
+     *
+     * It used to be said by uPlot's own legend, which brought the library's markup and a pair of
+     * bare dashes into a world of paper and rules. The chips are the notebook's own control and the
+     * place someone chooses what they are looking at, so the unit reads there now.
+     */
+    expect(screen.getByRole('button', { name: 'Peso máximo (kg)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Volumen (kg)' })).toBeInTheDocument();
   });
 
   it('says so when the exercise has never been trained, instead of drawing nothing', async () => {

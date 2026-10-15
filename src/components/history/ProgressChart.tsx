@@ -39,12 +39,13 @@ export function ProgressChart({
   points: ExerciseProgressPoint[];
   metric: ProgressMetric;
   /**
-   * The unit the values are plotted in, and it is also the series' label.
+   * The unit the values are plotted in.
    *
-   * One prop and not two on purpose: the axis legend *is* the unit, and letting a screen pass a
-   * label that disagrees with the conversion would print "kg" over pounds. `buildChartSeries`
-   * converts the stored kilos to this unit on the way in, so uPlot only ever plots what the user
-   * reads.
+   * It travels as one prop and not two: the numbers are converted with it, so a screen cannot hand a
+   * value and a unit that disagree and print "kg" over pounds. `buildChartSeries` converts the stored
+   * kilos on the way in, so this component only ever draws what the user reads. The chart states no
+   * legend of its own — that is uPlot's markup, and it read as scaffolding in a world of paper and
+   * rules — and the unit reads on the chips of the screen that owns it.
    */
   label: WeightUnit;
 }) {
@@ -63,6 +64,13 @@ export function ProgressChart({
       {
         width: element.clientWidth || 320,
         height: 220,
+        /*
+         * No legend. uPlot draws its own, and it arrived with the library's markup and a pair of
+         * bare dashes into a world of paper and rules — the one screen that read as scaffolding. The
+         * unit it used to state reads on the chips above, which is where someone chooses what they
+         * are looking at, and the label still travels for the conversion.
+         */
+        legend: { show: false },
         series: [{}, { label, stroke: CHART_INK, width: 2, points: { show: true } }],
         /*
          * The span is given explicitly because uPlot's automatic one invents a range when the series
