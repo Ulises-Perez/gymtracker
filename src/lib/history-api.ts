@@ -61,28 +61,55 @@ export function toWorkoutSummary(row: WorkoutRow): WorkoutSummary {
 export type WorkoutSetDetail = {
   id: string;
   exerciseId: string;
+  /**
+   * The card this set was recorded in.
+   *
+   * It is what tells two cards of the same exercise apart: the exercise id is shared by both, so it
+   * cannot say which block a set belonged to (migration 0012).
+   */
+  workoutExerciseId: string;
   setNumber: number;
   reps: number | null;
   weightKg: number | null;
   isWarmup: boolean;
 };
 
+/**
+ * One card in the session: the exercise and its place, in the order it was stored.
+ *
+ * The set that used to be named by its exercise is named by one of these now, which is what makes
+ * the order and a repeated exercise representable at all.
+ */
+export type WorkoutExerciseDetail = {
+  id: string;
+  exerciseId: string;
+  position: number;
+};
+
 export type WorkoutDetail = {
   workout: WorkoutSummary;
+  exercises: WorkoutExerciseDetail[];
   sets: WorkoutSetDetail[];
 };
 
 type WorkoutSetRow = {
   id: string;
   exercise_id: string;
+  workout_exercise_id: string;
   set_number: number;
   reps: number | null;
   weight_kg: string | null;
   is_warmup: boolean | null;
 };
 
+type WorkoutExerciseRow = {
+  id: string;
+  exercise_id: string;
+  position: number;
+};
+
 /**
- * One workout with its sets.
+ * One workout with its cards and their sets.
  *
  * The exercise names are deliberately **not** read here. They come from the catalogue the screen
  * already has cached — the same list the picker used to add the exercise — so a name has one source,
@@ -106,13 +133,25 @@ export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDeta
 
   const sets = await supabase
     .from('workout_sets')
-    .select('id, exercise_id, set_number, reps, weight_kg, is_warmup')
+    .select('id, exercise_id, workout_exercise_id, set_number, reps, weight_kg, is_warmup')
     .eq('workout_id', workoutId)
     .is('deleted_at', null)
     .order('set_number');
 
   if (sets.error) {
     throw sets.error;
+  }
+
+  const exercises = await supabase
+    .from('workout_exercises')
+    .select('id, exercise_id, position')
+    .eq('workout_id', workoutId)
+    // The order is the point of reading this table: `position` is the place the card had in the
+    // session, and it is what the screen shows the cards in.
+    .order('position');
+
+  if (exercises.error) {
+    throw exercises.error;
   }
 
   const first = (workout.data as WorkoutRow[])[0];
@@ -125,9 +164,15 @@ export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDeta
 
   return {
     workout: toWorkoutSummary(first),
+    exercises: (exercises.data as WorkoutExerciseRow[]).map((row) => ({
+      id: row.id,
+      exerciseId: row.exercise_id,
+      position: row.position,
+    })),
     sets: (sets.data as WorkoutSetRow[]).map((row) => ({
       id: row.id,
       exerciseId: row.exercise_id,
+      workoutExerciseId: row.workout_exercise_id,
       setNumber: row.set_number,
       reps: row.reps,
       // A5: a DECIMAL arrives as a string and becomes a number here and nowhere else.

@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
 import { useWeightUnit } from '../hooks/useProfile.ts';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail.ts';
-import type { WorkoutSetDetail } from '../lib/history-api.ts';
+import type { WorkoutExerciseDetail, WorkoutSetDetail } from '../lib/history-api.ts';
 import { softDeleteWorkout } from '../lib/history-api.ts';
 import { formatWeight } from '../lib/units.ts';
 import type { WeightUnit } from '../lib/units.ts';
@@ -16,10 +16,11 @@ import { formatIsoDate } from '../lib/utils.ts';
 /**
  * One workout, as it was recorded.
  *
- * The sets are grouped by exercise because that is how they were entered, and the names come from the
- * catalogue the screen already has cached. The database does not store the order the cards were in —
- * only each set's number inside its own exercise — so the groups come out in the order the sets were
- * numbered, which is stable without pretending to be the session's original order.
+ * The sets are grouped by **card** — the exercise inside this session — and the cards come out in the
+ * order they were stored. Grouping by exercise was the old shape and could not tell two cards of the
+ * same exercise apart: with the same exercise twice, every set landed in one block and the order the
+ * session really had was lost. The names still come from the catalogue the screen already has
+ * cached.
  */
 export function WorkoutDetailPage() {
   const { workoutId = '' } = useParams();
@@ -51,7 +52,10 @@ export function WorkoutDetailPage() {
     [catalog.data],
   );
 
-  const groups = useMemo(() => groupByExercise(detail.data?.sets ?? []), [detail.data]);
+  const groups = useMemo(
+    () => groupByCard(detail.data?.exercises ?? [], detail.data?.sets ?? []),
+    [detail.data],
+  );
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
@@ -79,30 +83,30 @@ export function WorkoutDetailPage() {
         </p>
       ) : null}
 
-      {groups.map((group) => (
+      {groups.map(({ card, sets }) => (
         /*
          * A ruled block and not a card: the group opens with a printed rule and its sets are rows
          * under it, so nothing is nested inside anything and the elevation is the border alone. The
          * rule is ink and doubled because it starts an exercise, exactly like the block on the
          * workout screen.
          */
-        <section key={group.exerciseId} className="border-text mt-6 border-t-2 pt-4">
+        <section key={card.id} className="border-text mt-6 border-t-2 pt-4">
           <h2 className="font-display text-lg font-extrabold tracking-tight uppercase">
             {/* The way into the exercise's own screen, where its progress is graphed. It navigates
                 and does nothing else, so it stays ink and the printed rule underlines it. */}
             <Link
-              to={`/history/exercise/${group.exerciseId}`}
+              to={`/history/exercise/${card.exerciseId}`}
               className="decoration-rule hover:decoration-text underline"
             >
-              {names.get(group.exerciseId) ?? 'Ejercicio'}
+              {names.get(card.exerciseId) ?? 'Ejercicio'}
             </Link>
           </h2>
 
           <ul
-            aria-label={`Series de ${names.get(group.exerciseId) ?? 'ejercicio'}`}
+            aria-label={`Series de ${names.get(card.exerciseId) ?? 'ejercicio'}`}
             className="mt-2"
           >
-            {group.sets.map((set) => (
+            {sets.map((set) => (
               <li key={set.id} className="border-rule tabular text-muted border-b py-1 text-sm">
                 {set.setNumber}ª · {formatSet(set, unit)}
                 {set.isWarmup ? ' · calentamiento' : ''}
@@ -176,22 +180,26 @@ export function WorkoutDetailPage() {
   );
 }
 
-type ExerciseGroup = {
-  exerciseId: string;
+type CardGroup = {
+  card: WorkoutExerciseDetail;
   sets: WorkoutSetDetail[];
 };
 
-function groupByExercise(sets: WorkoutSetDetail[]): ExerciseGroup[] {
-  const groups = new Map<string, WorkoutSetDetail[]>();
-
-  for (const set of sets) {
-    groups.set(set.exerciseId, [...(groups.get(set.exerciseId) ?? []), set]);
-  }
-
-  return [...groups.entries()].map(([exerciseId, groupSets]) => ({
-    exerciseId,
-    sets: groupSets,
-  }));
+/**
+ * The session's cards, in their stored order, each with the sets recorded in it.
+ *
+ * The sort is explicit even though the query already asks for `position` order: what the screen
+ * shows is the stored order, so the function that decides it should not depend on how the rows
+ * happened to arrive. A set is placed by its card id and never by its exercise, which is what keeps
+ * two cards of the same exercise from being merged into one block.
+ */
+function groupByCard(exercises: WorkoutExerciseDetail[], sets: WorkoutSetDetail[]): CardGroup[] {
+  return [...exercises]
+    .sort((left, right) => left.position - right.position)
+    .map((card) => ({
+      card,
+      sets: sets.filter((set) => set.workoutExerciseId === card.id),
+    }));
 }
 
 /**

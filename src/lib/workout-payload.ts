@@ -1,4 +1,8 @@
-import type { SaveWorkoutPayload } from '../schemas/workout.ts';
+import type {
+  CustomExercisePayload,
+  ModernSaveWorkoutPayload,
+  WorkoutExercisePayload,
+} from '../schemas/workout.ts';
 import type {
   CustomExerciseDraft,
   WorkoutDraft,
@@ -10,26 +14,26 @@ import { durationMinutes } from './utils.ts';
 /**
  * The draft, rewritten into the shape `save_workout` reads.
  *
- * This is the boundary between what the screen collected and what the database will
- * hold, and it is deliberately a pure function over the draft: the queue has to be
- * able to build the payload at the moment the user finishes, and the payload has to
- * keep meaning the same thing after a reload, when the only thing left is the
- * variables themselves.
+ * This is the boundary between what the screen collected and what the database will hold, and it is
+ * deliberately a pure function over the draft: the queue has to be able to build the payload at the
+ * moment the user finishes, and the payload has to keep meaning the same thing after a reload, when
+ * the only thing left is the variables themselves.
  *
- * Nothing is filtered downstream of here. The RPC deletes the workout's sets and
- * writes whatever the array contains, so this is the only place where "a set the user
- * performed" and "a row they never filled in" can be told apart.
+ * Nothing is filtered downstream of here. The RPC deletes the workout's cards and their sets and
+ * writes whatever the array contains, so this is the only place where "a set the user performed" and
+ * "a row they never filled in" can be told apart.
+ *
+ * The cards travel **in order**, each with its target and its sets inside (migration 0012). No
+ * position is computed: the array order *is* the card order, and the RPC numbers the stored position
+ * from it — a second copy of the same fact is a second way for the two to disagree.
  */
-export function toSaveWorkoutPayload(draft: WorkoutDraft): SaveWorkoutPayload {
-  const sets = draft.exercises.flatMap(toSets);
-
+export function toSaveWorkoutPayload(draft: WorkoutDraft): ModernSaveWorkoutPayload {
   /*
-   * Only the customs something will actually reference. Deleting a card does not
-   * delete its definition, and a definition whose sets were all left empty is
-   * referenced by nothing the server will write — sending it would create an exercise
-   * in the catalogue that the user never trained with and cannot remove from the app.
+   * Everything a card names is referenced by the payload, because every card is sent. The card is a
+   * real row now, so its `exercise_id` is a foreign key: a custom exercise a card names has to be
+   * created by `save_workout` or the whole write fails, whether or not the card recorded a set.
    */
-  const referenced = new Set(sets.map((set) => set.exercise_id));
+  const referenced = new Set(draft.exercises.map((card) => card.exerciseId));
 
   return {
     /*
@@ -47,64 +51,47 @@ export function toSaveWorkoutPayload(draft: WorkoutDraft): SaveWorkoutPayload {
     // negative duration.
     duration_minutes:
       draft.endedAt === null ? null : durationMinutes(draft.startedAt, draft.endedAt),
-    sets,
-    /**
-     * Only the cards that have a target, and each numbered by its place in the session.
-     *
-     * The position comes from the card's index and not from the target's position in this array:
-     * it says *which card this is*, which is what the database key needs to tell two cards of the
-     * same exercise apart. Numbering them 1, 2, 3 in order of appearance would file the target
-     * against the wrong exercise the day the same exercise appears twice.
-     *
-     * A card with all three fields empty is not sent at all: it is a card the user never got around
-     * to, and a row of three nulls would say nothing while still being a row.
+    exercises: draft.exercises.map(toExercise),
+    /*
+     * Only the customs a card references. Deleting a card does not delete its definition, and a
+     * definition whose card was removed is referenced by nothing the server will write — sending it
+     * would create an exercise in the catalogue that the user never trained with and cannot remove
+     * from the app.
      */
-    exercise_targets: draft.exercises.flatMap((card, index) =>
-      hasTarget(card)
-        ? [
-            {
-              exercise_id: card.exerciseId,
-              position: index + 1,
-              target_reps: card.targetReps,
-              target_weight_min: card.targetWeightMin,
-              target_weight_max: card.targetWeightMax,
-            },
-          ]
-        : [],
-    ),
     custom_exercises: draft.customExercises
       .filter((exercise) => referenced.has(exercise.id))
       .map(toCustomExercise),
   };
 }
 
-function toSets(card: WorkoutExerciseDraft): SaveWorkoutPayload['sets'] {
-  return card.sets.filter(isRecorded).map((set, index) => ({
-    id: set.id,
-    exercise_id: card.exerciseId,
-    /*
-     * The ordinal inside this card, not across the workout. The same exercise may
-     * appear in two cards in one session — two blocks, each numbered from one — and
-     * nothing in the schema forbids it: there is no unique constraint on
-     * `(workout_id, exercise_id, set_number)`.
-     */
-    set_number: index + 1,
-    reps: set.reps,
-    weight_kg: set.weightKg,
-    rpe: set.rpe,
-    is_warmup: set.isWarmup,
-    notes: set.notes,
-  }));
-}
-
 /**
- * Whether the user said anything about what they were aiming for.
+ * One card: the exercise, its target, and the sets that were actually recorded.
  *
- * Any one of the three is enough: they are typed at different moments, and someone who wrote their
- * reps and left the weights for later has set a target.
+ * A card is sent even when it has neither a target nor a set. That is the change 0012 brings: a card
+ * without sets is a real card — someone added it and did not get to write anything down — so it
+ * keeps its place in the session instead of disappearing.
  */
-function hasTarget(card: WorkoutExerciseDraft): boolean {
-  return card.targetReps !== null || card.targetWeightMin !== null || card.targetWeightMax !== null;
+function toExercise(card: WorkoutExerciseDraft): WorkoutExercisePayload {
+  return {
+    exercise_id: card.exerciseId,
+    target_reps: card.targetReps,
+    target_weight_min: card.targetWeightMin,
+    target_weight_max: card.targetWeightMax,
+    sets: card.sets.filter(isRecorded).map((set, index) => ({
+      id: set.id,
+      /*
+       * The ordinal inside this card, not across the workout. The same exercise may appear in two
+       * cards in one session — two blocks, each numbered from one — and nothing in the schema
+       * forbids it: there is no unique constraint on `(workout_id, exercise_id, set_number)`.
+       */
+      set_number: index + 1,
+      reps: set.reps,
+      weight_kg: set.weightKg,
+      rpe: set.rpe,
+      is_warmup: set.isWarmup,
+      notes: set.notes,
+    })),
+  };
 }
 
 /**
@@ -119,9 +106,7 @@ function isRecorded(set: WorkoutSetDraft): boolean {
   return set.reps !== null || set.weightKg !== null;
 }
 
-function toCustomExercise(
-  exercise: CustomExerciseDraft,
-): NonNullable<SaveWorkoutPayload['custom_exercises']>[number] {
+function toCustomExercise(exercise: CustomExerciseDraft): CustomExercisePayload {
   return {
     id: exercise.id,
     // Already trimmed when the draft accepted it; trimmed again because a payload is

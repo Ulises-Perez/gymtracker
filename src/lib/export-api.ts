@@ -27,14 +27,17 @@ const EXPORT_SELECT = [
   'date',
   'title',
   'duration_minutes',
-  'workout_sets(exercise_id, set_number, reps, weight_kg, rpe, is_warmup, notes, exercise:exercises(name))',
-  'workout_exercise_targets(position, exercise_id, target_reps, target_weight_min, target_weight_max, exercise:exercises(name))',
+  // `workout_exercise_id` is what files a set against its own card instead of its exercise, which
+  // is what keeps two cards of the same exercise apart in the file.
+  'workout_sets(exercise_id, workout_exercise_id, set_number, reps, weight_kg, rpe, is_warmup, notes, exercise:exercises(name))',
+  'workout_exercises(id, position, exercise_id, target_reps, target_weight_min, target_weight_max, exercise:exercises(name))',
 ].join(', ');
 
 type RawExercise = { name: string } | null;
 
 type RawSet = {
   exercise_id: string;
+  workout_exercise_id: string | null;
   set_number: number;
   reps: number | null;
   weight_kg: string | null;
@@ -46,7 +49,8 @@ type RawSet = {
   exercise: RawExercise;
 };
 
-type RawTarget = {
+type RawCard = {
+  id: string;
   position: number;
   exercise_id: string;
   target_reps: number | null;
@@ -60,7 +64,7 @@ type RawWorkout = {
   title: string | null;
   duration_minutes: number | null;
   workout_sets: RawSet[] | null;
-  workout_exercise_targets: RawTarget[] | null;
+  workout_exercises: RawCard[] | null;
 };
 
 function toCsvSet(row: RawSet): CsvSet {
@@ -78,53 +82,45 @@ function toCsvSet(row: RawSet): CsvSet {
 }
 
 /**
- * One workout, grouped into the exercises its rows belong to.
+ * One workout, grouped into the **cards** its sets belong to, in the order the session had them.
  *
- * The targets come first and in their stored position, because a target is a card the user added on
- * purpose; exercises that only exist as sets follow. `sets` is left in the order the database
- * returned them and `toCsv` sorts by set number — the one place row order lives.
+ * The card is the entity the export files rows against now: the same exercise twice is two cards,
+ * and grouping by exercise could not say which set belonged to which — the limit `L41` wrote down.
+ * The cards arrive first, sorted by their stored `position`, because that is the order the user
+ * made; a set whose card was not read is kept anyway, under the exercise it carries, so a read that
+ * could not attribute it does not lose the row.
  */
 function toCsvWorkout(row: RawWorkout): CsvWorkout {
   const sets = row.workout_sets ?? [];
-  const targets = [...(row.workout_exercise_targets ?? [])].sort((a, b) => a.position - b.position);
+  const cards = [...(row.workout_exercises ?? [])].sort((a, b) => a.position - b.position);
+  const cardIds = new Set(cards.map((card) => card.id));
 
-  const setsByExercise = new Map<string, RawSet[]>();
+  const setsByCard = new Map<string, RawSet[]>();
+  const unattributed = new Map<string, RawSet[]>();
 
   for (const set of sets) {
-    const group = setsByExercise.get(set.exercise_id);
-
-    if (group) {
-      group.push(set);
+    if (set.workout_exercise_id !== null && cardIds.has(set.workout_exercise_id)) {
+      appendSet(setsByCard, set.workout_exercise_id, set);
     } else {
-      setsByExercise.set(set.exercise_id, [set]);
+      appendSet(unattributed, set.exercise_id, set);
     }
   }
 
-  const exercises: CsvExercise[] = [];
-  const claimed = new Set<string>();
+  const exercises: CsvExercise[] = cards.map((card) => {
+    const group = setsByCard.get(card.id) ?? [];
 
-  for (const target of targets) {
-    const group = setsByExercise.get(target.exercise_id) ?? [];
-    claimed.add(target.exercise_id);
-
-    exercises.push({
-      // The target carries the name too, which is what lets an exercise with a target and no sets
-      // still be named rather than showing as a blank row.
-      name: target.exercise?.name ?? group[0]?.exercise?.name ?? '',
-      targetReps: target.target_reps,
-      targetWeightMin:
-        target.target_weight_min === null ? null : toNumber(target.target_weight_min),
-      targetWeightMax:
-        target.target_weight_max === null ? null : toNumber(target.target_weight_max),
+    return {
+      // The card carries the name too, which is what lets a card with a target and no sets still be
+      // named rather than showing as a blank row.
+      name: card.exercise?.name ?? group[0]?.exercise?.name ?? '',
+      targetReps: card.target_reps,
+      targetWeightMin: card.target_weight_min === null ? null : toNumber(card.target_weight_min),
+      targetWeightMax: card.target_weight_max === null ? null : toNumber(card.target_weight_max),
       sets: group.map(toCsvSet),
-    });
-  }
+    };
+  });
 
-  for (const [exerciseId, group] of setsByExercise) {
-    if (claimed.has(exerciseId)) {
-      continue;
-    }
-
+  for (const group of unattributed.values()) {
     exercises.push({
       name: group[0]?.exercise?.name ?? '',
       targetReps: null,
@@ -140,6 +136,16 @@ function toCsvWorkout(row: RawWorkout): CsvWorkout {
     durationMinutes: row.duration_minutes,
     exercises,
   };
+}
+
+function appendSet(groups: Map<string, RawSet[]>, key: string, set: RawSet): void {
+  const group = groups.get(key);
+
+  if (group) {
+    group.push(set);
+  } else {
+    groups.set(key, [set]);
+  }
 }
 
 /**

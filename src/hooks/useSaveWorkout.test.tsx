@@ -76,12 +76,16 @@ describe('finishing a workout', () => {
     expect(fake.rpc).toHaveBeenCalledWith('save_workout', {
       payload: expect.objectContaining({
         id: useWorkoutStore.getState().draft?.workoutId,
-        sets: [
+        exercises: [
           expect.objectContaining({
             exercise_id: PRESS_BANCA,
-            set_number: 1,
-            reps: 5,
-            weight_kg: 100,
+            sets: [
+              expect.objectContaining({
+                set_number: 1,
+                reps: 5,
+                weight_kg: 100,
+              }),
+            ],
           }),
         ],
         // The session lasted no time at all in a test, and an unfrozen draft would have

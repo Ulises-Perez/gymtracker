@@ -157,9 +157,10 @@ function sessionOnlyLine(workout: CsvWorkout): string {
 /**
  * The whole file.
  *
- * One row per set, in the order the workouts arrived and — inside a workout — by set number, so the
- * file is deterministic even when the query handed the sets over out of order. The header comes first
- * and the byte-order mark before everything.
+ * One row per set. The workouts and, inside each one, the exercises come in the order the caller
+ * handed them over — for the export that is the card order, the order the session had — and the sets
+ * of each exercise go by set number, so the file is deterministic even when the query returned the
+ * sets out of order. The header comes first and the byte-order mark before everything.
  */
 export function toCsv(workouts: CsvWorkout[]): string {
   const lines: string[] = [CSV_HEADER.join(CSV_SEPARATOR)];

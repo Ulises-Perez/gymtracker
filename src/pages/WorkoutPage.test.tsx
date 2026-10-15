@@ -169,7 +169,7 @@ describe('WorkoutPage', () => {
         payload: expect.objectContaining({
           id: workoutId,
           title: 'Empuje',
-          sets: [],
+          exercises: [expect.objectContaining({ exercise_id: PRESS_BANCA.id, sets: [] })],
           // Zero rather than null is the proof the payload came from the frozen draft:
           // `finish()` is what sets `endedAt`, and the duration is measured from it.
           duration_minutes: 0,
@@ -286,7 +286,11 @@ describe('WorkoutPage', () => {
     await vi.waitFor(() => {
       expect(fake.rpc).toHaveBeenCalledWith(
         'save_workout',
-        expect.objectContaining({ payload: expect.objectContaining({ sets: [] }) }),
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            exercises: [expect.objectContaining({ exercise_id: PRESS_BANCA.id, sets: [] })],
+          }),
+        }),
       );
     });
   });

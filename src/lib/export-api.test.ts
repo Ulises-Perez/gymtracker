@@ -8,6 +8,7 @@ vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
 
 const USER_ID = '00000000-0000-4000-a000-000000000001';
 const EXERCISE_ID = '01920000-0000-7000-8000-0000000000a1';
+const CARD_ID = '01920000-0000-7000-8000-0000000000c1';
 
 /**
  * The page size the export pages with: PostgREST caps how many rows a single request returns, so the
@@ -20,6 +21,7 @@ let fake: ReturnType<typeof createFakeSupabase>;
 function setRow(setNumber: number, overrides: Record<string, unknown> = {}) {
   return {
     exercise_id: EXERCISE_ID,
+    workout_exercise_id: CARD_ID,
     set_number: setNumber,
     reps: 5,
     weight_kg: '72.50',
@@ -31,13 +33,27 @@ function setRow(setNumber: number, overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** A card, which is what a set is filed against now. Its `position` is the session's order. */
+function cardRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: CARD_ID,
+    position: 1,
+    exercise_id: EXERCISE_ID,
+    target_reps: null,
+    target_weight_min: null,
+    target_weight_max: null,
+    exercise: { name: 'Sentadilla' },
+    ...overrides,
+  };
+}
+
 function workoutRow(overrides: Record<string, unknown> = {}) {
   return {
     date: '2026-10-13',
     title: 'Piernas',
     duration_minutes: 50,
     workout_sets: [setRow(1)],
-    workout_exercise_targets: [],
+    workout_exercises: [cardRow()],
     ...overrides,
   };
 }
@@ -73,10 +89,12 @@ describe('fetchAllWorkouts', () => {
 
     const select = lastBuilder()?.calls.find((call) => call.startsWith('select'));
 
-    // The sets and the targets travel with the workout, and the exercise name travels with the set:
-    // an export is data and cannot lean on a catalogue that may not be loaded.
+    // The sets, the cards and the exercise names all travel with the workout: an export is data and
+    // cannot lean on a catalogue that may not be loaded. `workout_exercise_id` is what lets a set be
+    // filed against its own card instead of its exercise.
     expect(select).toContain('workout_sets(');
-    expect(select).toContain('workout_exercise_targets(');
+    expect(select).toContain('workout_exercise_id');
+    expect(select).toContain('workout_exercises(');
     expect(select).toContain('exercises(name)');
   });
 
@@ -126,20 +144,18 @@ describe('fetchAllWorkouts', () => {
     expect(sets[1]?.weightKg).toBeNull();
   });
 
-  it('carries the session target of each exercise, and keeps one that has no sets', async () => {
+  it('carries the session target of each card, and keeps one that has no sets', async () => {
     fake.setTableResult('workouts', {
       data: [
         workoutRow({
           workout_sets: [],
-          workout_exercise_targets: [
-            {
-              exercise_id: EXERCISE_ID,
-              position: 1,
+          workout_exercises: [
+            cardRow({
               target_reps: 10,
               target_weight_min: '60.00',
               target_weight_max: '80.00',
               exercise: { name: 'Press banca' },
-            },
+            }),
           ],
         }),
       ],
@@ -157,13 +173,60 @@ describe('fetchAllWorkouts', () => {
     });
   });
 
-  it('hands an exercise its own name from the set when there is no target', async () => {
+  /**
+   * The same exercise twice in one session is two cards, and each set belongs to the card it was
+   * recorded in. Grouping by exercise merged the two blocks and could not say which set was which —
+   * the note this fixes was already written in `L41`.
+   *
+   * The cards arrive out of position order so the assertion is about the **stored** order and not
+   * about the order the response happened to use.
+   */
+  it('keeps two cards of the same exercise apart, in their stored order', async () => {
     fake.setTableResult('workouts', {
-      data: [workoutRow({ workout_sets: [setRow(1)], workout_exercise_targets: [] })],
+      data: [
+        workoutRow({
+          workout_sets: [
+            setRow(1, { workout_exercise_id: 'card-b', weight_kg: '100.00' }),
+            setRow(1, { workout_exercise_id: 'card-a', weight_kg: '70.00' }),
+          ],
+          workout_exercises: [
+            cardRow({ id: 'card-b', position: 2 }),
+            cardRow({ id: 'card-a', position: 1 }),
+          ],
+        }),
+      ],
       error: null,
     });
 
-    expect((await fetchAllWorkouts(USER_ID))[0]?.exercises[0]?.name).toBe('Sentadilla');
+    const exercises = (await fetchAllWorkouts(USER_ID))[0]?.exercises ?? [];
+
+    expect(exercises).toHaveLength(2);
+    expect(exercises[0]?.sets[0]?.weightKg).toBe(70);
+    expect(exercises[1]?.sets[0]?.weightKg).toBe(100);
+  });
+
+  /**
+   * A set the read could not attribute to a card is still the user's data, so it still goes in the
+   * file, named after the exercise it carries. Dropping it would be the export silently losing a
+   * row, which is the one failure an export must not have.
+   */
+  it('still exports a set whose card was not read, under its own exercise name', async () => {
+    fake.setTableResult('workouts', {
+      data: [
+        workoutRow({
+          workout_exercises: [],
+          workout_sets: [
+            setRow(1, { workout_exercise_id: null, exercise: { name: 'Sentadilla' } }),
+          ],
+        }),
+      ],
+      error: null,
+    });
+
+    const exercises = (await fetchAllWorkouts(USER_ID))[0]?.exercises ?? [];
+
+    expect(exercises[0]?.name).toBe('Sentadilla');
+    expect(exercises[0]?.sets).toHaveLength(1);
   });
 
   it('throws the error whole instead of returning a half-empty file', async () => {

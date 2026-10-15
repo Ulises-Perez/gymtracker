@@ -45,8 +45,9 @@ export type WorkoutExerciseDraft = {
    *
    * All three are optional and independent, because they get typed at different moments and a
    * target that only says "10 reps" is a real one. They belong to the card and not to the exercise
-   * — the same exercise can be given two different targets in a single session — which is why the
-   * payload sends the card's position along with them.
+   * — the same exercise can be given two different targets in a single session — which is why they
+   * travel with the card: since 0012 the card is one row, and the order of the payload's cards is the
+   * order of the session.
    */
   targetReps: number | null;
   targetWeightMin: number | null;

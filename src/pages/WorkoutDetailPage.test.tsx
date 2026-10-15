@@ -16,6 +16,7 @@ vi.mock('../hooks/useAuth.ts', () => ({
 
 const WORKOUT_ID = '33333333-3333-4333-8333-333333333333';
 const PRESS_BANCA = '01920000-0000-7000-8000-0000000000a1';
+const CARD_ID = '01920000-0000-7000-8000-0000000000c1';
 
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
@@ -44,11 +45,16 @@ beforeEach(() => {
     data: [{ id: WORKOUT_ID, date: '2026-10-13', title: 'Empuje', duration_minutes: 52 }],
     error: null,
   });
+  fake.setTableResult('workout_exercises', {
+    data: [{ id: CARD_ID, exercise_id: PRESS_BANCA, position: 1 }],
+    error: null,
+  });
   fake.setTableResult('workout_sets', {
     data: [
       {
         id: 'set-1',
         exercise_id: PRESS_BANCA,
+        workout_exercise_id: CARD_ID,
         set_number: 1,
         reps: 10,
         weight_kg: '70.00',
@@ -57,6 +63,7 @@ beforeEach(() => {
       {
         id: 'set-2',
         exercise_id: PRESS_BANCA,
+        workout_exercise_id: CARD_ID,
         set_number: 2,
         reps: 8,
         weight_kg: '75.00',
@@ -113,6 +120,7 @@ describe('WorkoutDetailPage', () => {
         {
           id: 'set-1',
           exercise_id: PRESS_BANCA,
+          workout_exercise_id: CARD_ID,
           set_number: 1,
           reps: 10,
           weight_kg: '100.00',
@@ -139,6 +147,7 @@ describe('WorkoutDetailPage', () => {
         {
           id: 'set-1',
           exercise_id: PRESS_BANCA,
+          workout_exercise_id: CARD_ID,
           set_number: 1,
           reps: 10,
           weight_kg: null,
@@ -152,6 +161,55 @@ describe('WorkoutDetailPage', () => {
 
     // A set left half written is a record of what happened, and "0 lb" is a claim nobody made.
     expect(await screen.findByText(/1ª · 10 × —/)).toBeInTheDocument();
+  });
+
+  /**
+   * The same exercise twice in one session is two cards, and each set has to land in the card it
+   * was recorded in. Grouping by exercise would stack the two blocks into one, which is the reason
+   * 0012 gave the card an identity of its own.
+   *
+   * The cards arrive deliberately out of order so the assertion is about the **stored** order, not
+   * about the order the query happened to hand them over.
+   */
+  it('keeps two cards of the same exercise apart, in the stored order', async () => {
+    fake.setTableResult('workout_exercises', {
+      data: [
+        { id: 'card-b', exercise_id: PRESS_BANCA, position: 2 },
+        { id: 'card-a', exercise_id: PRESS_BANCA, position: 1 },
+      ],
+      error: null,
+    });
+    fake.setTableResult('workout_sets', {
+      data: [
+        {
+          id: 'set-a',
+          exercise_id: PRESS_BANCA,
+          workout_exercise_id: 'card-a',
+          set_number: 1,
+          reps: 10,
+          weight_kg: '70.00',
+          is_warmup: false,
+        },
+        {
+          id: 'set-b',
+          exercise_id: PRESS_BANCA,
+          workout_exercise_id: 'card-b',
+          set_number: 1,
+          reps: 5,
+          weight_kg: '100.00',
+          is_warmup: false,
+        },
+      ],
+      error: null,
+    });
+
+    renderPage();
+
+    const lists = await screen.findAllByRole('list', { name: 'Series de Press Banca' });
+
+    expect(lists).toHaveLength(2);
+    expect(lists[0]).toHaveTextContent(/1ª · 10 × 70\.0 kg/);
+    expect(lists[1]).toHaveTextContent(/1ª · 5 × 100\.0 kg/);
   });
 
   it('says the workout may be gone when it cannot be read', async () => {

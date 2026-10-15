@@ -99,17 +99,33 @@ describe('fetchWorkoutPage', () => {
 });
 
 describe('fetchWorkoutDetail', () => {
+  const EXERCISE_ID = '01920000-0000-7000-8000-0000000000a1';
+  const CARD_ID = '01920000-0000-7000-8000-0000000000c1';
+
   const SET_ROW = {
     id: '01920000-0000-7000-8000-0000000000b1',
-    exercise_id: '01920000-0000-7000-8000-0000000000a1',
+    exercise_id: EXERCISE_ID,
+    workout_exercise_id: CARD_ID,
     set_number: 1,
     reps: 10,
     weight_kg: '70.00',
     is_warmup: false,
   };
 
+  const CARD_ROW = { id: CARD_ID, exercise_id: EXERCISE_ID, position: 1 };
+
+  /** The builder one table's query ran on, so its shape can be asserted separately. */
+  function builderFor(table: string): { calls: string[] } | undefined {
+    const index = fake.from.mock.calls.findIndex(([name]) => name === table);
+
+    return index === -1
+      ? undefined
+      : (fake.from.mock.results[index]?.value as { calls: string[] } | undefined);
+  }
+
   beforeEach(() => {
     fake.setTableResult('workout_sets', { data: [SET_ROW], error: null });
+    fake.setTableResult('workout_exercises', { data: [CARD_ROW], error: null });
   });
 
   it('turns the decimal into a number at the boundary, and nowhere else', async () => {
@@ -126,6 +142,29 @@ describe('fetchWorkoutDetail', () => {
     expect((await fetchWorkoutDetail(row(1).id)).sets[0]?.weightKg).toBeNull();
   });
 
+  /**
+   * A set belongs to a **card**, not to an exercise, and that is the whole reason 0012 exists: with
+   * the same exercise in two cards, the exercise id cannot say which block the set was part of. The
+   * read has to carry the card id, and it has to ask the database for the column.
+   */
+  it('attributes each set to the card it belongs to', async () => {
+    const detail = await fetchWorkoutDetail(row(1).id);
+
+    expect(detail.sets[0]?.workoutExerciseId).toBe(CARD_ID);
+    expect(builderFor('workout_sets')?.calls.join(' ')).toContain('workout_exercise_id');
+  });
+
+  /**
+   * The position is what makes the order the database stores the order the screen shows. It has to
+   * be read, and the read has to ask for it in that order.
+   */
+  it('reads the cards with their place, in order', async () => {
+    const detail = await fetchWorkoutDetail(row(1).id);
+
+    expect(detail.exercises).toEqual([{ id: CARD_ID, exerciseId: EXERCISE_ID, position: 1 }]);
+    expect(builderFor('workout_exercises')?.calls).toContain('order position');
+  });
+
   it('refuses a workout that is not there instead of returning an empty one', async () => {
     fake.setTableResult('workouts', { data: [], error: null });
 
@@ -137,6 +176,17 @@ describe('fetchWorkoutDetail', () => {
   it('throws the error whole when the sets cannot be read', async () => {
     fake.setTableResult('workout_sets', { data: null, error: { message: 'permission denied' } });
 
+    await expect(fetchWorkoutDetail(row(1).id)).rejects.toThrow('permission denied');
+  });
+
+  it('throws the error whole when the cards cannot be read', async () => {
+    fake.setTableResult('workout_exercises', {
+      data: null,
+      error: { message: 'permission denied' },
+    });
+
+    // Swallowed, this failure would render a workout with no exercises at all -- the same screen a
+    // workout that really was empty would show.
     await expect(fetchWorkoutDetail(row(1).id)).rejects.toThrow('permission denied');
   });
 });

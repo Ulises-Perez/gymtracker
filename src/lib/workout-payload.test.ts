@@ -14,8 +14,12 @@ import { toSaveWorkoutPayload } from './workout-payload.ts';
  * It is one function and it is worth a file of its own, because every mistake here
  * is a silent corruption rather than a crash: a set numbered from zero, a duration
  * counted from the wrong end, a row the user never filled arriving as a set they
- * performed. The server does no filtering of its own — it deletes the workout's sets
- * and writes whatever the array contains.
+ * performed. The server does no filtering of its own — it deletes the workout's cards
+ * and their sets and writes whatever the array contains.
+ *
+ * Since migration 0012 the payload carries **cards**, in the order the session had them, each with
+ * its own target and its sets inside. The array order *is* the card order, so nothing here computes
+ * a position any more: the RPC numbers it from the array.
  */
 
 const WORKOUT_ID = '01920000-0000-7000-8000-000000000001';
@@ -101,6 +105,40 @@ describe('toSaveWorkoutPayload', () => {
     expect(payload.notes).toBe('costó');
   });
 
+  /**
+   * Every card is sent, and this is the rule 0012 exists for: a card is an entity the user created,
+   * and one they never filled in is still a card they put on the screen. It travels with an empty
+   * `sets` array rather than being dropped, so the session can be repeated in the order it was
+   * actually made.
+   */
+  it('sends a card the user added but never filled in', () => {
+    const payload = toSaveWorkoutPayload(draft({ exercises: [card({ sets: [] })] }));
+
+    expect(payload.exercises).toHaveLength(1);
+    expect(payload.exercises[0]).toMatchObject({ exercise_id: PRESS_BANCA, sets: [] });
+  });
+
+  /**
+   * The array order **is** the card order, and the RPC numbers the stored position from it. The
+   * draft's `exercises` array is what drag and drop sorts, so this is the one place the order could
+   * be scrambled on the way out.
+   */
+  it('keeps the cards in the order the session had them', () => {
+    const payload = toSaveWorkoutPayload(
+      draft({
+        exercises: [
+          card({ id: 'card-1', exerciseId: PRESS_BANCA }),
+          card({ id: 'card-2', exerciseId: PRESS_INCLINADO }),
+        ],
+      }),
+    );
+
+    expect(payload.exercises.map((entry) => entry.exercise_id)).toEqual([
+      PRESS_BANCA,
+      PRESS_INCLINADO,
+    ]);
+  });
+
   it('numbers the sets of each card from one', () => {
     const payload = toSaveWorkoutPayload(
       draft({
@@ -112,7 +150,7 @@ describe('toSaveWorkoutPayload', () => {
       }),
     );
 
-    expect(payload.sets.map((entry) => entry.set_number)).toEqual([1]);
+    expect(payload.exercises[0]?.sets.map((entry) => entry.set_number)).toEqual([1]);
   });
 
   /**
@@ -143,13 +181,11 @@ describe('toSaveWorkoutPayload', () => {
       }),
     );
 
-    expect(payload.sets.map((entry) => entry.set_number)).toEqual([1, 2, 1, 2]);
-    expect(payload.sets.map((entry) => entry.exercise_id)).toEqual([
-      PRESS_BANCA,
-      PRESS_BANCA,
-      PRESS_BANCA,
-      PRESS_BANCA,
+    expect(payload.exercises.map((entry) => entry.sets.map((s) => s.set_number))).toEqual([
+      [1, 2],
+      [1, 2],
     ]);
+    expect(payload.exercises.map((entry) => entry.exercise_id)).toEqual([PRESS_BANCA, PRESS_BANCA]);
   });
 
   /**
@@ -176,7 +212,9 @@ describe('toSaveWorkoutPayload', () => {
       }),
     );
 
-    expect(payload.sets.map((entry) => entry.id)).toEqual(['01920000-0000-7000-8000-0000000000d1']);
+    expect(payload.exercises[0]?.sets.map((entry) => entry.id)).toEqual([
+      '01920000-0000-7000-8000-0000000000d1',
+    ]);
   });
 
   /**
@@ -194,9 +232,11 @@ describe('toSaveWorkoutPayload', () => {
       }),
     );
 
-    expect(payload.sets).toHaveLength(1);
-    expect(payload.sets[0]?.reps).toBe(8);
-    expect(payload.sets[0]?.weight_kg).toBeNull();
+    const sets = payload.exercises[0]?.sets ?? [];
+
+    expect(sets).toHaveLength(1);
+    expect(sets[0]?.reps).toBe(8);
+    expect(sets[0]?.weight_kg).toBeNull();
   });
 
   it('keeps the per-set flags and notes the user chose', () => {
@@ -210,9 +250,9 @@ describe('toSaveWorkoutPayload', () => {
       }),
     );
 
-    expect(payload.sets[0]?.is_warmup).toBe(true);
-    expect(payload.sets[0]?.rpe).toBe(7.5);
-    expect(payload.sets[0]?.notes).toBe('última con ayuda');
+    expect(payload.exercises[0]?.sets[0]?.is_warmup).toBe(true);
+    expect(payload.exercises[0]?.sets[0]?.rpe).toBe(7.5);
+    expect(payload.exercises[0]?.sets[0]?.notes).toBe('última con ayuda');
   });
 });
 
@@ -222,7 +262,7 @@ describe('the custom exercises the payload carries', () => {
 
   /**
    * The custom definition travels with the payload because the row does not exist on
-   * the server yet, and `workout_sets.exercise_id` is a foreign key: without it, the
+   * the server yet, and `workout_exercises.exercise_id` is a foreign key: without it, the
    * whole workout cannot be written (migration 0008).
    */
   it('carries the one the saved sets reference', () => {
@@ -252,10 +292,27 @@ describe('the custom exercises the payload carries', () => {
   });
 
   /**
-   * Deleting the card does not delete the definition from the draft, and a definition
-   * with no sets is not referenced by anything the server will write. Sending it would
-   * create an exercise in the catalogue that the user never trained with — a row they
-   * cannot delete from the app.
+   * The card is a real row now, so the exercise it names has to exist before it can be written.
+   * The card references the custom even with no sets recorded, which is what makes the definition
+   * necessary here: without it the FK on `workout_exercises.exercise_id` fails the whole save.
+   */
+  it('carries a definition whose card is still there with no sets recorded', () => {
+    const payload = toSaveWorkoutPayload(
+      draft({
+        exercises: [card({ exerciseId: CUSTOM_ID, sets: [] })],
+        customExercises: [CUSTOM],
+      }),
+    );
+
+    expect(payload.custom_exercises).toEqual([
+      { id: CUSTOM_ID, name: 'Press con banda', muscle_group_id: null },
+    ]);
+  });
+
+  /**
+   * Deleting the card does not delete the definition from the draft, and no card references it any
+   * more. Sending it would create an exercise in the catalogue that the user never trained with —
+   * a row they cannot delete from the app.
    */
   it('leaves out a definition whose card was removed before saving', () => {
     const payload = toSaveWorkoutPayload(
@@ -267,54 +324,32 @@ describe('the custom exercises the payload carries', () => {
 
     expect(payload.custom_exercises).toEqual([]);
   });
-
-  it('leaves out a definition whose sets were all left empty', () => {
-    const payload = toSaveWorkoutPayload(
-      draft({
-        exercises: [card({ exerciseId: CUSTOM_ID, sets: [set({ reps: null, weightKg: null })] })],
-        customExercises: [CUSTOM],
-      }),
-    );
-
-    expect(payload.custom_exercises).toEqual([]);
-  });
 });
 
 describe('the targets the payload carries', () => {
-  it('carries the target of the card that has one', () => {
+  /**
+   * The target belongs to the card (0012 absorbed `workout_exercise_targets`), so it travels with
+   * the card and not in a parallel array where it could be filed against the wrong one.
+   */
+  it('carries the target with the card that has one', () => {
     const payload = toSaveWorkoutPayload(
       draft({
         exercises: [card({ targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 })],
       }),
     );
 
-    expect(payload.exercise_targets).toEqual([
-      {
-        exercise_id: PRESS_BANCA,
-        position: 1,
-        target_reps: 10,
-        target_weight_min: 60,
-        target_weight_max: 80,
-      },
-    ]);
-  });
-
-  /**
-   * An all-empty target is not a target: it is a card the user never got around to. Sending it
-   * would put a row in the database that says nothing.
-   */
-  it('leaves out a card that has no target at all', () => {
-    const payload = toSaveWorkoutPayload(draft({ exercises: [card()] }));
-
-    expect(payload.exercise_targets).toEqual([]);
+    expect(payload.exercises[0]).toMatchObject({
+      exercise_id: PRESS_BANCA,
+      target_reps: 10,
+      target_weight_min: 60,
+      target_weight_max: 80,
+    });
   });
 
   it('sends a half-written target with nulls for the rest', () => {
     const payload = toSaveWorkoutPayload(draft({ exercises: [card({ targetReps: 8 })] }));
 
-    expect(payload.exercise_targets?.[0]).toEqual({
-      exercise_id: PRESS_BANCA,
-      position: 1,
+    expect(payload.exercises[0]).toMatchObject({
       target_reps: 8,
       target_weight_min: null,
       target_weight_max: null,
@@ -322,24 +357,17 @@ describe('the targets the payload carries', () => {
   });
 
   /**
-   * The position is the card's place in the session, not its place among the targets. The second
-   * card is the only one with a target here and it still has to be 2 — filing it as 1 would put the
-   * target against the wrong exercise the day the same exercise appears twice, which is the whole
-   * reason the database key carries a position.
+   * A card with no target is still a card, so its target fields are null and not omitted: the card
+   * is in the array whatever it holds.
    */
-  it('numbers the target by the card, not by how many cards have one', () => {
-    const payload = toSaveWorkoutPayload(
-      draft({
-        exercises: [
-          card({ id: 'card-1', exerciseId: PRESS_INCLINADO }),
-          card({ id: 'card-2', exerciseId: PRESS_BANCA, targetReps: 5 }),
-        ],
-      }),
-    );
+  it('keeps a card that has no target at all, with nulls for its target', () => {
+    const payload = toSaveWorkoutPayload(draft({ exercises: [card()] }));
 
-    expect(payload.exercise_targets?.[0]).toMatchObject({
+    expect(payload.exercises[0]).toMatchObject({
       exercise_id: PRESS_BANCA,
-      position: 2,
+      target_reps: null,
+      target_weight_min: null,
+      target_weight_max: null,
     });
   });
 });
@@ -388,11 +416,66 @@ describe('the payload it builds is one the contract accepts', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('parses for a session with no sets at all', () => {
+  it('parses for a session with no cards at all', () => {
     // Starting a workout and finishing it without logging anything is odd but legal,
     // and the RPC loops over an empty array without complaining.
     const payload = toSaveWorkoutPayload(draft({ exercises: [] }));
 
     expect(saveWorkoutPayloadSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it('parses for a card with nothing on it', () => {
+    const payload = toSaveWorkoutPayload(draft({ exercises: [card({ sets: [] })] }));
+
+    expect(saveWorkoutPayloadSchema.safeParse(payload).success).toBe(true);
+  });
+});
+
+/**
+ * The contract, pinned by name.
+ *
+ * The schema above proves the payload parses. It cannot prove the SQL will read what the payload
+ * says, because the RPC pulls keys out of `jsonb` and the generated types see that argument as
+ * opaque `Json`. So the names are asserted one by one: a renamed key on either side is a write the
+ * server silently ignores, and it is the failure mode with no error message anywhere. `position` is
+ * asserted **absent** on purpose — 0012 numbers it from the array order.
+ */
+describe('the exact keys the server reads', () => {
+  const payload = toSaveWorkoutPayload(draft());
+
+  it('a card carries exactly those keys, and no position', () => {
+    expect(Object.keys(payload.exercises[0] ?? {}).sort()).toEqual([
+      'exercise_id',
+      'sets',
+      'target_reps',
+      'target_weight_max',
+      'target_weight_min',
+    ]);
+  });
+
+  it('a set inside a card carries exactly those keys, and no exercise_id', () => {
+    // The exercise is the card's, so a set does not repeat it: the RPC writes the card's id into
+    // every row of `workout_sets` and would ignore a second copy.
+    expect(Object.keys(payload.exercises[0]?.sets[0] ?? {}).sort()).toEqual([
+      'id',
+      'is_warmup',
+      'notes',
+      'reps',
+      'rpe',
+      'set_number',
+      'weight_kg',
+    ]);
+  });
+
+  it('the payload itself carries exactly those keys', () => {
+    expect(Object.keys(payload).sort()).toEqual([
+      'custom_exercises',
+      'date',
+      'duration_minutes',
+      'exercises',
+      'id',
+      'notes',
+      'title',
+    ]);
   });
 });
