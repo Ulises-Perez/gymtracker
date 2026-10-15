@@ -207,6 +207,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 - [x] **T6.1a** La capa de datos del perfil: leer nombre, avatar y unidad, y escribir la preferencia. **Cerrada** en `d7f3590`. **350/350 unit tests en 43 archivos**, typecheck y lint limpios. **Sin migración**: `profiles` ya tenía `weight_unit` y `avatar_url`. **`updateWeightUnit` escribe la preferencia y nunca un peso**: es el DoD de S9 en una función, y el test afirma **las columnas que se escriben** porque una escritura que llevara un peso reescribiría el historial. Una unidad desconocida se lee como kilos. Ver `L38`.
 - [ ] **T6.1b** La pantalla de perfil (nombre, avatar en el bucket `avatars`, y el selector de unidad), con **T4.4b**: el toggle kg/lb que se movió acá, y las etiquetas de peso del resto de las pantallas. **T4.4b decidido y en curso** (ver `L39`): la preferencia es **de lectura**, y la regla es *convierte la pantalla cuya materia es leer, no la que sirve para entrar*. **El avatar sigue pendiente**: el bucket `avatars` necesita el stack local para probarse, y Docker no está disponible en esta sesión.
+- [ ] **T6.4** **La tarjeta como entidad en la base** (`workout_exercises`): diseñada en `L42`, **no escrita**. Es prerequisito de "repetir workout" (T6.3) y arregla el agrupado del detalle y del CSV. Necesita Docker.
 - [ ] **T6.2** Stats derivadas (no columnas) + peso corporal.
 - [ ] **T6.3** "Repetir workout" + export CSV + logout. **El CSV hecho** (la mitad del DoD de S9): ver `L41`. **Falta "repetir workout"**; el logout ya estaba desde la Fase 2.
 
@@ -975,3 +976,47 @@ El detalle del workout puede borrar el entrenamiento que muestra, con confirmaci
 **Verificación del padre, corriendo las comprobaciones**: **404/404 unit tests en 48 archivos** (382 + uno por regla), typecheck, lint y `prettier --check` limpios, **bundle inicial 119.04 kB de 180** (igual que antes del tramo: el CSV vive en su propio chunk). Y una práctica del escritor que vale registrar: **chequeó que su propio test de paginado no fuera vacuo** reduciendo el bucle a una página a propósito y viendo fallar la aserción (`expected to be called 2 times, but got 1 times`), y después restauró.
 
 **Lo que queda de la Fase 6**: **"repetir workout"** (lo último de T6.3), **T6.2** (peso corporal y stats derivadas) y **el avatar de T6.1b** (necesita el bucket y el stack local).
+
+### L42 · T6.4: el diseño de la tarjeta como entidad, y por qué no se escribe todavía (2026-10-14)
+
+**El hallazgo que abrió esto**: al planear "repetir workout" apareció que **la tarjeta —el ejercicio dentro de una sesión— no existe en la base**. Existe en el cliente (`WorkoutExerciseDraft`), viaja en el payload, y en la base sólo quedan sus consecuencias: sus series en `workout_sets` (**sin orden ni posición**) y, **sólo si alguien cargó un objetivo**, su `position` en `workout_exercise_targets`. Tres consecuencias que ya se estaban pagando: **el orden de las tarjetas se pierde** (no se puede repetir un entrenamiento con fidelidad), el detalle y el CSV **agrupan por ejercicio** (y el CSV no puede atribuir las series a una tarjeta cuando el mismo ejercicio aparece dos veces), y **una tarjeta sin series y sin objetivo desaparece** del todo. `created_at` no salva el orden: es el timestamp de la transacción, así que **todas las series de un guardado lo comparten**.
+
+**La decisión del usuario**: **darle entidad a la tarjeta en la base** (opción "migración", por encima de un "repetir" degradado y de saltear a T6.2).
+
+**El diseño, para revisar antes de escribir una línea de SQL.**
+
+```sql
+CREATE TABLE public.workout_exercises (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workout_id UUID NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  exercise_id UUID NOT NULL REFERENCES public.exercises(id),
+  position INT NOT NULL CHECK (position > 0),
+  target_reps INT,
+  target_weight_min DECIMAL(6,2),
+  target_weight_max DECIMAL(6,2),
+  CONSTRAINT workout_exercises_position_key UNIQUE (workout_id, position),
+  CONSTRAINT workout_exercises_owner_fkey
+    FOREIGN KEY (workout_id, user_id) REFERENCES public.workouts(id, user_id) ON DELETE CASCADE
+);
+```
+
+1. **La clave de la tarjeta es `(workout_id, position)`**, y no `(workout_id, exercise_id, position)`. El mismo ejercicio dos veces son **dos tarjetas**, y lo que las identifica es el lugar, no el ejercicio. Es exactamente el criterio que O2 ya había escrito para el objetivo y que ahora pasa a ser el de la tarjeta entera.
+2. **El objetivo se muda a la tarjeta**: `workout_exercise_targets` **se absorbe**. Nunca fue otra cosa —"el objetivo es de la tarjeta" está documentado desde O2—, sólo estaba guardado en una tabla aparte, que era la única que llevaba la posición.
+3. **`workout_sets` conserva `exercise_id` y suma `workout_exercise_id`.** Conservar el `exercise_id` denormalizado no es pereza: **`exercise_progress` (Fase 1, con sus tests) agrega por `exercise_id` sobre `workout_sets`**, y quitarle la columna obligaría a reescribir esa función y sus aserciones, que hoy son el contrato del gráfico. Con las dos columnas hace falta **una guarda de consistencia**: la serie no puede declarar un ejercicio distinto del de su tarjeta. Va como trigger (integridad declarativa, como hizo `0004` con el dueño) y no como disciplina del cliente.
+4. **RLS y dueño**: las mismas dos piezas que `workout_sets` —policy por `user_id` y FK compuesta contra `workouts(id, user_id)`, que `0004` ya habilitó con su `UNIQUE`.
+5. **Backfill, y su límite honesto**: para las sesiones ya guardadas se crea una tarjeta por `(workout_id, exercise_id)`, con `position` = la del objetivo cuando existe y, cuando no, un orden **determinista** (menor `set_number`, desempate por `exercise_id`), y después se llenan los `workout_exercise_id` de las series por ese par. **Ese orden es reconstruido, no recuperado**: el dato original no está, y la migración lo tiene que decir en su encabezado para que nadie lo lea como fidelidad.
+6. **Compatibilidad del RPC, y es lo más fácil de olvidar**: `save_workout` recibe el payload nuevo (tarjetas con posición, y sus series adentro) **y sigue aceptando el viejo**. El motivo no es cortesía: **una escritura encolada offline antes del deploy tiene el payload viejo**, y un RPC que sólo entienda la forma nueva la haría fallar para siempre en el primer reintento. La rama de compatibilidad convierte la forma vieja al modelo nuevo, con su test.
+7. **Lo que NO cambia**: `exercise_progress` (lee `workout_sets`), el `REVOKE`/`GRANT` de `0003` (la firma de `save_workout` no cambia), el cálculo del 1RM en el servidor dentro de la misma transacción, y la idempotencia (un reintento **reemplaza** las tarjetas y sus series, como hoy reemplaza las series).
+
+**El plan de ejecución, en orden, y lo que cada paso exige.** Los cuatro primeros pasos necesitan **Docker** (`npx supabase start`) y por eso **no se ejecutaron**:
+
+1. La migración `0012_workout_exercises.sql`: tabla + RLS + trigger de consistencia + backfill + el paso nuevo de `save_workout` (con su rama de compatibilidad).
+2. El archivo pgTAP con sus aserciones: RLS de la tabla nueva, unicidad de `(workout_id, position)`, `position > 0`, la guarda de consistencia serie↔tarjeta, el orden escrito por el RPC, la idempotencia del reintento, las dos formas del payload y el backfill determinista. **RED observado contra la base local ANTES de aplicar**, que es como se hizo en `0008` y en `0011` (las dos veces el RED encontró algo).
+3. `npx supabase migration up --local` (nunca `db reset`, que borra los datos con los que el usuario prueba) y `npx supabase test db`.
+4. `printf 'y\n' | npx supabase db push --linked` — **con la suite en verde**, no antes.
+5. **Cliente**: el borrador pasa a `version: 3` con su `migrate`, el mapeo del payload manda tarjetas con posición, y **"repetir workout" (T6.3) queda fiel**: los mismos ejercicios, **en su orden**, con sus objetivos, y las series vacías (la carga ya viene del historial, que es de donde el gimnasio la quiere).
+6. **Lecturas**: el detalle deja de agrupar por su cuenta y muestra las tarjetas en orden; el CSV usa el orden de la tarjeta y con eso se le cae la nota sobre el mismo ejercicio dos veces.
+7. **Las dos cosas que ya quedaron anotadas y esto también arregla**: `src/types/database.ts` regenerado (le falta `workout_exercise_targets` y tipa `rpe` como número cuando llega string) y el `select` anidado de la exportación ejercitado contra PostgREST de verdad.
+
+**Por qué no se escribe nada todavía, y no es demora**: es una migración **alta** —toca el RPC que escribe datos, el payload que viaja en la cola offline y todas las lecturas— y **la regla de este proyecto es que el RED de una migración se observa contra la base real antes de aplicarla** (las dos veces que se hizo, en `0008` y en `0011`, el RED encontró un defecto). Escribirla sin poder correr ni una aserción sería dejar en el árbol una migración sin probar sobre datos de verdad, y eso es peor que no tenerla.
