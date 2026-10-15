@@ -1,5 +1,11 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute } from 'workbox-precaching';
+import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+// The routing policy is plain ESM shared with the Node tests, so it ships no types of its own. The
+// contract is held by scripts/sw-rules.test.mjs rather than by the compiler; if this import ever earns
+// a .d.mts beside it, this suppression will start failing loudly, which is the intent.
+// @ts-expect-error -- plain-ESM rules module without a .d.mts declaration.
+import { APP_SHELL_URL, SW_ROUTES } from '../scripts/sw-rules.mjs';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Parameters<typeof precacheAndRoute>[0];
@@ -25,13 +31,38 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// App shell precache, generated from the build manifest.
+// App shell precache, generated from the build manifest: every static asset of
+// the build (JS, CSS, HTML and fonts) is served from the cache offline.
 precacheAndRoute(self.__WB_MANIFEST);
 
 /**
- * Runtime caching policy is deliberately NOT defined here yet.
+ * Runtime routes, from the policy in scripts/sw-rules.mjs.
  *
- * T7.2 owns it: the exercise catalogue gets a StaleWhileRevalidate strategy,
- * while Supabase auth and every write endpoint must never be cached — a cached
- * auth response or a cached POST is how an offline-first app corrupts data.
+ * The list holds exactly one entry -- the app shell fallback -- and the rules
+ * module is where the negative half is stated and tested: no route may ever
+ * answer `/auth/*`, `/rest/*`, `/storage/*` or a write. This loop is the only
+ * place a route is registered, so a rule that is not in the list cannot be
+ * reached.
  */
+for (const rule of SW_ROUTES) {
+  switch (rule.strategy) {
+    case 'navigation-fallback':
+      registerRoute(
+        ({ request, url, sameOrigin }) =>
+          rule.matches({
+            pathname: url.pathname,
+            method: request.method,
+            mode: request.mode,
+            sameOrigin,
+          }),
+        // The handler answers the navigation with the precached shell, so a
+        // deep, client-routed URL opened offline still boots the app.
+        createHandlerBoundToURL(APP_SHELL_URL),
+      );
+      break;
+    default:
+      // An unknown strategy is left unregistered: fail closed rather than
+      // guess at a handler for a rule this worker does not implement.
+      break;
+  }
+}
