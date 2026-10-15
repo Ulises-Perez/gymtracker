@@ -6,7 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQueryClient } from '../lib/queryClient.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
-import { useProfile, useUpdateWeightUnit, useWeightUnit } from './useProfile.ts';
+import {
+  useProfile,
+  useUpdateFullName,
+  useUpdateWeightUnit,
+  useUploadAvatar,
+  useWeightUnit,
+} from './useProfile.ts';
 
 vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 
@@ -132,5 +138,132 @@ describe('useUpdateWeightUnit', () => {
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
     });
+  });
+});
+
+/**
+ * The name, written to the column the sign-up trigger fills and read back from the same cache key the
+ * rest of the app reads the profile through, so the screen follows the save.
+ */
+describe('useUpdateFullName', () => {
+  it('saves the name and makes the profile follow, writing full_name and nothing else', async () => {
+    const { result } = renderHook(
+      () => ({ profile: useProfile(USER_ID), update: useUpdateFullName(USER_ID) }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.profile.data?.fullName).toBe('Ulises');
+    });
+
+    fake.setTableResult('profiles', {
+      data: [
+        { username: 'ulise', full_name: 'Ulises Fernández', avatar_url: null, weight_unit: 'lb' },
+      ],
+      error: null,
+    });
+    result.current.update.mutate('Ulises Fernández');
+
+    await waitFor(() => {
+      expect(result.current.profile.data?.fullName).toBe('Ulises Fernández');
+    });
+
+    // The column the alta writes, and only it: `username` is `UNIQUE` and nothing here may trip it.
+    expect(writtenCalls()).toContain('update full_name=Ulises Fernández');
+    expect(writtenCalls().some((call) => call.includes('username'))).toBe(false);
+
+    const calls = fake.from.mock.results.flatMap(
+      (result) => (result.value as { calls: string[] }).calls,
+    );
+
+    expect(calls).toContain(`eq id ${USER_ID}`);
+  });
+});
+
+/**
+ * The avatar upload, and the three moments it has to get right.
+ *
+ * The order is the substance: the new object goes up first, the profile is pointed at it second, and
+ * the object it replaced is deleted last. Deleting earlier would be able to take away the avatar that
+ * is still the live one; deleting never would leave every replacement in the bucket forever.
+ */
+describe('useUploadAvatar', () => {
+  const PREVIOUS_PATH = `${USER_ID}/avatar-viejo.png`;
+
+  function previousAvatarUrl(): string {
+    return `https://project.supabase.co/storage/v1/object/public/avatars/${PREVIOUS_PATH}`;
+  }
+
+  /** The order in which the three mocked calls actually happened. */
+  function callOrder(mock: { mock: { invocationCallOrder: number[] } }): number {
+    return mock.mock.invocationCallOrder[0] ?? 0;
+  }
+
+  beforeEach(() => {
+    client.setQueryData(['profile', USER_ID], {
+      username: 'ulise',
+      fullName: 'Ulises',
+      avatarUrl: previousAvatarUrl(),
+      weightUnit: 'lb',
+    });
+  });
+
+  it('uploads first, points the profile at the new object, and only then deletes the old one', async () => {
+    const file = new File([new Uint8Array(8)], 'foto', { type: 'image/png' });
+    const { result } = renderHook(() => useUploadAvatar(USER_ID), { wrapper });
+
+    result.current.mutate(file);
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const newPath = fake.storage.upload.mock.calls[0]?.[0];
+
+    expect(fake.storage.remove).toHaveBeenCalledWith([PREVIOUS_PATH]);
+    expect(writtenCalls()).toContain(
+      `update avatar_url=https://project.supabase.co/storage/v1/object/public/avatars/${newPath}`,
+    );
+
+    // The profile write is the one that makes the new avatar live, so nothing may be deleted before
+    // it lands; the old object is deleted after, and only after.
+    expect(callOrder(fake.storage.upload)).toBeLessThan(callOrder(fake.from));
+    expect(callOrder(fake.from)).toBeLessThan(callOrder(fake.storage.remove));
+  });
+
+  it('keeps the new avatar when the old one cannot be deleted', async () => {
+    fake.storage.remove.mockResolvedValue({ data: null, error: { message: 'not found' } });
+
+    const { result } = renderHook(() => useUploadAvatar(USER_ID), { wrapper });
+
+    result.current.mutate(new File([new Uint8Array(8)], 'foto', { type: 'image/png' }));
+
+    // A failed cleanup is not a failed replacement: the avatar the user just chose is stored.
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+  });
+
+  /**
+   * The other order, and it is the one that would be invisible without a test: the object went up but
+   * the profile was never pointed at it, so it is an upload nobody can see. It is removed on the way
+   * out, and the failure still reaches the screen.
+   */
+  it('takes the orphan back out when the profile write fails, and still fails', async () => {
+    fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
+
+    const { result } = renderHook(() => useUploadAvatar(USER_ID), { wrapper });
+
+    result.current.mutate(new File([new Uint8Array(8)], 'foto', { type: 'image/png' }));
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    const newPath = fake.storage.upload.mock.calls[0]?.[0];
+
+    expect(fake.storage.remove).toHaveBeenCalledWith([newPath]);
+    // And never the one that is still live: this path never stopped being the profile's avatar.
+    expect(fake.storage.remove).not.toHaveBeenCalledWith([PREVIOUS_PATH]);
   });
 });

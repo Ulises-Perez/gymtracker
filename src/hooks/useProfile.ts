@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { removeAvatarObject, uploadAvatarObject } from '../lib/avatar-api.ts';
 import { fetchBodyWeights, saveBodyWeight } from '../lib/body-weight-api.ts';
-import { fetchProfile, updateWeightUnit } from '../lib/profile-api.ts';
+import {
+  fetchProfile,
+  updateAvatarUrl,
+  updateFullName,
+  updateWeightUnit,
+} from '../lib/profile-api.ts';
+import type { Profile } from '../lib/profile-api.ts';
 import type { WeightUnit } from '../lib/units.ts';
 
 /**
@@ -63,6 +70,70 @@ export function useUpdateWeightUnit(userId: string) {
 
   return useMutation({
     mutationFn: (unit: WeightUnit) => updateWeightUnit(userId, unit),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+    },
+  });
+}
+
+/**
+ * Renames the user.
+ *
+ * It writes `full_name`, the same column `handle_new_user()` fills when the account is created, so the
+ * name the user typed at registration is the name this screen edits — there is no second one to keep
+ * in sync. `username` is a `UNIQUE` column that no path in this app writes, so there is no duplicate
+ * to catch here either.
+ *
+ * The profile key is invalidated on success, like the unit preference: every read of the profile goes
+ * through the same key, so refetching it is what makes the new name appear instead of a second copy of
+ * the state living in the screen.
+ */
+export function useUpdateFullName(userId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (fullName: string) => updateFullName(userId, fullName),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+    },
+  });
+}
+
+/**
+ * Replaces the avatar.
+ *
+ * Three steps, and their order is the whole point:
+ *
+ * 1. the new file goes into the bucket, under a name nothing else uses;
+ * 2. the profile is pointed at it — this is the write that makes it the live avatar;
+ * 3. the object the profile pointed at before is deleted, best effort.
+ *
+ * Deleting before step 2 would be able to take away the avatar that is still in use, so the previous
+ * URL is the one read from the cache *before* the upload, and `removeAvatarObject` refuses anything
+ * outside the caller's own folder. A failure in step 3 does not fail the replacement: the new avatar
+ * is already stored and visible, and an orphaned object is a cost, not a wrong screen. A failure in
+ * step 2 leaves the uploaded file with nothing pointing at it, so it is taken back out and the error
+ * still travels — the user has to be told the avatar did not save.
+ */
+export function useUploadAvatar(userId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const previous = queryClient.getQueryData<Profile>(['profile', userId])?.avatarUrl ?? null;
+      const url = await uploadAvatarObject(userId, file);
+
+      try {
+        await updateAvatarUrl(userId, url);
+      } catch (caught) {
+        await removeAvatarObject(userId, url).catch(() => undefined);
+        throw caught;
+      }
+
+      await removeAvatarObject(userId, previous).catch(() => undefined);
+
+      return url;
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['profile', userId] });
     },

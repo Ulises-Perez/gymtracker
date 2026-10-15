@@ -97,11 +97,45 @@ export function createFakeSupabase(initialSession: Session | null = null) {
     return createQueryBuilder(queued ?? tableResults[table] ?? { data: [], error: null });
   });
 
+  /**
+   * The storage half, stubbed the way the auth half is.
+   *
+   * What a test can assert here is the shape of *our* call —which bucket, which path, which
+   * content type— and not what supabase-js does with it. The public URL mirrors the SDK's own
+   * documented shape, because our code has to hand back something an `<img>` can use.
+   */
+  const upload = vi.fn(
+    async (
+      _path: string,
+      _file: unknown,
+      _options?: { contentType?: string; upsert?: boolean },
+    ): Promise<{ data: { path: string; fullPath: string } | null; error: unknown }> => ({
+      data: { path: 'uploaded', fullPath: 'uploaded' },
+      error: null,
+    }),
+  );
+  const remove = vi.fn(
+    async (_paths: string[]): Promise<{ data: unknown[] | null; error: unknown }> => ({
+      data: [],
+      error: null,
+    }),
+  );
+  const getPublicUrl = vi.fn((path: string) => ({
+    data: { publicUrl: `https://project.supabase.co/storage/v1/object/public/avatars/${path}` },
+  }));
+  const storageFrom = vi.fn(() => ({ upload, remove, getPublicUrl }));
+
   return {
-    client: { auth, rpc, from } as unknown as SupabaseClient<Database>,
+    client: {
+      auth,
+      rpc,
+      from,
+      storage: { from: storageFrom },
+    } as unknown as SupabaseClient<Database>,
     auth,
     rpc,
     from,
+    storage: { from: storageFrom, upload, remove, getPublicUrl },
     /** What `from(table)` will resolve with on the next query. */
     setTableResult(table: string, result: { data: unknown; error: unknown }): void {
       tableResults[table] = result;

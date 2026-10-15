@@ -6,6 +6,8 @@ import {
   fetchPrCount,
   fetchProfile,
   fetchWorkoutDates,
+  updateAvatarUrl,
+  updateFullName,
   updateWeightUnit,
 } from './profile-api.ts';
 import { getSupabase } from './supabase.ts';
@@ -79,6 +81,63 @@ describe('fetchProfile', () => {
     fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
 
     await expect(fetchProfile(USER_ID)).rejects.toThrow('permission denied');
+  });
+});
+
+/**
+ * The name, and it writes the column the sign-up trigger fills.
+ *
+ * `handle_new_user()` inserts `profiles (id, full_name) VALUES (NEW.id,
+ * NEW.raw_user_meta_data->>'full_name')`, so the "Nombre" typed at registration lands in
+ * **`full_name`** — not in `username`, which is a `UNIQUE` column nothing writes. Editing the name
+ * from the profile screen therefore has to touch the same column, or the screen would show one name
+ * and store another.
+ */
+describe('updateFullName', () => {
+  it('writes the name into full_name, and writes no other column', async () => {
+    await updateFullName(USER_ID, 'Ulises Fernández');
+
+    expect(lastBuilder()?.calls).toContain('update full_name=Ulises Fernández');
+    expect(lastBuilder()?.calls).toContain(`eq id ${USER_ID}`);
+  });
+
+  it('stores a blank name as null, because a name nobody wrote is not a name', async () => {
+    await updateFullName(USER_ID, '   ');
+
+    expect(lastBuilder()?.calls).toContain('update full_name=null');
+    expect(lastBuilder()?.calls).not.toContain('update full_name=   ');
+  });
+
+  it('throws the error whole when the write is refused', async () => {
+    fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
+
+    await expect(updateFullName(USER_ID, 'Ulises')).rejects.toThrow('permission denied');
+  });
+});
+
+/**
+ * The avatar, and what is stored is the URL that serves it.
+ *
+ * `profiles.avatar_url` is the column, and what belongs in it is something an `<img>` can take
+ * directly: the profile is read from the cache and drawn offline, so showing the avatar must not
+ * wait on the storage client to rebuild a URL.
+ */
+describe('updateAvatarUrl', () => {
+  it('writes the url into avatar_url, scoped to the user', async () => {
+    const url = `https://project.supabase.co/storage/v1/object/public/avatars/${USER_ID}/avatar-1.png`;
+
+    await updateAvatarUrl(USER_ID, url);
+
+    expect(lastBuilder()?.calls).toContain(`update avatar_url=${url}`);
+    expect(lastBuilder()?.calls).toContain(`eq id ${USER_ID}`);
+  });
+
+  it('throws the error whole when the write is refused', async () => {
+    fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
+
+    await expect(updateAvatarUrl(USER_ID, 'https://example.test/a.png')).rejects.toThrow(
+      'permission denied',
+    );
   });
 });
 

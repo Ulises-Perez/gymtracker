@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkoutExerciseCard } from '../components/workout/WorkoutExerciseCard.tsx';
 import { useWeightUnit } from '../hooks/useProfile.ts';
 import type { WorkoutExerciseDraft } from '../stores/workout-store.ts';
+import { AVATAR_MAX_BYTES, AVATAR_SIZE_ERROR, AVATAR_TYPE_ERROR } from '../lib/avatar-api.ts';
 import { createQueryClient } from '../lib/queryClient.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { toStoredKg } from '../lib/units.ts';
@@ -19,6 +20,7 @@ const USER_ID = '00000000-0000-4000-a000-000000000001';
 const EXERCISE_ID = '01920000-0000-7000-8000-0000000000a1';
 const CARD_ID = '01920000-0000-7000-8000-0000000000c1';
 const MEASUREMENT_ID = '01920000-0000-7000-8000-0000000000b1';
+const AVATAR_URL = `https://project.supabase.co/storage/v1/object/public/avatars/${USER_ID}/avatar-1.png`;
 
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
@@ -373,6 +375,148 @@ describe('the body weight', () => {
     expect(
       await screen.findByText('Si ya cargaste el peso de hoy, se actualiza.'),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * The name: the profile screen has to show the one that is stored and be able to replace it.
+ *
+ * What it edits is `full_name`, the column `handle_new_user()` fills from the sign-up metadata, so what
+ * is shown here is the name typed when the account was created. `username` is a `UNIQUE` column no path
+ * in this app writes, so a repeat is impossible and there is no duplicate to turn into a message.
+ */
+describe('the name', () => {
+  it('shows the stored name and saves the edited one', async () => {
+    renderProfile();
+
+    // The field is drawn before the profile arrives and holds what is stored once it does, so the
+    // assertion is about the settled value and not about the first paint.
+    await waitFor(() => {
+      expect(screen.getByLabelText('Nombre')).toHaveValue('Ulises');
+    });
+
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ulises Fernández' } });
+    fake.setTableResult('profiles', {
+      data: [{ ...profileRow('kg'), full_name: 'Ulises Fernández' }],
+      error: null,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar nombre' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Nombre')).toHaveValue('Ulises Fernández');
+    });
+
+    // The column the alta writes, and only it: a write of `username` would trip its UNIQUE index and
+    // would not be the name the user typed at registration.
+    expect(writtenCalls()).toContain('update full_name=Ulises Fernández');
+    expect(writtenCalls().some((call) => call.includes('username'))).toBe(false);
+  });
+
+  it('says so in Spanish when the name cannot be saved, instead of showing it as saved', async () => {
+    renderProfile();
+
+    fireEvent.change(await screen.findByLabelText('Nombre'), { target: { value: 'Ulises' } });
+    fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar nombre' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos guardar el nombre. Probá de nuevo.',
+    );
+  });
+});
+
+/**
+ * The avatar: what the profile points at is what is drawn, and when it points at nothing the screen
+ * still has to look finished rather than empty.
+ */
+describe('the avatar', () => {
+  it('draws the stored avatar', async () => {
+    fake.setTableResult('profiles', {
+      data: [{ ...profileRow('kg'), avatar_url: AVATAR_URL }],
+      error: null,
+    });
+
+    renderProfile();
+
+    expect(await screen.findByRole('img', { name: 'Foto de perfil' })).toHaveAttribute(
+      'src',
+      AVATAR_URL,
+    );
+  });
+
+  it('shows initials instead of an empty frame when there is no avatar', async () => {
+    renderProfile();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('avatar-placeholder')).toHaveTextContent('U');
+    });
+
+    expect(screen.queryByRole('img', { name: 'Foto de perfil' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * What may be uploaded. The bucket carries no `file_size_limit` and no `allowed_mime_types`, so these
+ * two messages are the only thing standing between the picker and the bucket — and a refused file has
+ * to leave storage untouched, not upload and then complain.
+ */
+describe('the avatar upload', () => {
+  function pick(file: File) {
+    fireEvent.change(screen.getByLabelText('Nueva foto de perfil'), { target: { files: [file] } });
+  }
+
+  it('refuses a file that is not a PNG, JPG or WebP, in Spanish, and uploads nothing', async () => {
+    renderProfile();
+    await screen.findByLabelText('Nueva foto de perfil');
+
+    pick(new File([new Uint8Array(8)], 'nota.pdf', { type: 'application/pdf' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(AVATAR_TYPE_ERROR);
+    expect(fake.storage.upload).not.toHaveBeenCalled();
+  });
+
+  it('refuses a file over the cap, in Spanish, and uploads nothing', async () => {
+    renderProfile();
+    await screen.findByLabelText('Nueva foto de perfil');
+
+    pick(new File([new Uint8Array(AVATAR_MAX_BYTES + 1)], 'enorme.png', { type: 'image/png' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(AVATAR_SIZE_ERROR);
+    expect(fake.storage.upload).not.toHaveBeenCalled();
+  });
+
+  it('uploads a valid file into the user’s own folder and stores the URL that serves it', async () => {
+    renderProfile();
+    await screen.findByLabelText('Nueva foto de perfil');
+
+    pick(new File([new Uint8Array(8)], 'foto.png', { type: 'image/png' }));
+
+    await waitFor(() => {
+      expect(fake.storage.upload).toHaveBeenCalledTimes(1);
+    });
+
+    // The first folder is the storage policy's own input: any other shape is refused by the database.
+    const path = fake.storage.upload.mock.calls[0]?.[0] ?? '';
+
+    expect(path.startsWith(`${USER_ID}/`)).toBe(true);
+    expect(writtenCalls()).toContain(
+      `update avatar_url=https://project.supabase.co/storage/v1/object/public/avatars/${path}`,
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says so in Spanish when the upload fails, instead of showing a saved avatar', async () => {
+    fake.storage.upload.mockResolvedValue({ data: null, error: { message: 'payload too large' } });
+
+    renderProfile();
+    await screen.findByLabelText('Nueva foto de perfil');
+
+    pick(new File([new Uint8Array(8)], 'foto.png', { type: 'image/png' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos subir la foto. Probá de nuevo.',
+    );
+    expect(writtenCalls().some((call) => call.includes('avatar_url'))).toBe(false);
   });
 });
 

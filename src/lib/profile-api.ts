@@ -87,6 +87,48 @@ export async function updateWeightUnit(userId: string, unit: WeightUnit): Promis
 }
 
 /**
+ * Renames the user.
+ *
+ * The column is `full_name`, and that is not a preference: `handle_new_user()` inserts
+ * `profiles (id, full_name) VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name')`, so `full_name` is
+ * where the name typed at registration already lives. `username` is a `UNIQUE` column that nothing in
+ * this app writes, so a screen editing it would show one name and store another.
+ *
+ * A blank name is stored as `null` rather than as empty text: `NULL` is "no name" and `''` is a name
+ * that happens to be nothing, and only the first one is what the database can answer for.
+ */
+export async function updateFullName(userId: string, fullName: string): Promise<void> {
+  const supabase = await getSupabase();
+  const name = fullName.trim();
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ full_name: name === '' ? null : name })
+    .eq('id', userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Points the profile at the avatar that is now the live one.
+ *
+ * What is written is the public URL the storage client built, so drawing the avatar is a plain `<img>`
+ * and does not need the storage client to be loaded or the network to be up. The order matters to the
+ * caller: this has to succeed before the object it replaces is deleted.
+ */
+export async function updateAvatarUrl(userId: string, url: string | null): Promise<void> {
+  const supabase = await getSupabase();
+
+  const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
  * How many rows one request asks for.
  *
  * PostgREST caps a single response, so a read that asked once would silently truncate the history —
