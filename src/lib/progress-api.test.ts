@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildChartSeries, fetchExerciseProgress, axisSpan } from './progress-api.ts';
+import {
+  buildChartSeries,
+  dayIncrements,
+  fetchExerciseProgress,
+  axisSpan,
+} from './progress-api.ts';
 import { getSupabase } from './supabase.ts';
 
 vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -147,5 +152,29 @@ describe('axisSpan', () => {
 
   it('answers a usable span for no readings, because a range function always has to answer', () => {
     expect(axisSpan([])).toEqual([0, 1]);
+  });
+});
+
+/**
+ * The steps the x axis is allowed to take.
+ *
+ * Every reading is one per day, so a step smaller than a day cannot separate two of them — and it does
+ * not: given a two-day span uPlot picks hours, and the axis formatter prints only the day, so the same
+ * date lands two or three times in a row. The screenshot review measured exactly that (14/10 twice on
+ * the phone and three times on the desk) after the span fix landed, which is why the axis now says out
+ * loud what the data already is.
+ */
+describe('dayIncrements', () => {
+  it('offers nothing smaller than a day, and only whole days above it', () => {
+    const increments = dayIncrements();
+
+    expect(Math.min(...increments)).toBe(86_400);
+    expect(increments.every((value) => value % 86_400 === 0)).toBe(true);
+  });
+
+  it('ascends, so uPlot can take the smallest step that fits the width', () => {
+    const increments = dayIncrements();
+
+    expect([...increments].sort((left, right) => left - right)).toEqual(increments);
   });
 });

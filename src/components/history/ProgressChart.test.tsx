@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { dayIncrements } from '../../lib/progress-api.ts';
 import type { ExerciseProgressPoint } from '../../lib/progress-api.ts';
 import { CHART_INK, CHART_RULE, ProgressChart } from './ProgressChart.tsx';
 
@@ -108,12 +109,22 @@ describe('ProgressChart colours', () => {
     render(<ProgressChart points={POINTS} metric="maxWeight" label="kg" />);
 
     const call = uplot.mock.calls[0] as [
-      { series: { stroke?: string }[]; axes: { grid?: { stroke?: string } }[] },
+      {
+        series: { stroke?: string }[];
+        axes: { grid?: { stroke?: string }; incrs?: number[] }[];
+      },
       number[][],
     ];
 
     expect(call[0].series.at(1)?.stroke).toBe(CHART_INK);
     expect(call[0].axes.map((axis) => axis.grid?.stroke)).toEqual([CHART_RULE, CHART_RULE]);
+
+    /*
+     * And the steps the axis may take are the days and up. It is asserted here because it is part of
+     * what the plot is handed, next to its colours: an axis that could step in hours prints the same
+     * date two or three times in a row over a two-day span, which is what the review measured.
+     */
+    expect(call[0].axes.at(0)?.incrs).toEqual(dayIncrements());
 
     // The stylesheet as it is written. Vitest's working directory is the project root, which is
     // where `src/index.css` is.

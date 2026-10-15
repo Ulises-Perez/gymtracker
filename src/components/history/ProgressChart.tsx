@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
-import { axisSpan, buildChartSeries } from '../../lib/progress-api.ts';
+import { axisSpan, buildChartSeries, dayIncrements } from '../../lib/progress-api.ts';
 import type { ExerciseProgressPoint, ProgressMetric } from '../../lib/progress-api.ts';
 import type { WeightUnit } from '../../lib/units.ts';
 
@@ -102,6 +102,13 @@ export function ProgressChart({
                   timeZone: 'UTC',
                 }).format(new Date(tick * 1000)),
               ),
+            /*
+             * And the axis may only step in days. Without this it takes hours over the two-day span
+             * a single reading gets, and since the labels carry the day alone, the same date lands
+             * two or three times in a row — an axis that looks like it has four ticks and two days.
+             * The readings are daily, so this is the axis agreeing with the data.
+             */
+            incrs: dayIncrements(),
             ...chartLines(),
           },
           chartLines(),

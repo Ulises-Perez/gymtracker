@@ -87,6 +87,19 @@ export function axisSpan(times: number[]): [number, number] {
 }
 
 /**
+ * The steps the x axis is allowed to take: a day and up.
+ *
+ * Every reading is one per day, so a step smaller than a day cannot separate two of them — and it did
+ * not help that it tried: over the two-day span a single reading gets, uPlot picked hours, and the
+ * axis formatter prints only the day, so the same date landed two or three times in a row. The
+ * screenshot review measured exactly that, which is why the axis now says out loud what the data
+ * already is. Day-sized steps and up, ascending, so uPlot takes the smallest one that fits the width.
+ */
+export function dayIncrements(): number[] {
+  return [1, 2, 7, 14, 28, 91, 182, 365].map((days) => days * DAY_SECONDS);
+}
+
+/**
  * What uPlot is handed: two parallel arrays, x and y.
  *
  * Kept out of the component on purpose. A chart cannot be exercised in jsdom — uPlot draws into a
