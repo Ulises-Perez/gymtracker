@@ -7,6 +7,7 @@ import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
+import { useDraftReplacement } from '../hooks/useDraftReplacement.ts';
 import { useRestTimer } from '../hooks/useRestTimer.ts';
 import { useSaveSync } from '../hooks/useSaveSync.ts';
 import { useSaveWorkout } from '../hooks/useSaveWorkout.ts';
@@ -173,11 +174,10 @@ export function WorkoutPage() {
   }
 
   /*
-   * A finished draft with nothing queued is a workout whose retries ran out: the draft is the only
-   * copy left, so replacing it has to be a choice. With a write still queued the workout is already
-   * captured as self-describing variables, so there is nothing to lose and the tap stays a tap.
+   * Whether replacing the stored draft would lose it. The rule lives in `useDraftReplacement`
+   * because two screens need it; here it only decides whether "Nuevo workout" has to ask first.
    */
-  const replacingIsLossy = draft?.status === 'finished' && waiting === 0;
+  const replacingIsLossy = useDraftReplacement();
 
   if (!hydrated) {
     return <PageSkeleton label="Cargando el entrenamiento" />;

@@ -112,7 +112,14 @@ describe('fetchWorkoutDetail', () => {
     is_warmup: false,
   };
 
-  const CARD_ROW = { id: CARD_ID, exercise_id: EXERCISE_ID, position: 1 };
+  const CARD_ROW = {
+    id: CARD_ID,
+    exercise_id: EXERCISE_ID,
+    position: 1,
+    target_reps: null,
+    target_weight_min: null,
+    target_weight_max: null,
+  };
 
   /** The builder one table's query ran on, so its shape can be asserted separately. */
   function builderFor(table: string): { calls: string[] } | undefined {
@@ -161,8 +168,56 @@ describe('fetchWorkoutDetail', () => {
   it('reads the cards with their place, in order', async () => {
     const detail = await fetchWorkoutDetail(row(1).id);
 
-    expect(detail.exercises).toEqual([{ id: CARD_ID, exerciseId: EXERCISE_ID, position: 1 }]);
+    expect(detail.exercises).toEqual([
+      {
+        id: CARD_ID,
+        exerciseId: EXERCISE_ID,
+        position: 1,
+        targetReps: null,
+        targetWeightMin: null,
+        targetWeightMax: null,
+      },
+    ]);
     expect(builderFor('workout_exercises')?.calls).toContain('order position');
+  });
+
+  /**
+   * Repeating a workout faithfully needs the target that was stored on each card, and that target
+   * has lived in this table since 0012. A target the read does not ask for is a target that always
+   * arrives null, which would repeat the exercises without the aim they had.
+   */
+  it('reads each card target, turning the decimal weights into numbers', async () => {
+    fake.setTableResult('workout_exercises', {
+      data: [
+        {
+          ...CARD_ROW,
+          target_reps: 8,
+          target_weight_min: '60.00',
+          target_weight_max: '80.00',
+        },
+        {
+          ...CARD_ROW,
+          id: '01920000-0000-7000-8000-0000000000c2',
+          position: 2,
+        },
+      ],
+      error: null,
+    });
+
+    const detail = await fetchWorkoutDetail(row(1).id);
+
+    expect(detail.exercises[0]).toMatchObject({
+      targetReps: 8,
+      targetWeightMin: 60,
+      targetWeightMax: 80,
+    });
+    // A card with no target stays null instead of collapsing to zero: zero is a claim nobody made.
+    expect(detail.exercises[1]).toMatchObject({
+      targetReps: null,
+      targetWeightMin: null,
+      targetWeightMax: null,
+    });
+    expect(builderFor('workout_exercises')?.calls.join(' ')).toContain('target_reps');
   });
 
   it('refuses a workout that is not there instead of returning an empty one', async () => {

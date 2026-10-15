@@ -59,6 +59,22 @@ export type WorkoutTargetPatch = Partial<
 >;
 
 /**
+ * What repeating a saved session needs from it: the title and the cards, in their stored order.
+ *
+ * The notes are deliberately absent. They are a comment about the day the session happened, and
+ * carrying them into a new one would put yesterday's words on today's workout.
+ */
+export type RepeatSource = {
+  title: string | null;
+  exercises: Array<{
+    exerciseId: string;
+    targetReps: number | null;
+    targetWeightMin: number | null;
+    targetWeightMax: number | null;
+  }>;
+};
+
+/**
  * An exercise the user invented, held here until the workout is saved.
  *
  * It has to live in the draft and not only in the catalogue, because the catalogue
@@ -118,6 +134,7 @@ type WorkoutStore = {
   hydrated: boolean;
   start: () => void;
   discard: () => void;
+  repeatFrom: (source: RepeatSource) => void;
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
   addExercise: (exerciseId: string, target?: WorkoutTargetPatch) => void;
@@ -241,6 +258,49 @@ export const useWorkoutStore = create<WorkoutStore>()(
         }),
 
       discard: () => set({ draft: null }),
+
+      /**
+       * Opens a new draft from a saved session: the same cards, in the same order, with the aim
+       * they had, and with no sets at all.
+       *
+       * The load is not copied — the card reads it from the history when the next set starts, which
+       * is where a gym wants it. Neither are the custom exercises: a custom a card names was created
+       * on the server when the original session was saved, so its id already points at a row the
+       * owner may use, and re-sending the definition would only be a second way to say the same
+       * thing.
+       *
+       * It replaces whatever draft was open, and that is the screen's call and not this action's: a
+       * session in progress is the only copy there is, so the screen asks first and only calls this
+       * once the user has agreed to lose it.
+       */
+      repeatFrom: (source) =>
+        set((state) => {
+          /*
+           * The read of the device is asynchronous, so before it finishes this store does not know
+           * whether a session is on disk. Opening one on that guess would overwrite a draft the
+           * store is about to read back. The guard is here and not in a screen because it has to
+           * protect every caller, and the store is the one that knows whether it read.
+           */
+          if (!state.hydrated) {
+            return state;
+          }
+
+          return {
+            ...state,
+            draft: {
+              ...createDraft(),
+              title: source.title ?? '',
+              exercises: source.exercises.map((card) => ({
+                id: newId(),
+                exerciseId: card.exerciseId,
+                sets: [],
+                targetReps: card.targetReps,
+                targetWeightMin: card.targetWeightMin,
+                targetWeightMax: card.targetWeightMax,
+              })),
+            },
+          };
+        }),
 
       setTitle: (title) => set((state) => edit(state, (draft) => ({ ...draft, title })) ?? state),
 

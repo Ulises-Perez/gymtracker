@@ -1,11 +1,15 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { MutationObserver, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../lib/queryClient.ts';
+import { SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
+import type { QueuedMutationVariables } from '../lib/queued-mutations.ts';
 import { getSupabase } from '../lib/supabase.ts';
+import { useWorkoutStore } from '../stores/workout-store.ts';
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
+import { queuedSaveWorkout } from '../testing/workout-fixtures.ts';
 import { WorkoutDetailPage } from './WorkoutDetailPage.tsx';
 
 vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -31,13 +35,34 @@ function renderPage() {
       <MemoryRouter initialEntries={[`/history/${WORKOUT_ID}`]}>
         <Routes>
           <Route path="/history/:workoutId" element={<WorkoutDetailPage />} />
+          {/* Where repeating sends the user, stubbed so the destination can be asserted. */}
+          <Route path="/workout" element={<div>Pantalla de entrenamiento</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
+/**
+ * A save still in the queue, held there for the whole test.
+ *
+ * The write never settles, which is what a queued write looks like from the screen: the draft is
+ * already captured as self-describing variables and is no longer the only copy.
+ */
+function queueSave(): void {
+  const observer = new MutationObserver<unknown, Error, QueuedMutationVariables>(client, {
+    mutationKey: SAVE_WORKOUT_MUTATION_KEY,
+    mutationFn: () => new Promise(() => {}),
+  });
+
+  void observer.mutate(queuedSaveWorkout())?.catch(() => undefined);
+}
+
 beforeEach(() => {
+  // The page reads the stored draft to know whether there is one to protect. A test that does not
+  // care about that starts from a read that already happened and no draft.
+  useWorkoutStore.setState({ draft: null, hydrated: true });
+
   fake = createFakeSupabase();
   vi.mocked(getSupabase).mockResolvedValue(fake.client);
 
@@ -46,7 +71,16 @@ beforeEach(() => {
     error: null,
   });
   fake.setTableResult('workout_exercises', {
-    data: [{ id: CARD_ID, exercise_id: PRESS_BANCA, position: 1 }],
+    data: [
+      {
+        id: CARD_ID,
+        exercise_id: PRESS_BANCA,
+        position: 1,
+        target_reps: 5,
+        target_weight_min: '60.00',
+        target_weight_max: '80.00',
+      },
+    ],
     error: null,
   });
   fake.setTableResult('workout_sets', {
@@ -255,5 +289,117 @@ describe('WorkoutDetailPage', () => {
 
     expect(calls.some((call) => call.startsWith('update'))).toBe(false);
     expect(screen.queryByRole('button', { name: 'Sí, borrar' })).not.toBeInTheDocument();
+  });
+
+  describe('repeating a workout', () => {
+    it('asks before replacing a workout that is still open, and cancel leaves it alone', async () => {
+      const store = useWorkoutStore.getState();
+
+      store.start();
+      store.addExercise(PRESS_BANCA);
+
+      const workoutId = useWorkoutStore.getState().draft?.workoutId;
+      const cardId = useWorkoutStore.getState().draft?.exercises[0]?.id;
+
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir este entrenamiento' }));
+
+      // The same two-step confirmation the workout screen already uses for a draft nobody saved.
+      expect(screen.getByText(/se va a perder/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Sí, descartarlo' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+      // Cancelling changes nothing: an unsaved session is the only copy there is.
+      expect(useWorkoutStore.getState().draft?.workoutId).toBe(workoutId);
+      expect(useWorkoutStore.getState().draft?.exercises[0]?.id).toBe(cardId);
+      expect(screen.queryByRole('button', { name: 'Sí, descartarlo' })).not.toBeInTheDocument();
+    });
+
+    it('replaces the open draft once losing it is confirmed', async () => {
+      const store = useWorkoutStore.getState();
+
+      store.start();
+
+      const previous = useWorkoutStore.getState().draft?.workoutId;
+
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir este entrenamiento' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Sí, descartarlo' }));
+
+      const repeated = useWorkoutStore.getState().draft;
+
+      expect(repeated?.workoutId).not.toBe(previous);
+      expect(repeated?.status).toBe('draft');
+      expect(repeated?.title).toBe('Empuje');
+      expect(repeated?.exercises.map((card) => card.exerciseId)).toEqual([PRESS_BANCA]);
+      expect(repeated?.exercises[0]).toMatchObject({
+        targetReps: 5,
+        targetWeightMin: 60,
+        targetWeightMax: 80,
+        sets: [],
+      });
+    });
+
+    it('lands on the workout screen with the repeated draft ready to train', async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir este entrenamiento' }));
+
+      // A repeat ends on the screen where the session is trained, with the draft already armed.
+      expect(await screen.findByText('Pantalla de entrenamiento')).toBeInTheDocument();
+      expect(useWorkoutStore.getState().draft?.status).toBe('draft');
+    });
+
+    /**
+     * Reading the device is asynchronous, and until it finishes the screen cannot tell "there is no
+     * draft" from "the draft has not been read". A tap must not be able to act on that guess.
+     */
+    it('does not let a tap replace a draft it has not read yet', async () => {
+      useWorkoutStore.setState({ draft: null, hydrated: false });
+
+      renderPage();
+
+      expect(
+        await screen.findByRole('button', { name: 'Repetir este entrenamiento' }),
+      ).toBeDisabled();
+    });
+
+    /**
+     * A finished draft whose retries ran out is the whole point of the shared rule: the queue no
+     * longer holds it, so the draft is the only copy left and replacing it has to be a choice.
+     */
+    it('asks before replacing a finished workout whose retries ran out', async () => {
+      const store = useWorkoutStore.getState();
+
+      store.start();
+      store.finish();
+
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir este entrenamiento' }));
+
+      // The same question the workout screen asks for the same state, word for word.
+      expect(screen.getByText(/se va a perder/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Sí, descartarlo' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+    });
+
+    /**
+     * The other half of the same rule: a finished draft that is still in the queue is already
+     * captured as self-describing variables, so replacing it loses nothing and the tap stays a tap.
+     */
+    it('does not ask when the finished workout is already in the queue', async () => {
+      const store = useWorkoutStore.getState();
+
+      store.start();
+      store.finish();
+
+      queueSave();
+
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir este entrenamiento' }));
+
+      expect(await screen.findByText('Pantalla de entrenamiento')).toBeInTheDocument();
+      expect(screen.queryByText(/se va a perder/)).not.toBeInTheDocument();
+    });
   });
 });

@@ -488,3 +488,86 @@ describe('the target a card sets for itself', () => {
     });
   });
 });
+
+describe('repeating a stored workout', () => {
+  const SOURCE = {
+    title: 'Empuje',
+    exercises: [
+      { exerciseId: EXERCISE_ID, targetReps: 8, targetWeightMin: 60, targetWeightMax: 80 },
+      {
+        exerciseId: OTHER_EXERCISE_ID,
+        targetReps: null,
+        targetWeightMin: null,
+        targetWeightMax: null,
+      },
+    ],
+  };
+
+  /**
+   * The shape of a repeated session, in one assertion: a brand-new draft, the stored cards in their
+   * stored order, each with its target copied, and no sets at all. The load comes from the history
+   * later, which is where a gym wants it.
+   */
+  it('opens a new draft with the stored cards in order, with their targets and no sets', () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date(2026, 9, 20, 15, 0, 0));
+
+      store().repeatFrom(SOURCE);
+
+      expect(draft()?.status).toBe('draft');
+      expect(draft()?.endedAt).toBeNull();
+      // A repeated session is a new one, born today and not on the day it was copied from.
+      expect(draft()?.date).toBe('2026-10-20');
+      expect(draft()?.workoutId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
+      // Order is the point: the same session, in the sequence it was trained in.
+      expect(draft()?.exercises.map((card) => card.exerciseId)).toEqual([
+        EXERCISE_ID,
+        OTHER_EXERCISE_ID,
+      ]);
+      expect(draft()?.exercises.map((card) => card.sets)).toEqual([[], []]);
+      expect(draft()?.exercises[0]).toMatchObject({
+        targetReps: 8,
+        targetWeightMin: 60,
+        targetWeightMax: 80,
+      });
+      expect(draft()?.exercises[1]).toMatchObject({
+        targetReps: null,
+        targetWeightMin: null,
+        targetWeightMax: null,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /**
+   * The title names the session being repeated; the notes are a comment about *that* day, and
+   * carrying them over would put yesterday's words on today's workout.
+   */
+  it('copies the title and leaves the notes behind', () => {
+    store().start();
+    store().setTitle('Viejo');
+    store().setNotes('Comentario de aquel día');
+
+    store().repeatFrom(SOURCE);
+
+    expect(draft()?.title).toBe('Empuje');
+    expect(draft()?.notes).toBe('');
+  });
+
+  /**
+   * Reading the device is asynchronous, so until it finishes the store does not know whether a
+   * session is on disk. Opening one on that guess is exactly the silent overwrite the guard exists
+   * to make impossible — and the guard lives here, not in a screen, because it protects every caller.
+   */
+  it('refuses to open a draft before the stored one has been read', () => {
+    useWorkoutStore.setState({ draft: null, hydrated: false });
+
+    store().repeatFrom(SOURCE);
+
+    expect(draft()).toBeNull();
+    expect(store().hydrated).toBe(false);
+  });
+});

@@ -19,6 +19,12 @@ import { expect, test } from '@playwright/test';
  * because the history was a placeholder; it is not one any more, and the read side is where a write
  * that only half arrived would show up — every assertion above would still pass while the session
  * was lost to the user.
+ *
+ * And it repeats the session, which is the only flow in the app that reads the **stored order** of the
+ * cards: the copy carries the exercises, in that order, with what was aimed for and with no sets,
+ * because the weights come from the history and not from the copy. The confirmation that guards an
+ * unsaved draft is unit-tested and not covered here: reproducing it end-to-end would need a second
+ * recorded session left open, and the flow above is already long.
  */
 
 /** Long enough for the local stack's policy, and not a real secret. */
@@ -152,6 +158,27 @@ test('records a workout offline and syncs it when the connection comes back', as
   await page.getByRole('link', { name: 'Press Banca', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Press Banca' })).toBeVisible();
+
+  /*
+   * Back to the session to repeat it, which is the one flow that reads the order the cards were
+   * stored in. Nothing to confirm here: the write landed, so its draft was already discarded.
+   *
+   * `exact` because this screen carries two links named for the history: the nav's, and the back
+   * link this page opens with.
+   */
+  await page.getByRole('link', { name: 'Historial', exact: true }).click();
+  await page.getByRole('link', { name: /Empuje/ }).click();
+  await page.getByRole('button', { name: 'Repetir este entrenamiento' }).click();
+
+  // The workout screen, with a draft that is ready to be trained.
+  await expect(page.getByRole('region', { name: 'Entrenar' })).toBeVisible();
+
+  // What was aimed for travels with the copy; what was lifted does not.
+  await expect(page.getByLabel('Título')).toHaveValue('Empuje');
+  await expect(page.getByLabel('Reps del objetivo')).toHaveValue('8');
+  await expect(page.getByLabel('Peso mínimo del objetivo')).toHaveValue('60');
+  await expect(page.getByLabel('Peso máximo del objetivo')).toHaveValue('80');
+  await expect(page.getByLabel('Reps serie 1')).toHaveCount(0);
 
   expect([...hostedHosts]).toEqual([]);
 });
