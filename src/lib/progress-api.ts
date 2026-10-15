@@ -57,6 +57,24 @@ export async function fetchExerciseProgress(exerciseId: string): Promise<Exercis
   }));
 }
 
+/** A day, in seconds — the unit the x axis is in. */
+const DAY_SECONDS = 86_400;
+
+/**
+ * The span the x axis covers.
+ *
+ * uPlot picks its own range out of the data, and a series with a single reading has no span to pick
+ * from: the axis invents one and prints ticks for days that appear in no reading, which is the chart
+ * claiming a history it does not have. A day either side is the smallest honest answer — it says
+ * "one measurement" instead of pretending to more.
+ *
+ * The padding cannot run away: after one call the two ends differ, so a second call returns the span
+ * it was handed.
+ */
+export function axisSpan(min: number, max: number): [number, number] {
+  return min === max ? [min - DAY_SECONDS, max + DAY_SECONDS] : [min, max];
+}
+
 /**
  * What uPlot is handed: two parallel arrays, x and y.
  *

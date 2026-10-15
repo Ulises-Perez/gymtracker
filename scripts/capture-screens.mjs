@@ -147,6 +147,20 @@ async function capture(page, viewport, name, { path, click, ready } = {}) {
   const file = `${OUT_DIR}/${viewport.name}-${name}.png`;
   const heading = (await page.locator('h1').first().innerText()).replaceAll('\n', ' ').trim();
 
+  /*
+   * The nav is `position: fixed`, and a full-page screenshot paints a fixed element at its viewport
+   * position: in a page taller than the viewport that put the nav in the middle of the shot, cutting
+   * the content it should sit under, and its translucent background smeared the accent colour of the
+   * button underneath across a band nobody could explain. Pinned into the flow for the shot only, it
+   * lands where the DOM puts it and nothing is hidden.
+   *
+   * Declared because it is a capture-time change and not a property of the app: the review reads
+   * these images, so what was altered to make them has to be written down.
+   */
+  await page.addStyleTag({
+    content: 'nav[aria-label="Navegación principal"] { position: static !important; }',
+  });
+
   await page.screenshot({ path: file, fullPage: true });
   manifest.push({ file, url: page.url(), heading });
   console.log(`capturado ${file}  ←  ${heading}`);

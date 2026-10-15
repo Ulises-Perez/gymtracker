@@ -86,7 +86,7 @@ export function DashboardPage() {
                   : ''}
               </Link>
               <p className="text-muted tabular mt-1 text-sm">
-                {summary.last_workout.exercise_count} ejercicios
+                {counted(summary.last_workout.exercise_count, 'ejercicio', 'ejercicios')}
               </p>
             </section>
           ) : (
@@ -185,6 +185,17 @@ function currentWeek(now: Date): string[] {
 
     return localIsoDate(day);
   });
+}
+
+/**
+ * A count and its noun, in the singular when there is one.
+ *
+ * The plural used to be hardcoded, so a session with a single exercise — an ordinary thing to do, and
+ * what the end-to-end suite records — read "1 ejercicios" on the first screen of the app. A fixture
+ * of four never saw it; the screenshot review did.
+ */
+function counted(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function greeting(now: Date): string {

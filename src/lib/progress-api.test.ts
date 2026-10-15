@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildChartSeries, fetchExerciseProgress } from './progress-api.ts';
+import { buildChartSeries, fetchExerciseProgress, axisSpan } from './progress-api.ts';
 import { getSupabase } from './supabase.ts';
 
 vi.mock('./supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -121,5 +121,27 @@ describe('buildChartSeries', () => {
     expect(buildChartSeries(pounds, 'maxWeight', 'kg').y).toEqual([100]);
     // The input is the record of what happened, and reading it in pounds does not change it.
     expect(pounds[0]?.maxWeight).toBe(100);
+  });
+});
+
+/**
+ * The span the x axis covers.
+ *
+ * uPlot picks its own range out of the data, and a series with a single reading has no span to pick
+ * from: the axis then invents one and prints ticks for days that appear in no reading, which is the
+ * chart claiming a history it does not have. The screenshot review caught it before any test did,
+ * because a canvas cannot be asserted in jsdom — so the arithmetic lives out here, where it can.
+ */
+describe('axisSpan', () => {
+  const DAY = 86_400;
+
+  it('gives a single reading a day either side, instead of a range it never had', () => {
+    const day = Date.parse('2026-10-15T00:00:00Z') / 1000;
+
+    expect(axisSpan(day, day)).toEqual([day - DAY, day + DAY]);
+  });
+
+  it('leaves a real span exactly as the data has it', () => {
+    expect(axisSpan(100, 200)).toEqual([100, 200]);
   });
 });

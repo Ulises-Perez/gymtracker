@@ -113,6 +113,25 @@ describe('DashboardPage', () => {
     expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary');
   });
 
+  it('writes the singular when the session had a single exercise', async () => {
+    fake.rpc.mockResolvedValue({
+      data: {
+        ...SUMMARY,
+        last_workout: { ...SUMMARY.last_workout, exercise_count: 1 },
+      },
+      error: null,
+    });
+
+    renderPage();
+
+    /*
+     * A session with one exercise is ordinary — it is what the end-to-end suite records — and the
+     * plural was hardcoded, so the screen said "1 ejercicios" to anyone looking at it. The kind of
+     * copy defect a screenshot catches and a passing suite never did.
+     */
+    expect(await screen.findByText('1 ejercicio')).toBeInTheDocument();
+  });
+
   it('reads the recent records in the preferred unit', async () => {
     fake.setTableResult('profiles', {
       data: [{ username: null, full_name: null, avatar_url: null, weight_unit: 'lb' }],

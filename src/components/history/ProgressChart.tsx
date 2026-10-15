@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
-import { buildChartSeries } from '../../lib/progress-api.ts';
+import { axisSpan, buildChartSeries } from '../../lib/progress-api.ts';
 import type { ExerciseProgressPoint, ProgressMetric } from '../../lib/progress-api.ts';
 import type { WeightUnit } from '../../lib/units.ts';
 
@@ -64,7 +64,17 @@ export function ProgressChart({
         width: element.clientWidth || 320,
         height: 220,
         series: [{}, { label, stroke: CHART_INK, width: 2, points: { show: true } }],
-        scales: { x: { time: true } },
+        /*
+         * The span is given explicitly because uPlot's automatic one invents a range when the series
+         * has a single reading, and then prints ticks for days no reading happened on — the chart
+         * claiming a history it does not have. `axisSpan` is where that arithmetic is tested.
+         */
+        scales: {
+          x: {
+            time: true,
+            range: (_self: unknown, min: number, max: number) => axisSpan(min, max),
+          },
+        },
         axes: [
           {
             /*
