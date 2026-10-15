@@ -207,7 +207,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 
 - [x] **T6.1a** La capa de datos del perfil: leer nombre, avatar y unidad, y escribir la preferencia. **Cerrada** en `d7f3590`. **350/350 unit tests en 43 archivos**, typecheck y lint limpios. **Sin migración**: `profiles` ya tenía `weight_unit` y `avatar_url`. **`updateWeightUnit` escribe la preferencia y nunca un peso**: es el DoD de S9 en una función, y el test afirma **las columnas que se escriben** porque una escritura que llevara un peso reescribiría el historial. Una unidad desconocida se lee como kilos. Ver `L38`.
 - [ ] **T6.1b** La pantalla de perfil (nombre, avatar en el bucket `avatars`, y el selector de unidad), con **T4.4b**: el toggle kg/lb que se movió acá, y las etiquetas de peso del resto de las pantallas. **T4.4b decidido y en curso** (ver `L39`): la preferencia es **de lectura**, y la regla es *convierte la pantalla cuya materia es leer, no la que sirve para entrar*. **El avatar sigue pendiente**: el bucket `avatars` necesita el stack local para probarse, y Docker no está disponible en esta sesión.
-- [ ] **T6.4** **La tarjeta como entidad en la base** (`workout_exercises`): diseñada en `L42`, **no escrita**. Es prerequisito de "repetir workout" (T6.3) y arregla el agrupado del detalle y del CSV. Necesita Docker.
+- [ ] **T6.4** **La tarjeta como entidad en la base** (`workout_exercises`): diseñada en `L42`. Es prerequisito de "repetir workout" (T6.3) y arregla el agrupado del detalle y del CSV. **Servidor hecho** (`f7e4b0c`): migración `0012` aplicada a local **y** al hosted, con `Files=5, Tests=87` en verde en los dos, después de observar el RED (ver `L43`). **Falta el cliente** (pasos 5 a 7 de `L42`).
 - [ ] **T6.2** Stats derivadas (no columnas) + peso corporal.
 - [ ] **T6.3** "Repetir workout" + export CSV + logout. **El CSV hecho** (la mitad del DoD de S9): ver `L41`. **Falta "repetir workout"**; el logout ya estaba desde la Fase 2.
 
@@ -1020,3 +1020,30 @@ CREATE TABLE public.workout_exercises (
 7. **Las dos cosas que ya quedaron anotadas y esto también arregla**: `src/types/database.ts` regenerado (le falta `workout_exercise_targets` y tipa `rpe` como número cuando llega string) y el `select` anidado de la exportación ejercitado contra PostgREST de verdad.
 
 **Por qué no se escribe nada todavía, y no es demora**: es una migración **alta** —toca el RPC que escribe datos, el payload que viaja en la cola offline y todas las lecturas— y **la regla de este proyecto es que el RED de una migración se observa contra la base real antes de aplicarla** (las dos veces que se hizo, en `0008` y en `0011`, el RED encontró un defecto). Escribirla sin poder correr ni una aserción sería dejar en el árbol una migración sin probar sobre datos de verdad, y eso es peor que no tenerla.
+
+### L43 · T6.4 servidor: `0012` aplicada, y el test que pasaba por el motivo equivocado (2026-10-15)
+
+**Lo que entró** (`f7e4b0c`): la migración `0012_workout_exercises.sql` y su archivo pgTAP `0005_workout_exercises_test.sql` (**27 aserciones**), que sucede a `0005_targets_test.sql` porque la tabla que ese probaba deja de existir. **Aplicada a la base local y al proyecto hosted**, con la suite entera **`Files=5, Tests=87, Result: PASS` en los dos**.
+
+**El RED, observado antes de aplicar y contra la base real**: `relation "public.workout_exercises" does not exist` → `Failed 27/27 subtests · Result: FAIL`, con los cuatro archivos previos en verde. Es el mismo procedimiento de `0008` y `0011`, y esta vez **el RED no encontró nada: lo encontró la suite después**, en su primera corrida en verde — ver abajo, que es lo que más vale de este tramo.
+
+**El test que pasaba por el motivo equivocado.** La aserción que prueba que B no puede armar una tarjeta con el custom de A esperaba `Forbidden` y recibió:
+
+```
+insert or update on table "workout_exercises" violates foreign key
+constraint "workout_exercises_exercise_id_fkey"
+```
+
+La causa era del test: **el custom de A nunca se había creado**, así que el FK de `exercise_id` frenaba antes que el guard de dueño y la aserción pasaba **por una razón que no era la que decía**. Se arregló creando el custom en el caso 1 y dejando escrito en el archivo por qué tiene que existir. Es la misma familia de defecto que `L14` anotó dos veces: *una medición mal escrita no es una medición*, y una aserción que pasa por el camino equivocado no es una verificación. **Un RED no puede encontrar esto**, porque el test todavía no existe cuando el RED corre.
+
+**El backfill, medido y no supuesto.** Contra los datos locales: **64 series y 12 objetivos → 21 tarjetas**, con `sets_sin_tarjeta = 0`, `posiciones_duplicadas = 0`, `workouts_con_huecos = 0`, `series_inconsistentes = 0` y `tabla_vieja = 0`. Contra el hosted el probe dio **0 de todo**: ese proyecto no tenía entrenamientos guardados, así que ahí el backfill fue un **no-op** y la verificación que vale es la local. Se dice, en vez de presentar los dos números como si probaran lo mismo.
+
+**Tres desviaciones de `L42`, declaradas.**
+
+1. **El cliente no manda `position` en la forma nueva, y el borrador NO necesita `version: 3`.** `L42` preveía las dos cosas; ninguna es necesaria. El borrador **ya era** una lista de tarjetas con sus series adentro —es literalmente el hallazgo que abrió T6.4—, así que su forma no cambia y bumpear la versión sería ceremonia. Y el orden del array **ya es** el orden de las tarjetas, así que el `position` del payload sería una segunda fuente del mismo dato: el RPC numera 1..N por el orden del array. La forma vieja **sí** trae `position` en sus objetivos, y ahí se usa para **ordenar** (es la única señal de orden que esa forma tiene) y después se renumera.
+2. **La guarda de consistencia es un trigger, no un `CHECK`**: la serie no puede declarar un ejercicio distinto del de su tarjeta, ni colgar de una tarjeta de otra sesión. Es integridad declarativa del motor y se prueba **con un INSERT directo**, no a través de la función, porque es el motor lo que la tiene que sostener.
+3. **`workout_sets.exercise_id` se queda**, y con eso `exercise_progress` no se toca. Quitarla obligaría a reescribir esa función y sus tests, que hoy son el contrato del gráfico. Hay una aserción que lo deja escrito (`exercise_progress` sigue agregando por `exercise_id`).
+
+**Un dato que el servidor obliga a respetar en el cliente, y que no era obvio**: `src/lib/workout-api.ts` hace `saveWorkoutVariablesSchema.parse(variables)` en **cada reintento**, incluido el de una mutación restaurada de IndexedDB. O sea que **una escritura encolada offline antes de este cambio tiene que seguir validando en el cliente**, o falla la validación local **para siempre** y el entrenamiento se pierde sin que el servidor se entere. El RPC tiene su rama de compatibilidad por eso; el schema del cliente necesita la suya, por la misma razón. Queda escrito en el brief del tramo de cliente.
+
+**Lo que falta de T6.4**: los pasos 5 a 7 de `L42` —schema de las dos formas, payload por tarjetas, lecturas del detalle en orden, CSV por tarjeta y `src/types/database.ts` regenerado—, delegados a un escritor acotado, con el padre verificando y commiteando.
