@@ -5,10 +5,10 @@ import type { Database } from '../types/database.ts';
 /**
  * The Supabase client, created on first use and shared from then on.
  *
- * The SDK is imported dynamically for the same reason as Sentry: a static
- * import would put it in the initial bundle, and the 180 kB budget has no room
- * for it next to the auth screens' Zod and React Hook Form (A8). The first
- * paint needs no network client, so it should not pay for one.
+ * The SDK is imported dynamically because a static import would put it in the
+ * initial bundle, and the 180 kB budget has no room for it next to the auth
+ * screens' Zod and React Hook Form (A8). The first paint needs no network
+ * client, so it should not pay for one.
  *
  * Callers have to await it: `const supabase = await getSupabase()`.
  */

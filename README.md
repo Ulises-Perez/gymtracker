@@ -60,7 +60,6 @@ Variables (contrato tipado en `src/vite-env.d.ts`):
 | ------------------------------- | ----------------- | ------------------------------------------------------------------- |
 | `VITE_SUPABASE_URL`             | sí (desde Fase 1) | Project URL del proyecto hosted                                     |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | sí (desde Fase 1) | Publishable key (la que antes se llamaba "anon"); viaja al cliente, RLS es la defensa |
-| `VITE_SENTRY_DSN`               | no                | vacía ⇒ el build no incluye nada de Sentry                          |
 
 ## Base de datos
 
@@ -137,7 +136,6 @@ Preview**:
 | -------------------------------- | ----------- | ---------------------------------------------------------------------------- |
 | `VITE_SUPABASE_URL`              | Sí          | El **build pasa igual** y la app rompe en runtime al primer uso de Supabase   |
 | `VITE_SUPABASE_PUBLISHABLE_KEY`  | Sí          | Ídem                                                                          |
-| `VITE_SENTRY_DSN`                | No          | Sentry queda fuera del bundle, que es el comportamiento por defecto           |
 
 **El detalle que muerde**: Vite inlinea estas variables en tiempo de *build*, así
 que un deploy sin ellas compila sin chistar y publica una app rota. El error
