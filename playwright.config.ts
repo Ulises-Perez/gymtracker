@@ -102,7 +102,18 @@ export default defineConfig({
      */
     command: 'npm run build && npm run preview -- --port 4173 --strictPort --host 127.0.0.1',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
+    /*
+     * Never a server that was already there. The one this suite starts is built with the
+     * **local** stack's credentials, and a server left on the port by somebody else was
+     * built with whatever was in `.env` that day — which is the **hosted** project. Reusing
+     * it made the suite register its account and record its workout in real data, and the
+     * failure it produced ("Ese email no es válido", then the hosted's own rate-limit
+     * message) pointed at the wrong server for two sessions.
+     *
+     * So the port has to be free: with the port taken, the suite says so instead of quietly
+     * testing somebody else's build.
+     */
+    reuseExistingServer: false,
     // Generous: the command compiles the application before serving it.
     timeout: 180_000,
   },
