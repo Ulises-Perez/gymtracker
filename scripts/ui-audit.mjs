@@ -125,39 +125,9 @@ function ratio(foreground, background) {
  * Signs in with the app's own screens.
  *
  * The audit drives the same doors a person does, on purpose: the forms it measures afterwards are the
- * ones the app really has, and a session injected into storage would be a different program. The
- * account is registered if it is not there yet -- the local stack confirms the email by itself -- and
- * otherwise the sign-in is the other door.
+ * ones the app really has, and a session injected into storage would be a different program.
  */
 async function signIn(page) {
-  await page.goto(`${BASE_URL}/register`, { waitUntil: 'load' });
-  await page.getByLabel('Nombre').fill('Auditoría');
-  await page.getByLabel('Email').fill(AUDIT_EMAIL);
-  // Anchored: `Contraseña` is a substring of `Repetí la contraseña`.
-  await page.getByLabel('Contraseña', { exact: true }).fill(AUDIT_PASSWORD);
-  await page.getByLabel('Repetí la contraseña').fill(AUDIT_PASSWORD);
-  await page.getByRole('button', { name: 'Crear cuenta' }).click();
-
-  /*
-   * Either the shell takes over -- the account was new -- or the screen says the address is taken,
-   * and then the sign-in is the other door. Both waits settle, so the race cannot leave one of them
-   * rejected in the background.
-   */
-  const signedIn = await Promise.race([
-    page.waitForSelector('nav[aria-label]', { timeout: 15_000 }).then(
-      () => true,
-      () => false,
-    ),
-    page.waitForSelector('[role="alert"]', { timeout: 15_000 }).then(
-      () => false,
-      () => false,
-    ),
-  ]);
-
-  if (signedIn) {
-    return;
-  }
-
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'load' });
   await page.getByLabel('Email').fill(AUDIT_EMAIL);
   await page.getByLabel('Contraseña', { exact: true }).fill(AUDIT_PASSWORD);
@@ -165,8 +135,74 @@ async function signIn(page) {
   await page.waitForSelector('nav[aria-label]', { timeout: 15_000 });
 }
 
+/**
+ * Makes sure the account exists, and only once per run.
+ *
+ * Four viewports means four browser contexts, and a registration in each of them spends four emails
+ * on a stack whose local limit is a couple per hour -- and leaves four accounts behind. The first
+ * version of this script did exactly that, and the price was paid by something else: the E2E, which
+ * registers its own account, started failing with the server's rate-limit message. So the account is
+ * made once, before the viewports, and every context signs in with it.
+ */
+async function ensureAccount() {
+  const context = await browser.newContext({ locale: 'es-AR', colorScheme: 'light' });
+  const page = await context.newPage();
+
+  try {
+    await signIn(page);
+
+    return true;
+  } catch {
+    // The account is not there yet: the audit registers it, through the app's own screen.
+    await page.goto(`${BASE_URL}/register`, { waitUntil: 'load' });
+    await page.getByLabel('Nombre').fill('Auditoría');
+    await page.getByLabel('Email').fill(AUDIT_EMAIL);
+    // Anchored: `Contraseña` is a substring of `Repetí la contraseña`.
+    await page.getByLabel('Contraseña', { exact: true }).fill(AUDIT_PASSWORD);
+    await page.getByLabel('Repetí la contraseña').fill(AUDIT_PASSWORD);
+    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+
+    /*
+     * Either the shell takes over -- the account was new -- or the screen says what went wrong.
+     * Both waits settle, so the race cannot leave one of them rejected in the background.
+     */
+    const created = await Promise.race([
+      page.waitForSelector('nav[aria-label]', { timeout: 15_000 }).then(
+        () => true,
+        () => false,
+      ),
+      page.waitForSelector('[role="alert"]', { timeout: 15_000 }).then(
+        () => false,
+        () => false,
+      ),
+    ]);
+
+    if (!created) {
+      const message = await page
+        .locator('[role="alert"]')
+        .textContent()
+        .catch(() => null);
+
+      console.error(`No se pudo entrar ni crear la cuenta: ${message?.trim() ?? 'sin mensaje'}`);
+    }
+
+    return created;
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await chromium.launch();
 const findings = [];
+
+if (AUDIT_EMAIL !== null && AUDIT_PASSWORD !== null) {
+  const ready = await ensureAccount();
+
+  if (!ready) {
+    await browser.close();
+    process.exit(1);
+  }
+}
 
 for (const viewport of viewports) {
   const context = await browser.newContext({
@@ -186,7 +222,6 @@ for (const viewport of viewports) {
     if (pass.signIn) {
       await signIn(page);
     }
-
     for (const route of pass.routes) {
       await page.goto(`${BASE_URL}${route}`, { waitUntil: 'load' });
       await page.waitForSelector('h1');
