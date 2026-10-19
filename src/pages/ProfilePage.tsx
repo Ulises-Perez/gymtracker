@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ProfileIcon } from '../components/icons.tsx';
+import { InstallSection } from '../components/pwa/InstallSection.tsx';
 import { Input } from '../components/ui/Input.tsx';
 import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
@@ -466,6 +467,15 @@ export function ProfilePage() {
           </p>
         ) : null}
       </section>
+
+      {/*
+       * The install entry: permanent in the sense that matters, because the strip on Inicio answers an
+       * event that may never reach someone who was not looking. On iOS this is the whole install
+       * feature — the steps are printed, because Safari's Share sheet is not something code can press —
+       * and on Chromium it raises the same native dialog the strip does. It renders nothing when the
+       * app is already installed or when the platform offers no way in.
+       */}
+      <InstallSection />
 
       {/*
        * Logging out is the one profile action the phase 2 definition of done names, so it lands

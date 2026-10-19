@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { InstallBanner } from '../components/pwa/InstallBanner.tsx';
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useDashboard } from '../hooks/useDashboard.ts';
@@ -48,6 +49,13 @@ export function DashboardPage() {
        * with the clock is a heading no test can look for and no one can navigate by.
        */}
       <p className="text-muted mt-1 text-sm">{greeting(new Date())}</p>
+
+      {/*
+       * The install offer, when the browser has one. It rides above the data because it is a
+       * one-time decision per device and it disappears on its own: never installed, already
+       * installed, or answered "Ahora no". See `InstallBanner`.
+       */}
+      <InstallBanner />
 
       {dashboard.isPending ? <PageSkeleton label="Cargando el inicio" /> : null}
 

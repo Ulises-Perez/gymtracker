@@ -1,6 +1,7 @@
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { RouterProvider } from 'react-router';
 import { router } from './app/router.tsx';
+import { UpdateBanner } from './components/pwa/UpdateBanner.tsx';
 import { persistOptions, queryClient, resumeQueuedMutations } from './lib/queryClient.ts';
 import { AuthProvider } from './providers/AuthProvider.tsx';
 
@@ -19,6 +20,10 @@ export default function App() {
       {/* The session lives above the router: the route gate and every screen
           read it from the same place. */}
       <AuthProvider>
+        {/* Above the router and not inside a screen: an update is downloaded
+            whenever the browser decides to, which is not a screen the user is
+            necessarily on. It renders nothing until a worker is waiting. */}
+        <UpdateBanner />
         <RouterProvider router={router} />
       </AuthProvider>
     </PersistQueryClientProvider>

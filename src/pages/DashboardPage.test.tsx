@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -241,5 +241,46 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('Racha de 3 días.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * S10: "instalable Android". The install lands on the first screen of the app, and only there.
+ *
+ * Chromium announces it with `beforeinstallprompt`; the strip is the app's own offer, in the
+ * notebook's own words, instead of the browser's mini-infobar. Its behaviour is covered in
+ * `src/components/pwa/InstallPrompt.test.tsx` — what this test holds is that Inicio carries it and
+ * that it does not cost the screen anything it already did.
+ */
+describe('the install strip', () => {
+  /** Chromium's deferred event, which TypeScript's DOM lib does not declare. */
+  function offerInstall() {
+    const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+    };
+
+    Object.assign(event, {
+      prompt: vi.fn(async () => undefined),
+      userChoice: Promise.resolve({ outcome: 'dismissed', platform: 'web' }),
+    });
+
+    act(() => {
+      window.dispatchEvent(event);
+    });
+  }
+
+  it('offers the install on Inicio once the browser allows it, without touching the data', async () => {
+    localStorage.clear();
+    renderPage();
+
+    // Nothing is offered before the browser says the app is installable.
+    expect(screen.queryByRole('button', { name: 'Instalar la app' })).not.toBeInTheDocument();
+
+    offerInstall();
+
+    expect(screen.getByRole('button', { name: 'Instalar la app' })).toBeInTheDocument();
+    // The strip is a line on the page: the dashboard behind it is still the dashboard.
+    expect(await screen.findByText('Racha de 3 días.')).toBeInTheDocument();
   });
 });

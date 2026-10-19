@@ -2,8 +2,10 @@
 
 PWA mobile-first para registrar entrenamientos — funciona sin señal.
 
-Estado: **Fase 0** (setup). Todavía no hay features de producto.
-El plan completo está en [`PLAN.md`](./PLAN.md) y el tablero de tareas en
+Estado: **Fase 7** (PWA instalable + deploy). La app está completa: registro,
+entrenamiento offline-first con cola durable, historial, progreso por ejercicio,
+perfil con foto y peso corporal, y service worker que cachea el shell y nada
+más. El plan completo está en [`PLAN.md`](./PLAN.md) y el tablero de tareas en
 [`odd/tasks/gymtracker-mvp.md`](./odd/tasks/gymtracker-mvp.md).
 
 ## Stack
@@ -16,16 +18,17 @@ Supabase · Vitest · Playwright.
 - Node 24+
 - npm 11+
 
-## Layout: por qué `node_modules` no viaja con el proyecto
+## Layout: `node_modules` **hoy** viaja con el proyecto
 
-El proyecto vive en OneDrive, pero `node_modules` (**511 MB en 30.918 archivos**) queda **fuera del sync**: es un *junction* a una carpeta local.
-
-```
-C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker
-└── node_modules  →  junction  →  C:\Users\ulise\develop\gymtracker-modules\node_modules
-```
-
-Si clonás el repo en otra máquina, creá el junction antes de instalar (PowerShell, sin permisos de administrador):
+> **Ojo, esto cambió**: el proyecto estaba montado con `node_modules` como
+> *junction* a una carpeta local para que OneDrive no sincronizara 440 MB. Ese
+> junction **ya no está**: hoy `node_modules` es una carpeta común dentro del
+> repo, con **30.803 archivos y 440 MB**, y OneDrive los sincroniza.
+>
+> Si eso molesta (y molesta: cada cambio de dependencia es una subida), el
+> junction se vuelve a armar con el mismo truco de siempre — la carpeta destino
+> tiene que llamarse literal `node_modules`, porque Node y TypeScript resuelven
+> la ruta real y buscan subiendo por el árbol **solo carpetas con ese nombre**:
 
 ```powershell
 mkdir C:\develop\gymtracker-modules          # o donde prefieras
@@ -36,15 +39,19 @@ New-Item -ItemType Junction -Path C:\ruta\al\proyecto\node_modules `
 npm install
 ```
 
-> **El detalle que rompe todo si se ignora**: la carpeta destino tiene que llamarse literalmente `node_modules`. Node y TypeScript resuelven la *ruta real* y buscan subiendo por el árbol de directorios **solo carpetas llamadas `node_modules`**; si el store se llama distinto, un paquete no encuentra a sus hermanos y el error que ves es desconcertante:
+> **El detalle que rompe todo si se ignora**: un store que se llame distinto
+> hace que un paquete no encuentre a sus hermanos, y el error que ves es
+> desconcertante:
 >
 > ```
 > Cannot find package 'react' imported from ...\store\@tanstack\react-query\build\modern\QueryClientProvider.js
 > ```
 >
-> y el typecheck falla con «has no exported member» en decenas de imports que vienen por `export *`.
+> y el typecheck falla con «has no exported member» en decenas de imports que
+> vienen por `export *`.
 
-Sin junction, `npm install` funciona igual: simplemente OneDrive empieza a sincronizar 511 MB.
+Sin junction, `npm install` funciona igual: simplemente OneDrive sincroniza
+440 MB.
 
 ## Setup local
 
@@ -100,15 +107,19 @@ linkeado: corre como `postgres` y no necesita Docker.
 
 ## Scripts
 
-| Script              | Qué hace                                        |
-| ------------------- | ----------------------------------------------- |
-| `npm run dev`       | Servidor de desarrollo en `:5173`               |
-| `npm run build`     | Typecheck + build de producción                 |
-| `npm run typecheck` | `tsc -b` sobre las referencias de proyecto      |
-| `npm run lint`      | ESLint 10 (flat config)                         |
-| `npm run format`    | Prettier sobre código, no sobre docs            |
-| `npm test`          | Vitest en modo CI                               |
-| `npm run e2e`       | Playwright                                      |
+| Script                                    | Qué hace                                                     |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `npm run dev`                             | Servidor de desarrollo en `:5173`                            |
+| `npm run build`                           | Typecheck + build de producción                              |
+| `npm run preview`                         | Sirve el build de producción (lo que se deploya)             |
+| `npm run typecheck`                       | `tsc -b` sobre las referencias de proyecto                   |
+| `npm run lint`                            | ESLint 10 (flat config)                                      |
+| `npm run format`                          | Prettier sobre código, no sobre docs                         |
+| `npm test`                                | Vitest en modo CI                                            |
+| `npm run e2e`                             | Playwright (contra el stack local de Supabase)               |
+| `node scripts/measure-bundle.mjs`         | El bundle inicial medido del build, en gzip, contra el tope |
+| `node scripts/ui-audit.mjs`               | Audit objetivo de UI: contraste, tap targets, overflow      |
+| `node scripts/generate-icons.mjs`         | Regenera iconos, splash y favicon desde los tokens          |
 
 ## Deploy
 
@@ -163,7 +174,7 @@ Es un cambio del lado del servidor: no hace falta redeployar.
 - [ ] `/`, `/workout`, `/history` y `/profile` cargan y hacen deep link sin 404.
 - [ ] `/sw.js` responde con `Cache-Control: public, max-age=0, must-revalidate`.
 - [ ] Login con un usuario real de la base (el **registro** depende del email, ver T2.5).
-- [ ] El prompt de instalación aparece (los iconos definitivos son T7.1).
+- [ ] El prompt de instalación aparece (los iconos y el manifest son de T7.1; el prompt, de T7.3).
 
 ## Convenciones
 

@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -659,5 +659,44 @@ describe('the entry screen', () => {
     expect(within(card).getByLabelText('Peso mínimo del objetivo')).toBeInTheDocument();
     expect(await within(card).findByText(/último: 8 × 75 kg/)).toBeInTheDocument();
     expect(within(card).queryByText(/lb/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * S10: the install entry is permanent, because the strip on Inicio is not.
+ *
+ * The strip answers an event that may arrive before the user has read anything; this row is where
+ * someone goes on purpose, a day later. iOS has no prompt at all, so the same row has to print the
+ * Safari steps. Its behaviour is covered in `src/components/pwa/InstallPrompt.test.tsx`; here the
+ * subject is that Perfil carries the entry.
+ */
+describe('the install row', () => {
+  it('installs from the App section of the profile', async () => {
+    localStorage.clear();
+
+    const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+    };
+    const prompt = vi.fn(async () => undefined);
+
+    Object.assign(event, {
+      prompt,
+      userChoice: Promise.resolve({ outcome: 'dismissed', platform: 'web' }),
+    });
+
+    renderProfile();
+
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    // The section is a place in the page, titled and described, and not a bare button.
+    expect(await screen.findByRole('heading', { name: 'App' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Instalar en este dispositivo' }));
+
+    // The install is the browser's dialog, not something this app claims to have done.
+    expect(prompt).toHaveBeenCalledTimes(1);
   });
 });
