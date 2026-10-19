@@ -1,0 +1,5 @@
+# GymTracker is a private notebook: the pages behind the login answer with the
+# same shell, and there is nothing here for a crawler to index. The root is
+# allowed because that is where the link preview comes from.
+User-agent: *
+Allow: /
