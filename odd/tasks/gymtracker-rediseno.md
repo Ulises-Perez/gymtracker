@@ -34,7 +34,7 @@
 | D6 | Inicio y perfil, con la fecha de hoy arriba (S5) | S2, S5 | cliente | `aa098bc` |
 | D7 | Las pantallas de autenticación | S2 | cliente | `ee11092` |
 | D8 | Rehacer los tests y la E2E contra los flujos nuevos | S3 | cliente | cerrada: `e356ec9` |
-| D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | parcial: `6616e72` + `5ea87ea` + `e9c248b` (capturas con sesión; falta el juicio visual) |
+| D9 | Verificación con capturas (desktop y mobile) y el detector, **una vez** | S2 | skill | cerrada: `6616e72` + `5ea87ea` + `e9c248b` + el juicio visual (`L17`) |
 
 ### Detalle por tarea
 
@@ -46,7 +46,7 @@
 - [x] **D6** Inicio y perfil, con **la fecha de hoy arriba** (S5) y la racha y los récords. **Cerrada** (`aa098bc`) — era el pedido original del usuario, y entra con el mismo patrón que él eligió para el flujo: ver `L12`.
 - [x] **D7** Las pantallas de autenticación, que son la primera impresión. **Cerrada** (`ee11092`), en paralelo con D6 y sobre archivos disjuntos.
 - [x] **D8** Rehacer los tests y la E2E contra los flujos nuevos (S3). **No es opcional**: es la mitad del costo de haber dicho "puede cambiar absolutamente todo". **Cerrada** (`e356ec9`): los unit tests se rehicieron tramo por tramo en D3-D7 (404 en verde) y la E2E suma el camino de lectura. Ver `L15`.
-- [ ] **D9** La verificación de la skill. **Parcial**: el detector corregido y corrido sin hallazgos (`6616e72`), `DESIGN.md` y su sidecar escritos desde lo construido (`5ea87ea`), los tres defectos que ese trabajo destapó arreglados (`e52d21b`), y **las 14 capturas con sesión y su manifiesto** (`e9c248b`, ver `L16`). **Falta lo que necesita ojos**: el juicio visual de los píxeles, que este modelo no puede hacer.
+- [x] **D9** La verificación de la skill. **Cerrada**: el detector corregido y corrido sin hallazgos (`6616e72`), `DESIGN.md` y su sidecar escritos desde lo construido (`5ea87ea`), los tres defectos que ese trabajo destapó arreglados (`e52d21b`), **las 14 capturas con sesión y su manifiesto** (`e9c248b`, ver `L16`) y **el juicio visual de los píxeles, hecho con un modelo que ve** (`L17`). De los seis hallazgos del juicio, **dos eran reales** y quedaron arreglados (el enlace de vuelta, que era gris y sin filete, y el roce entre el tachado y el foco del campo), **dos se descartaron midiendo** (los dígitos tachados **son** tinta apagada —medido en los píxeles con el decodificador del proyecto— y la fila del peso en el perfil **sí** está alineada —medido en el DOM: 0 px de diferencia—) y los otros dos son una **decisión de producto** (el avatar circular) y un **dato** (los "0 min" de un entrenamiento grabado en un segundo).
 
 ---
 
@@ -295,3 +295,22 @@ Con el mundo ya en el flujo de entrenamiento, se midió como manda el método co
 **Una trampa de proceso que vale registrar**: la baja del test viejo (`0005_targets_test.sql`, que prueba una tabla que `0012` elimina) había quedado *staged* con `git rm`, y el commit del script **se la llevó adentro**: un commit de una cosa con el cuerpo de otra. Se rehizo (`git reset --soft` + unstaged selectivo) porque la rama **no tiene remoto ni upstream**, así que reescribir el último commit es local y seguro. **Un `git rm` que se hace por adelantado no es gratis: cambia lo que el próximo `git add` va a incluir.**
 
 **Lo que sigue faltando de D9, y no lo tapa el padre**: **el juicio visual**, que necesita ojos. Las imágenes están en `stats/screens/` (gitignoreado) con su manifiesto al lado.
+
+### L17 · D9 cerrada: el juicio visual de los píxeles, con un modelo que los ve (2026-10-19)
+
+**El pedido, textual**: *"Continua desde donde quedo el otro agente de este proyecto"*.
+
+**Lo que faltaba**: el juicio visual de los píxeles. Las capturas existían (`e9c248b`), pero los hacía falta un ojo, y el modelo de la sesión anterior no procesaba imágenes. **Este sí las ve** (comprobado antes de creerle: sudorió las dimensiones reales del archivo) y el juicio salió de **catorce capturas frescas**, con sesión y con el build de hoy.
+
+**Los seis hallazgos, y qué fue cada uno**:
+
+1. **REAL — el enlace de vuelta era gris y sin filete.** `"← Historial"` en el detalle del entrenamiento y en el de un ejercicio salía en `text-muted`, mientras que el `"Volver al inicio"` de la pantalla de no encontrada salía en tinta con el filete impreso. El contrato de dirección es explícito ("un enlace que navega es tinta con el filete impreso de subrayado") y la app lo cumple en todas partes menos ahí. **Arreglado**: los dos enlaces de vuelta llevan ahora el mismo tratamiento que el de la 404.
+2. **REAL — el tachado y el foco se tocaban en la fila de la serie.** El `outline` del foco llega 4 px por encima del campo (2 px de trazo y 2 px de separación) y el valor tachado vive en la línea de la etiqueta: con un solo paso de separación los dos signos **de la misma corrección** se rozaban en la fila que más importa. **Arreglado**: el espacio entre la etiqueta y el campo pasó de un paso a dos.
+3. **DESCARTADO, midiendo — los dígitos tachados NO son rojos.** El código dice `text-muted` con `decoration-primary`, o sea tinta apagada con la línea en rojo, que es lo que dice el contrato. El juicio lo veía rojo. **Medido en los píxeles con el decodificador del proyecto** (`scripts/png.mjs`): alrededor de cada línea de tachado hay **50-88 píxeles de tinta apagada** por debajo y por encima, y el rojo se queda en la línea. Lo que se vio era la línea de 2 px cruzando los dígitos, que a la resolución de la captura se come los píxeles de las cifras.
+4. **DESCARTADO, midiendo — la fila del peso en el perfil SÍ está alineada.** El juicio veía el botón deshabilitado colgado 28 px por debajo de la línea del campo. **Medido en el DOM con un navegador de verdad**: la base del campo y la del botón son **la misma** (`816..864` las dos, 0 px de diferencia). No había nada que alinear.
+5. **DECISIÓN DE PRODUCTO — el avatar es el único círculo de la app.** `DESIGN.md` dice que "el único `rounded-full` de la app es la barrita de 2 px de la pestaña activa del nav": **esa frase quedó vieja** cuando T6.1b agregó el avatar. O el avatar deja de ser circular, o la frase se corrige y el avatar queda como excepción declarada. **No se tocó**: es una decisión de mundo, no un arreglo, y es del usuario.
+6. **NO ES UN DEFECTO — los "0 min".** El entrenamiento que graba la captura se registra en un segundo, así que dura cero minutos. Es un dato, no un error de dibujo.
+
+**El pedido que quedó sin respuesta, y que se puede cerrar sola**: la **leyenda de uPlot** que `L48` dejó abierta **no existe**: `ProgressChart` la apaga (`legend: { show: false }`) y la unidad vive en los chips de la pantalla del ejercicio. No hay leyenda que reemplazar, y la pregunta se cae sola.
+
+**Lo que este tramo deja escrito para el que siga**: el juicio visual **es posible sin un ojo humano** si el agente sabe mirar (el modelo de `gentle-ai-verify` ve las imágenes) y si el proyecto tiene la medida a mano — y este tiene: un decodificador de PNG propio (`scripts/png.mjs`) y un script que mide cajas en el DOM. **Un hallazgo de un revisor visual se confirma o se descarta con una medición, no con una opinión.**

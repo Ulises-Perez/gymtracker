@@ -290,7 +290,14 @@ function NumberCell({
   onChange: (value: number | null) => void;
 }) {
   return (
-    <div className="space-y-1">
+    /*
+     * The gap between the label row and the field is two steps, not one: the focus
+     * outline reaches four pixels above the field (two of stroke, two of offset) and
+     * the crossed-out value sits on the label row's baseline, so with a single step
+     * the two marks of the same correction -- the one struck and the one being
+     * corrected -- touched each other on the row that matters most.
+     */
+    <div className="space-y-2">
       <span className="flex items-baseline justify-between gap-1">
         <span aria-hidden="true" className="text-muted text-xs">
           {shortLabel}

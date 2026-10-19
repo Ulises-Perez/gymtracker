@@ -62,7 +62,10 @@ export function ExerciseDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <Link to="/history" className="text-muted hover:text-text text-sm">
+      <Link
+        to="/history"
+        className="text-text decoration-rule hover:decoration-text text-sm underline"
+      >
         ← Historial
       </Link>
 
