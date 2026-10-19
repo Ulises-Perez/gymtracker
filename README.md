@@ -128,6 +128,12 @@ producto están detrás del login, y una medición del formulario de acceso no
 dice nada de ellas. La cuenta tiene que ser de una pila local, nunca del
 proyecto hosted: el audit lee, pero registra la cuenta si todavía no existe.
 
+La E2E **levanta su propio servidor** en el puerto 4173, construido con las
+credenciales del **stack local**. Por eso el puerto tiene que estar libre: un
+servidor que ya estuviera ahí se habría construido con el `.env` de ese día —
+que apunta al **proyecto hosted**— y la suite habría registrado su cuenta y
+anotado su entrenamiento en los datos reales.
+
 ## Deploy
 
 El destino es **Vercel** con el preset de Vite: build `npm run build`, salida
