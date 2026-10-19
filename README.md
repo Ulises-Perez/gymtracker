@@ -118,8 +118,15 @@ linkeado: corre como `postgres` y no necesita Docker.
 | `npm test`                                | Vitest en modo CI                                            |
 | `npm run e2e`                             | Playwright (contra el stack local de Supabase)               |
 | `node scripts/measure-bundle.mjs`         | El bundle inicial medido del build, en gzip, contra el tope |
-| `node scripts/ui-audit.mjs`               | Audit objetivo de UI: contraste, tap targets, overflow      |
+| `node scripts/ui-audit.mjs`               | Audit objetivo de UI: contraste, tap targets, overflow, controles |
 | `node scripts/generate-icons.mjs`         | Regenera iconos, splash y favicon desde los tokens          |
+
+El audit corre **sin sesión** por defecto, que es lo que alcanza para medir las
+pantallas de acceso. Con `AUDIT_EMAIL` y `AUDIT_PASSWORD` **se registra por la
+pantalla de la app** y mide también las rutas con sesión: las formas del
+producto están detrás del login, y una medición del formulario de acceso no
+dice nada de ellas. La cuenta tiene que ser de una pila local, nunca del
+proyecto hosted: el audit lee, pero registra la cuenta si todavía no existe.
 
 ## Deploy
 
