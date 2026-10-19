@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
 import { vi } from 'vitest';
 
+import { authStorageKey } from '../lib/stored-session.ts';
 import type { Database } from '../types/database.ts';
 
 /**
@@ -32,14 +33,34 @@ export function fakeSession(user: User = fakeUser()): Session {
     access_token: 'access-token',
     refresh_token: 'refresh-token',
     expires_in: 3600,
+    // The SDK refuses a session without this field, and the app reads the
+    // browser before it asks the SDK: the double carries the same fields.
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
     token_type: 'bearer',
     user,
   } as Session;
 }
 
+/**
+ * The real client persists the session in `localStorage`, and the app reads
+ * the browser before it asks the SDK: a double that forgets to persist would
+ * describe a browser that never saw the session.
+ */
+function persistSession(session: Session): void {
+  try {
+    window.localStorage.setItem(authStorageKey() ?? 'sb-test-auth-token', JSON.stringify(session));
+  } catch {
+    // A browser that refuses to store is a browser these tests do not need.
+  }
+}
+
 export function createFakeSupabase(initialSession: Session | null = null) {
   let current = initialSession;
   let notify: AuthEventCallback | null = null;
+
+  if (initialSession) {
+    persistSession(initialSession);
+  }
 
   const unsubscribe = vi.fn();
 

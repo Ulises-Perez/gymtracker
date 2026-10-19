@@ -54,6 +54,10 @@ beforeEach(() => {
 
 describe('RequireAuth', () => {
   it('shows a skeleton while the session is unknown, instead of redirecting', () => {
+    // The browser holds a session, so only the SDK can say whether it is still
+    // valid. Until it answers, the gate shows the shape of what is coming.
+    fake = createFakeSupabase(fakeSession());
+    vi.mocked(getSupabase).mockResolvedValue(fake.client);
     fake.auth.getSession.mockReturnValue(new Promise<never>(() => {}));
 
     renderAt('/history');

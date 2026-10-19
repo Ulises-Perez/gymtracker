@@ -2,7 +2,9 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { afterPaint } from '../lib/after-paint.ts';
 import { getSupabase } from '../lib/supabase.ts';
+import { sessionState } from '../lib/stored-session.ts';
 import { AuthContext } from './auth-context.ts';
 import type { AuthContextValue } from './auth-context.ts';
 
@@ -17,37 +19,65 @@ import type { AuthContextValue } from './auth-context.ts';
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  // The browser can answer "signed out" on its own: the session lives in
+  // `localStorage` and the address may carry the tokens of a link. When it
+  // holds neither, the SDK has nothing to find, so the gate can decide at
+  // once instead of after the network client loads.
+  const [loading, setLoading] = useState(() => sessionState() !== 'signed-out');
 
   useEffect(() => {
     let cancelled = false;
     let answered = false;
     let unsubscribe: (() => void) | undefined;
 
-    void getSupabase().then((supabase) => {
-      if (cancelled) {
-        return;
-      }
-
-      const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-        answered = true;
-        setSession(nextSession);
-        setLoading(false);
-      });
-
-      unsubscribe = () => {
-        data.subscription.unsubscribe();
-      };
-
-      void supabase.auth.getSession().then(({ data: stored }) => {
-        if (cancelled || answered) {
+    const connect = () => {
+      void getSupabase().then((supabase) => {
+        if (cancelled) {
           return;
         }
 
-        setSession(stored.session);
-        setLoading(false);
+        const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+          answered = true;
+          setSession(nextSession);
+          setLoading(false);
+        });
+
+        unsubscribe = () => {
+          data.subscription.unsubscribe();
+        };
+
+        void supabase.auth.getSession().then(({ data: stored }) => {
+          if (cancelled || answered) {
+            return;
+          }
+
+          setSession(stored.session);
+          setLoading(false);
+        });
       });
-    });
+    };
+
+    if (sessionState() === 'signed-out') {
+      /*
+       * The browser holds no session: the SDK has nothing to find, so it waits
+       * until the first paint is on the glass. The login screen does not need
+       * a network client, and its 54 KiB on the wire while the page is still
+       * trying to paint is bandwidth the first paint pays for.
+       *
+       * It is not "never": the SDK still subscribes right after, so a sign-in
+       * in another tab, a token refresh and everything else the events carry
+       * keep working exactly as before.
+       */
+      const cancel = afterPaint(connect);
+
+      return () => {
+        cancelled = true;
+        cancel();
+        unsubscribe?.();
+      };
+    }
+
+    connect();
 
     return () => {
       cancelled = true;

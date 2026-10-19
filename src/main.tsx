@@ -6,6 +6,7 @@ import { installGlobalErrorHandlers } from './lib/logging.ts';
 import { installPersistFlush } from './lib/persist-flush.ts';
 import { installSaveSync } from './lib/save-sync.ts';
 import { registerServiceWorker } from './lib/pwa.ts';
+import { sessionState } from './lib/stored-session.ts';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -23,6 +24,17 @@ if (!rootElement) {
  * and outside the render tree on purpose: the crash it has to survive is the tree breaking.
  */
 installGlobalErrorHandlers();
+
+/*
+ * A visitor without a session lands on the login screen, and that screen is
+ * not part of the initial bundle. Asking for its chunk here puts it in flight
+ * while the rest of the boot happens, instead of after the gate decides to
+ * redirect: the login screen is what is on screen, so its chunk belongs to
+ * the critical path whether or not the router has asked for it yet.
+ */
+if (sessionState() === 'signed-out') {
+  void import('./pages/LoginPage.tsx');
+}
 
 createRoot(rootElement).render(
   <StrictMode>

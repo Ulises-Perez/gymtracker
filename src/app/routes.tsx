@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router';
 
 import { AppShell } from '../components/layout/AppShell.tsx';
 import { NotFoundPage } from '../pages/NotFoundPage.tsx';
+import { lazyScreen } from './deferred-screen.tsx';
 import { RequireAuth } from './RequireAuth.tsx';
 
 /**
@@ -18,6 +19,9 @@ import { RequireAuth } from './RequireAuth.tsx';
  * The auth screens are siblings of the gate, not children: they are what a
  * visitor without a session has to be able to reach. Being lazy keeps Zod and
  * React Hook Form in their own chunks (A8).
+ *
+ * The screens behind the gate go through `lazyScreen`, which does not download
+ * them for a visitor who is going to be sent to the login screen instead.
  */
 export const routes: RouteObject[] = [
   {
@@ -61,51 +65,33 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            lazy: async () => {
-              const { DashboardPage } = await import('../pages/DashboardPage.tsx');
-
-              return { Component: DashboardPage };
-            },
+            lazy: lazyScreen(() =>
+              import('../pages/DashboardPage.tsx').then((m) => m.DashboardPage),
+            ),
           },
           {
             path: 'workout',
-            lazy: async () => {
-              const { WorkoutPage } = await import('../pages/WorkoutPage.tsx');
-
-              return { Component: WorkoutPage };
-            },
+            lazy: lazyScreen(() => import('../pages/WorkoutPage.tsx').then((m) => m.WorkoutPage)),
           },
           {
             path: 'history',
-            lazy: async () => {
-              const { HistoryPage } = await import('../pages/HistoryPage.tsx');
-
-              return { Component: HistoryPage };
-            },
+            lazy: lazyScreen(() => import('../pages/HistoryPage.tsx').then((m) => m.HistoryPage)),
           },
           {
             path: 'history/:workoutId',
-            lazy: async () => {
-              const { WorkoutDetailPage } = await import('../pages/WorkoutDetailPage.tsx');
-
-              return { Component: WorkoutDetailPage };
-            },
+            lazy: lazyScreen(() =>
+              import('../pages/WorkoutDetailPage.tsx').then((m) => m.WorkoutDetailPage),
+            ),
           },
           {
             path: 'history/exercise/:exerciseId',
-            lazy: async () => {
-              const { ExerciseDetailPage } = await import('../pages/ExerciseDetailPage.tsx');
-
-              return { Component: ExerciseDetailPage };
-            },
+            lazy: lazyScreen(() =>
+              import('../pages/ExerciseDetailPage.tsx').then((m) => m.ExerciseDetailPage),
+            ),
           },
           {
             path: 'profile',
-            lazy: async () => {
-              const { ProfilePage } = await import('../pages/ProfilePage.tsx');
-
-              return { Component: ProfilePage };
-            },
+            lazy: lazyScreen(() => import('../pages/ProfilePage.tsx').then((m) => m.ProfilePage)),
           },
           { path: '*', element: <NotFoundPage /> },
         ],

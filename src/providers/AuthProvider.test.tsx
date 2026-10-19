@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAuth } from '../hooks/useAuth.ts';
 import { getSupabase } from '../lib/supabase.ts';
@@ -32,8 +32,18 @@ async function renderResolvedAuth() {
 }
 
 beforeEach(() => {
+  // The provider reads the browser before it asks the SDK, and the key it
+  // reads is derived from the project URL: both are pinned here so the test
+  // does not depend on a local `.env`.
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://project.supabase.co');
+  localStorage.clear();
+
   fake = createFakeSupabase();
   vi.mocked(getSupabase).mockResolvedValue(fake.client);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('useAuth', () => {
@@ -43,15 +53,53 @@ describe('useAuth', () => {
 });
 
 describe('AuthProvider', () => {
-  it('stays loading until the session is known', () => {
-    // A read that never settles: the only honest way to observe the state the
-    // gate has to handle on every reload.
+  it('waits for the SDK when the browser holds a session', () => {
+    // The browser holds a session, so only the SDK can say whether it is still
+    // valid: a read that never settles is the only honest way to observe the
+    // state the gate has to handle on every reload.
+    const session = fakeSession();
+    fake = createFakeSupabase(session);
+    vi.mocked(getSupabase).mockResolvedValue(fake.client);
     fake.auth.getSession.mockReturnValue(new Promise<never>(() => {}));
 
     const { result } = renderAuth();
 
     expect(result.current.loading).toBe(true);
     expect(result.current.user).toBeNull();
+  });
+
+  it('knows the visitor is signed out without waiting for the SDK', () => {
+    // Nothing in the browser: the answer is already there, and the screen the
+    // visitor is going to see should not wait for a network client to learn it.
+    fake.auth.getSession.mockReturnValue(new Promise<never>(() => {}));
+
+    const { result } = renderAuth();
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.user).toBeNull();
+  });
+
+  it('does not ask for the SDK until the first paint is on the glass', async () => {
+    // The SDK is 54 KiB that the login screen does not need. Asking for it
+    // while the page is still painting is bandwidth the first paint pays for.
+    renderAuth();
+
+    expect(getSupabase).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(getSupabase).toHaveBeenCalled();
+    });
+  });
+
+  it('asks for the SDK right away when the browser holds a session', () => {
+    // With a session to validate, the app cannot paint the screens behind the
+    // gate until the SDK answers, so there is nothing to wait for.
+    fake = createFakeSupabase(fakeSession());
+    vi.mocked(getSupabase).mockResolvedValue(fake.client);
+
+    renderAuth();
+
+    expect(getSupabase).toHaveBeenCalled();
   });
 
   it('resolves the stored session and reports it', async () => {
@@ -69,6 +117,10 @@ describe('AuthProvider', () => {
     const { result } = await renderResolvedAuth();
     const session = fakeSession();
 
+    await waitFor(() => {
+      expect(fake.auth.onAuthStateChange).toHaveBeenCalled();
+    });
+
     act(() => {
       fake.emit('SIGNED_IN', session);
     });
@@ -83,13 +135,17 @@ describe('AuthProvider', () => {
   });
 
   it('lets an auth event beat a session read that is still in flight', async () => {
+    fake = createFakeSupabase(fakeSession());
+    vi.mocked(getSupabase).mockResolvedValue(fake.client);
     fake.auth.getSession.mockReturnValue(new Promise<never>(() => {}));
 
     const { result } = renderAuth();
 
     // Let the provider get as far as subscribing, then report an event while
     // the stored-session read is still pending.
-    await act(async () => {});
+    await waitFor(() => {
+      expect(fake.auth.onAuthStateChange).toHaveBeenCalled();
+    });
 
     const session = fakeSession();
 
@@ -105,9 +161,26 @@ describe('AuthProvider', () => {
   it('unsubscribes from auth events when it unmounts', async () => {
     const { unmount } = await renderResolvedAuth();
 
+    await waitFor(() => {
+      expect(fake.auth.onAuthStateChange).toHaveBeenCalled();
+    });
+
     unmount();
 
     expect(fake.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('never asks for the SDK when it unmounts before the first paint', async () => {
+    const { unmount } = renderAuth();
+
+    unmount();
+
+    // Long enough for the frame the SDK was waiting for to have happened.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+
+    expect(getSupabase).not.toHaveBeenCalled();
   });
 
   it('delegates signIn and surfaces the Supabase error', async () => {

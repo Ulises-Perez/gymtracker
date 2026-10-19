@@ -4,11 +4,13 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 import { PWA_MANIFEST } from './scripts/pwa-assets.mjs';
+import type { Plugin } from 'vite';
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    preloadLatinFonts(),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',
@@ -69,3 +71,54 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
   },
 });
+
+/**
+ * The two latin fonts, asked for before the app's JavaScript instead of after.
+ *
+ * The browser discovers a font when it parses the CSS that declares it, and
+ * that CSS arrives after the script tag: the 84 KiB of the two faces were
+ * going on the wire only once the stylesheet was read, which is late for the
+ * first paint. The preload puts them in flight with the script, so the text
+ * paints in the face it was designed in instead of swapping into it later.
+ *
+ * Only the latin subsets are preloaded: the other subsets (cyrillic, greek,
+ * vietnamese) are never fetched for a Spanish text, and preloading them would
+ * download what nobody asked for.
+ */
+function preloadLatinFonts(): Plugin {
+  return {
+    name: 'preload-latin-fonts',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      const html = bundle['index.html'];
+
+      if (!html || html.type !== 'asset') {
+        return;
+      }
+
+      const fonts = new Set<string>();
+
+      for (const asset of Object.values(bundle)) {
+        if (asset.type !== 'asset' || !asset.fileName.endsWith('.css')) {
+          continue;
+        }
+
+        for (const match of String(asset.source).matchAll(
+          /url\(([^)]*-latin-wght-normal-[^)]*)\)/g,
+        )) {
+          fonts.add(match[1]);
+        }
+      }
+
+      if (fonts.size === 0) {
+        return;
+      }
+
+      const links = [...fonts]
+        .map((url) => `<link rel="preload" href="${url}" as="font" type="font/woff2" crossorigin>`)
+        .join('\n    ');
+
+      html.source = String(html.source).replace('</head>', `    ${links}\n  </head>`);
+    },
+  };
+}
