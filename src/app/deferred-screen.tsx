@@ -40,20 +40,39 @@ export function lazyScreen(load: () => Promise<ComponentType>) {
 export function deferredScreen(load: () => Promise<ComponentType>): ComponentType {
   return function DeferredScreen() {
     const [Screen, setScreen] = useState<ComponentType | null>(null);
+    const [failure, setFailure] = useState<unknown>(null);
 
     useEffect(() => {
       let alive = true;
 
-      void load().then((screen) => {
-        if (alive) {
-          setScreen(() => screen);
-        }
-      });
+      void load().then(
+        (screen) => {
+          if (alive) {
+            setScreen(() => screen);
+          }
+        },
+        (error: unknown) => {
+          if (alive) {
+            setFailure(error);
+          }
+        },
+      );
 
       return () => {
         alive = false;
       };
     }, []);
+
+    /*
+     * A chunk that does not arrive is a failed screen, not a screen that never
+     * comes. The failure is thrown while rendering so the boundary above the
+     * router catches it, the same way it caught a chunk that failed to load
+     * before the screens were deferred: a promise that nobody listens to would
+     * leave the skeleton on the glass forever and the person with no idea why.
+     */
+    if (failure) {
+      throw failure;
+    }
 
     if (!Screen) {
       // The shape of what is coming, in the shell's own content box: the same

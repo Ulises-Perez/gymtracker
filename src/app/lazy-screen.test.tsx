@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ErrorBoundary } from '../components/ui/ErrorBoundary.tsx';
 import { hasStoredSession } from '../lib/stored-session.ts';
 import { lazyScreen } from './deferred-screen.tsx';
 
@@ -67,15 +68,6 @@ describe('lazyScreen', () => {
   });
 
   it('shows the real screen once it arrives', async () => {
-    localStorage.setItem(
-      'sb-project-auth-token',
-      JSON.stringify({
-        access_token: 'access-token',
-        refresh_token: 'refresh-token',
-        expires_at: 1_900_000_000,
-      }),
-    );
-
     const lazy = lazyScreen(loadDashboard);
 
     const module = await lazy();
@@ -86,5 +78,22 @@ describe('lazyScreen', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
     });
+  });
+
+  it('shows a failed download as a failed screen, not as a screen that never comes', async () => {
+    // A chunk that does not arrive used to leave the skeleton on the glass with
+    // nobody listening to the promise that failed.
+    const lazy = lazyScreen(() => Promise.reject(new Error('no se pudo bajar la pantalla')));
+
+    const module = await lazy();
+    const Screen = module.Component;
+
+    render(
+      <ErrorBoundary>
+        <Screen />
+      </ErrorBoundary>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Algo se rompió' })).toBeInTheDocument();
   });
 });
