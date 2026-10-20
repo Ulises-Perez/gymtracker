@@ -373,6 +373,7 @@ Este mismo pedido obligó a **corregir la forma de este documento**, que no cump
 | Arreglo del arnés | `b822e4b` `fix(e2e): the suite may never reuse a server that is not its own` | La E2E reusaba el servidor que ya estaba en el 4173, y ese servidor se había construido con el `.env` del **hosted**: la suite registraba su cuenta y anotaba su entrenamiento en los datos reales, y el error que tiraba señalaba al servidor equivocado. Ahora levanta su propio servidor y, con el puerto ocupado, lo dice |
 | T7.5 (deploy) | `dc7d819` `chore(deploy): the project configured for Vercel and GitHub, and how an agent connects` | La app publicada en **https://gymtracker-devkiings-projects.vercel.app** y el repo en **https://github.com/Ulises-Perez/gymtracker** (privado), con Vercel **conectado al repo** (cada push despliega) · Lighthouse contra la URL pública: **96 / 100 / 100 / 100** en móvil, **100 / 100 / 100 / 100** en escritorio · el `vercel.json` que el README describía y que no estaba en el repo, ahora con el rewrite del SPA y las cabeceras de revalidación · el `X-Robots-Tag` pisado a `index, follow` (el plan Hobby ponía `noindex` y el SEO caía a 63) |
 | T3.6c | `31a2041` `feat(workout): the card asks for the series, not for an objective` | La tarjeta sin el bloque de objetivo (la decisión de la persona, `L61`) · RED observado en **8 tests** antes de tocar el código · **565/565** unit tests · typecheck, lint y prettier limpios · build verde · **E2E 1 passed** contra el stack local · 14 capturas de la pantalla de entrenamiento con la tarjeta mostrando sólo sus series · **sin migración de base**: el contrato con el servidor (las tres claves del payload) y las columnas quedan, y viajan vacías |
+| T7.5 (deploy #2) | `b9b9509` `fix(csp): Zod stops probing for eval, so a strict CSP has nothing to report` | La rama subida (6 commits) y el deploy verificado **contra la URL pública**: la CSP sin localhost ✓, el chunk de la tarjeta con la serie y **cero** rastro del objetivo ✓, la app arrancando sin errores de consola ✓. El deploy destapó la **violación de CSP** de la sesión anterior (el sondeo `new Function` de Zod v4): medida contra la URL pública, **best-practices 96** —el local no podía verla porque el preview no aplica `vercel.json`—. Arreglada con el interruptor `jitless` de Zod ✓. Final: **97 / 100 / 100 / 100** contra la URL pública (3 corridas) ✓ y **0 violaciones** en tres sondas ✓ |
 
 
 ### L8 · Desviaciones documentadas (no ocultas)
@@ -1514,3 +1515,54 @@ decisión de **R2** —el Inicio cuenta los **ejercicios distintos** de la sesi�
 detalle lista las **tarjetas**; con el mismo ejercicio en dos tarjetas los dos números
 difieren, y cuál es el correcto es de la persona (su arreglo, además, es una migración
 nueva contra el hosted) ✓.
+
+### L63 · El deploy, y la violación de CSP que el deploy destapó (2026-10-20)
+
+**El pedido, textual**: *"Mandale hazlos cambios en el git y demas para un deploy de estos
+nuevos cambios siempre en la app"*.
+
+**El deploy**: la rama `feat/gymtracker-mvp` estaba **6 commits adelante** de `origin` y se
+subió ✓; Vercel está **conectado al repo**, así que cada push despliega solo ✓. El
+deploy se verificó **contra la URL pública**, no contra el build local:
+
+- **La CSP nueva está viva**: el `connect-src` ya **no** permite `http://127.0.0.1:54321` ✓
+  (era el cambio de `f5bb076`, y producción nunca habla con el stack local).
+- **El chunk servido es el nuevo**: el de la tarjeta tiene `"Peso en kg serie"`, `"Reps
+  serie"` y `"último:"` ✓ y **cero** apariciones de `"Reps del objetivo"`, `"Peso mínimo
+  del objetivo"`, `"Objetivo (opcional)"`, `"Mín kg"` y `"Máx kg"` ✓. **La cadena de
+  control es lo que hace la medición válida**: un grep sin control sobre un cuerpo
+  comprimido dice "0" para todo, y ese "0" no prueba nada.
+- **La app arranca**: título, pantalla de acceso, las dos caras cargadas, **sin errores
+  de consola ni peticiones fallidas** ✓.
+
+**Lo que el deploy destapó, y es lo importante**: el Lighthouse contra la URL pública dio
+**97 / 100 / 96 / 100** —buenas prácticas **96**, donde la publicación anterior decía
+**100**— y la causa fue una **violación de la CSP**: `script-src` bloqueando un `eval`.
+El bloque venía del **sondeo de Zod v4**, que pregunta al runtime si puede compilar un
+parser especializado con `new Function("")`; la CSP lo bloquea, Zod se traga el error y
+la app funciona, pero **el navegador lo reporta en el panel de Issues** y Lighthouse lo
+cuenta.
+
+**Por qué nadie lo había visto**: la CSP del commit `4e8e140` (la sesión anterior) **nunca
+se midió contra la URL pública**. El `vite preview` **no aplica `vercel.json`**, así que
+localmente no hay CSP, no hay violación, y el audit da 100. **Una medición contra un
+entorno que no tiene la restricción no mide la restricción.**
+
+**El arreglo** (`b9b9509`): Zod v4 trae el interruptor para este caso exacto —`jitless`:
+el sondeo se saltea y los esquemas de objeto se parsean por la ruta genérica—. **La ruta
+genérica es la que producción ya tomaba** (la CSP bloquea la compilación allí), así que la
+app no cambia lo que hace: deja de reportarse el bloqueo. Todo módulo que construye un
+esquema importa Zod **por `src/schemas/zod.ts`** ✓, porque el flag se lee cuando el
+esquema se construye y la única forma de garantizar el orden es tener el módulo que
+posee Zod.
+
+**La medición local que sí podía ver la restricción**: un servidor que sirve `dist/` **con
+las cabeceras reales de producción** (el preview no las aplica) → **0 violaciones** y
+**best-practices 100** ✓, contra el build desplegado que reportaba una y daba 96 ✓.
+
+**Medido sobre el árbol final**: **568/568 unit tests** ✓ · Lighthouse local **92 / 92 /
+92** con **100 / 100 / 100** ✓ · bundle inicial **121.19 kB gzip de 180** ✓ (sin cambio) ·
+y contra la **URL pública**: **97 / 100 / 100 / 100** en tres corridas seguidas ✓ con las
+tres sondas de CSP limpias ✓. **La primera corrida dio 96**: fue durante la propagación
+del deploy en el edge y **la causa no está probada**; lo que sí está probado es que las
+corridas siguientes y las sondas dan limpio ✓.
