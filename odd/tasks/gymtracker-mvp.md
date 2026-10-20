@@ -1378,3 +1378,26 @@ La causa era del test: **el custom de A nunca se había creado**, así que el FK
 **La lección, que es la que más sirve**: un borrado **es** una escritura ✓, y el módulo que enumeraba las lecturas de un guardado era el sitio donde esa verdad tenía que estar escrita ✓. El síntoma (el Inicio mintiendo) y la causa (una lista de invalidación a medias ✓) estaban a tres archivos de distancia ✓, y la reproducción con el consumidor real ✓ —con navegación de cliente y no con una recarga ✓— fue lo que los separó ✓.
 
 **Verificado**: la misma sonda, después del arreglo, dice *"Sin racha por ahora"* y *"Todavía no registraste ningún entrenamiento"* ✓. Un test fija el contrato sobre la lectura cacheada misma ✓. **547/547 tests**, typecheck, lint y prettier limpios ✓, y el commit `15904e8` desplegó solo ✓ (Vercel conectado al repo ✓).
+
+### L60 · Una pasada de revisión ciega sobre el proyecto entero (2026-10-19)
+
+**El pedido, textual**: *"verifica o busca issues y resuelvelos para dejar lo mejor correctamente el proyecto"*.
+
+**El método**: dos jueces ciegos barrieron el **árbol comiteado `a8d4a63`** (181 archivos, ~26.500 líneas ✓) con el mismo alcance y sin ver al otro ✓, y el padre verificó cada hallazgo por separado ✓ (código ✓, base de datos ✓ y, cuando se pudo, **la app corriendo** ✓). El libro mayor completo está en **`odd/tasks/gymtracker-verificacion.md`** ✓.
+
+**Lo que encontró y lo que se resolvió** ✓ (los commits `4e8e140` ✓, `1e0a667` ✓ y `8b72a99` ✓):
+
+- **Un CRÍTICO que perdía la sesión** ✓: un set o un objetivo con reps fraccionarias, con 0, o con peso negativo **nunca se podía guardar** ✓ — el contrato lo rechazaba ✓, el borrador quedaba congelado ✓ y la persona sólo podía descartarlo ✓. Escribiendo `"10,5"` en las reps (el teclado es decimal ✓) se llegaba ahí ✓. Ahora la regla vive en un solo lugar ✓ y el esquema se deriva de ella ✓, el valor rechazado no entra al borrador ✓ y la celda dice por qué ✓; y la sesión **se guarda** ✓ (verificado en la app ✓).
+- **El Inicio contaba mal los ejercicios** ✓: `dashboard_summary()` los contaba por las **series** ✗ cuando desde 0012 son las **tarjetas** ✓, así que una sesión con un ejercicio y ninguna serie decía "0 ejercicios" ✗ mientras su detalle listaba la tarjeta ✓. Migración `0014` ✓ y la **primera cobertura de esa lectura** ✓ (110 aserciones ✓ en local y en el hosted ✓).
+- **Las lecturas cacheadas que no se avisaban** ✓: el Perfil mostraba "Récords" y "Mejor racha" viejos al lado de un total ya refrescado ✓, y el detalle de un entrenamiento borrado se servía de la caché ✓.
+- **La gráfica del peso corporal** ✓ no aplicaba la corrección de eje que su hermana sí aplica ✓: con una sola medición el punto quedaba al borde ✓ con ticks de días sin lectura ✓.
+- **La consola no estaba limpia** ✓ (React Router avisaba por pantalla ✓) y **producción no tenía cabeceras de seguridad** ✓ (ni `nosniff` ✓, ni CSP ✓, ni `frame-ancestors` ✓). Ahora está ✓ y la CSP **no rompe la app** ✓ (comprobado contra la URL pública ✓).
+- **Un peso muerto** ✓: `date-fns` declarada y nunca importada ✓.
+
+**Lo que se descartó midiendo** ✓ (y queda anotado ✓): el `GRANT` de `service_role` a la tabla de tarjetas ✓ (el privilegio está igual ✓) ✗ y una dependencia muerta ✓.
+
+**El actor de arreglos acotado** murió antes de reportar (crash del proceso ✓) **dejando el arreglo completo y en verde** ✓: el padre midió el árbol ✓, leyó el arreglo ✓, lo verificó en la app ✓ y lo commiteó ✓.
+
+**Verificación de la ronda** ✓: **577/577 tests** ✓ · E2E **1 passed** ✓ · Lighthouse local **92 / 100 / 100 / 100** ✓ · bundle **121.27 kB gzip de 180** ✓ · audit de UI **36 mediciones, 0 hallazgos** ✓ · pgTAP **110/110** ✓ en local y en el hosted ✓ · **consola limpia** ✓ en las cuatro pantallas ✓.
+
+**Lo que sigue siendo de la persona** ✓: la **E2E en un dispositivo real** ✓ y la **Site URL + las Redirect URLs** de Supabase con el dominio de producción ✓ (el paso 2 del README ✓).
