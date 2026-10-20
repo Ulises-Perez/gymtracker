@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { workoutNumberRefusal } from '../lib/utils.ts';
 import { saveWorkoutPayloadSchema } from './workout.ts';
 
 /**
@@ -170,6 +171,139 @@ describe('the modern payload shape', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+const CARD_EXERCISE_ID = '01920000-0000-7000-8000-0000000000aa';
+
+/** A modern payload whose one card holds a single set, with the named fields overridden. */
+function modernPayloadWithSet(set: Record<string, unknown>) {
+  return {
+    ...modernPayload,
+    exercises: [
+      {
+        exercise_id: CARD_EXERCISE_ID,
+        target_reps: null,
+        target_weight_min: null,
+        target_weight_max: null,
+        sets: [
+          {
+            id: '01920000-0000-7000-8000-0000000000bb',
+            set_number: 1,
+            rpe: null,
+            is_warmup: false,
+            notes: null,
+            ...set,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** A modern payload whose one card carries a target and no sets. */
+function modernPayloadWithTarget(target: Record<string, unknown>) {
+  return {
+    ...modernPayload,
+    exercises: [{ exercise_id: CARD_EXERCISE_ID, sets: [], ...target }],
+  };
+}
+
+/**
+ * The two numbers the contract scores, which are the two the fields let someone type.
+ *
+ * `reps` is an integer in an `INT` column and a weight is a `DECIMAL` that cannot be negative, so a
+ * value outside those bounds is not a session anyone performed. The field and the finish gate have
+ * to refuse it before the save does: once the draft is finished and the payload is refused, the
+ * session can only be retried with the same invalid payload or thrown away.
+ */
+describe('the numbers a set or a target may hold', () => {
+  it('refuses reps that are not a whole number', () => {
+    const result = saveWorkoutPayloadSchema.safeParse(
+      modernPayloadWithSet({ reps: 10.5, weight_kg: 100 }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  it('refuses reps of zero', () => {
+    const result = saveWorkoutPayloadSchema.safeParse(
+      modernPayloadWithSet({ reps: 0, weight_kg: 100 }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  it('refuses a negative weight', () => {
+    const result = saveWorkoutPayloadSchema.safeParse(
+      modernPayloadWithSet({ reps: 5, weight_kg: -5 }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  /** A weight is a decimal, so the comma in "72,5" is still a value the session can hold. */
+  it('accepts a decimal weight', () => {
+    const result = saveWorkoutPayloadSchema.safeParse(
+      modernPayloadWithSet({ reps: 5, weight_kg: 72.5 }),
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('refuses a target of fractional reps', () => {
+    const result = saveWorkoutPayloadSchema.safeParse(
+      modernPayloadWithTarget({ target_reps: 8.5 }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  it('refuses a negative target weight', () => {
+    const result = saveWorkoutPayloadSchema.safeParse(
+      modernPayloadWithTarget({ target_weight_min: -20 }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+});
+
+/**
+ * The contract is *derived* from the rule the fields use, and this is what says so.
+ *
+ * Two hand-written copies of "an integer greater than zero" used to be one copy too many: the fields
+ * took a value the payload refused, so a session could be typed, finished, frozen and only then
+ * rejected — with a retry that re-sent the same refused bytes and a discard as the only way out.
+ * Neither the values nor the messages are asserted twice here; what is asserted is that the contract
+ * and the rule answer the same question the same way, for every value either of them can see.
+ */
+describe('the rule the fields use, and the contract', () => {
+  const values: Array<number | null | undefined> = [null, undefined, 0, 1, 5, 10.5, -1, -0.5, 72.5];
+
+  it('agrees on every reps value', () => {
+    for (const reps of values) {
+      const accepted = saveWorkoutPayloadSchema.safeParse(
+        modernPayloadWithSet({ reps, weight_kg: null }),
+      ).success;
+
+      expect({ reps, accepted }).toEqual({
+        reps,
+        accepted: workoutNumberRefusal('reps', reps) === null,
+      });
+    }
+  });
+
+  it('agrees on every weight value', () => {
+    for (const weight of values) {
+      const accepted = saveWorkoutPayloadSchema.safeParse(
+        modernPayloadWithSet({ reps: null, weight_kg: weight }),
+      ).success;
+
+      expect({ weight, accepted }).toEqual({
+        weight,
+        accepted: workoutNumberRefusal('weightKg', weight) === null,
+      });
+    }
   });
 });
 

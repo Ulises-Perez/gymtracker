@@ -15,7 +15,8 @@ import { useWakeLock } from '../hooks/useWakeLock.ts';
 import type { CatalogExercise } from '../lib/catalog-api.ts';
 import { formatLongDate } from '../lib/utils.ts';
 import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
-import { useWorkoutStore } from '../stores/workout-store.ts';
+import { findWorkoutNumberProblem, useWorkoutStore } from '../stores/workout-store.ts';
+import type { WorkoutNumberProblem } from '../stores/workout-store.ts';
 
 /**
  * The workout screen.
@@ -72,6 +73,12 @@ export function WorkoutPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dismissedSave, setDismissedSave] = useState<string | null>(null);
   const [confirmingRestart, setConfirmingRestart] = useState(false);
+  /*
+   * Whether finishing was asked for and refused. Derived from the draft and not from the problem
+   * itself: correcting the field is what clears it, so a copy in state would have to be cleared by
+   * hand and would be one keystroke behind the truth.
+   */
+  const [refusedFinish, setRefusedFinish] = useState(false);
 
   const catalog = useCatalog(user?.id ?? '');
   const rest = useRestTimer(REST_SECONDS);
@@ -79,6 +86,15 @@ export function WorkoutPage() {
 
   const customs = draft?.customExercises;
   const isOpen = draft?.status === 'draft';
+
+  /**
+   * The first number in the draft the save contract would refuse, if there is one.
+   *
+   * Recomputed from the draft rather than kept: the card refuses these as they are typed, so only a
+   * draft this build did not write — a session restored from an older one — can carry one, and what
+   * makes it disappear is the correction itself.
+   */
+  const numberProblem = useMemo(() => (draft ? findWorkoutNumberProblem(draft) : null), [draft]);
 
   /*
    * How many writes are queued and not yet on the server.
@@ -162,6 +178,26 @@ export function WorkoutPage() {
   }
 
   /**
+   * "Finalizar", or the reason it did not happen.
+   *
+   * The gate is here, in front of `finishAndQueue`, because finishing is what makes the draft
+   * uneditable: a session whose payload the contract refuses has to stay a draft the person can
+   * correct, and the reason has to name the field. The store refuses to freeze such a draft too — the
+   * invariant underneath — so the payload of a session the schema would reject cannot be built even
+   * by a caller that forgets to ask.
+   */
+  function finishOrExplain(): void {
+    if (numberProblem) {
+      setRefusedFinish(true);
+
+      return;
+    }
+
+    setRefusedFinish(false);
+    save.finishAndQueue();
+  }
+
+  /**
    * Opens a fresh workout, having first put the question back down.
    *
    * The flag is cleared here and not left for the next render: after the draft is replaced the
@@ -170,6 +206,8 @@ export function WorkoutPage() {
    */
   function startNew(): void {
     setConfirmingRestart(false);
+    // The refusal belonged to the draft that was just replaced; a new one is not refused yet.
+    setRefusedFinish(false);
     start();
   }
 
@@ -340,9 +378,20 @@ export function WorkoutPage() {
         </p>
       ) : null}
 
+      {/*
+        The reason, and the field it is about: the card names its own errors next to the field that
+        was typed into, but this one belongs to a draft that arrived from somewhere else, so the
+        sentence has to carry the card and the row to the person.
+      */}
+      {refusedFinish && numberProblem ? (
+        <p role="alert" className="text-danger mt-4 text-sm">
+          No se puede finalizar: {describeNumberProblem(numberProblem, names)}.
+        </p>
+      ) : null}
+
       <button
         type="button"
-        onClick={save.finishAndQueue}
+        onClick={finishOrExplain}
         disabled={save.status === 'pending'}
         className="bg-primary mt-6 min-h-12 w-full rounded-sm px-4 font-medium text-white disabled:opacity-50"
       >
@@ -359,6 +408,20 @@ export function WorkoutPage() {
       />
     </div>
   );
+}
+
+/**
+ * "«Press Banca», serie 1. Las reps tienen que ser un número entero mayor que cero."
+ *
+ * The card by the name the picker gave it and the row the way the row is written on it — the target's
+ * row has no number, so it is called what the card calls it. The rule's own words come last, so the
+ * sentence leads with where to look and ends with what to fix.
+ */
+function describeNumberProblem(problem: WorkoutNumberProblem, names: Map<string, string>): string {
+  const card = names.get(problem.exerciseId) ?? 'este ejercicio';
+  const row = problem.setNumber === null ? 'objetivo' : `serie ${problem.setNumber}`;
+
+  return `«${card}», ${row}. ${problem.refusal}`;
 }
 
 /**

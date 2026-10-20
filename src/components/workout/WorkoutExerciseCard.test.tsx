@@ -227,6 +227,86 @@ describe('WorkoutExerciseCard', () => {
     expect(onUpdateSet).toHaveBeenCalledWith('set-1', { weightKg: null });
   });
 
+  /**
+   * The save contract refuses fractional reps, so the field must not put one in the draft: a value the
+   * contract refuses is refused at the moment it is typed, where it can still be corrected, and not
+   * after "Finalizar" has already frozen the session.
+   *
+   * The text stays exactly as typed, because it is what the person is looking at while they correct
+   * it; the stored value keeps the last one the rule accepted, and the message is what says that
+   * what is on screen is not what is recorded yet.
+   */
+  it('refuses reps that are not a whole number, and says why next to the field', () => {
+    const { onUpdateSet } = renderCard(cardWith([setWith({ reps: 5 })]));
+
+    const reps = screen.getByLabelText('Reps serie 1');
+    fireEvent.change(reps, { target: { value: '10,5' } });
+
+    expect(onUpdateSet).not.toHaveBeenCalled();
+    // Not only colour: the words, and the wiring that announces them, like every field's error.
+    expect(reps).toHaveAccessibleDescription(
+      'Las reps tienen que ser un número entero mayor que cero.',
+    );
+    expect(reps).toHaveAttribute('aria-invalid', 'true');
+    expect(reps).toHaveValue('10,5');
+  });
+
+  /**
+   * The other number the contract refuses. A negative weight is not a set anyone performed, and it
+   * would be refused by the save after the draft was already frozen.
+   */
+  it('refuses a negative weight, and says why next to the field', () => {
+    const { onUpdateSet } = renderCard(cardWith([setWith({ weightKg: 100 })]));
+
+    const weight = screen.getByLabelText('Peso en kg serie 1');
+    fireEvent.change(weight, { target: { value: '-5' } });
+
+    expect(onUpdateSet).not.toHaveBeenCalled();
+    expect(weight).toHaveAccessibleDescription('El peso no puede ser negativo.');
+    expect(weight).toHaveValue('-5');
+  });
+
+  /** A refusal is a moment, not a state the field keeps: fixing it commits the value and says nothing. */
+  it('takes the refusal back once the value is corrected', () => {
+    const { onUpdateSet } = renderCard(cardWith([setWith({ reps: 5 })]));
+
+    const reps = screen.getByLabelText('Reps serie 1');
+    fireEvent.change(reps, { target: { value: '0' } });
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    fireEvent.change(reps, { target: { value: '12' } });
+
+    expect(onUpdateSet).toHaveBeenCalledWith('set-1', { reps: 12 });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(reps).not.toHaveAttribute('aria-invalid');
+  });
+
+  /**
+   * The target is the same two numbers on another row, so it is refused by the same rule and told in
+   * the same way. An objective the contract refuses would freeze the session exactly like a set does.
+   */
+  it('refuses a target of fractional reps', () => {
+    const handlers = renderCard(cardWith([]));
+
+    const target = screen.getByLabelText('Reps del objetivo');
+    fireEvent.change(target, { target: { value: '8,5' } });
+
+    expect(handlers.onSetTarget).not.toHaveBeenCalled();
+    expect(target).toHaveAccessibleDescription(
+      'Las reps tienen que ser un número entero mayor que cero.',
+    );
+  });
+
+  it('refuses a negative target weight', () => {
+    const handlers = renderCard(cardWith([]));
+
+    const target = screen.getByLabelText('Peso mínimo del objetivo');
+    fireEvent.change(target, { target: { value: '-20' } });
+
+    expect(handlers.onSetTarget).not.toHaveBeenCalled();
+    expect(target).toHaveAccessibleDescription('El peso no puede ser negativo.');
+  });
+
   it('labels the inputs of each set apart, so a screen reader can tell them apart', () => {
     renderCard(cardWith([setWith({ id: 'set-1' }), setWith({ id: 'set-2' })]));
 

@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { indexedDbStorage } from '../lib/storage.ts';
-import { WORKOUT_STORAGE_KEY, useWorkoutStore } from './workout-store.ts';
+import { findWorkoutNumberProblem, WORKOUT_STORAGE_KEY, useWorkoutStore } from './workout-store.ts';
 
 const EXERCISE_ID = '01920000-0000-7000-8000-000000000010';
 const OTHER_EXERCISE_ID = '01920000-0000-7000-8000-000000000011';
@@ -209,6 +209,131 @@ describe('finishing a workout', () => {
     store().setTitle('otra cosa');
 
     expect(draft()).toEqual(finished);
+  });
+});
+
+/**
+ * The gate that keeps a session the save contract would refuse from being frozen.
+ *
+ * `finish()` is what writes `endedAt`, and a finished draft can no longer be edited — so a draft that
+ * holds a value the contract refuses cannot be repaired once it is frozen: the only two ways out
+ * would be retrying the same invalid payload or throwing the session away. The rule that decides is
+ * the contract's own, so the store cannot disagree with the schema.
+ */
+describe('refusing to freeze a draft the contract would refuse', () => {
+  beforeEach(() => {
+    store().start();
+    store().addExercise(EXERCISE_ID);
+  });
+
+  function cardId(): string {
+    return draft()?.exercises[0]?.id ?? '';
+  }
+
+  function setId(): string {
+    return draft()?.exercises[0]?.sets[0]?.id ?? '';
+  }
+
+  it('keeps the workout open when a set holds fractional reps', () => {
+    store().addSet(cardId(), { reps: 10.5, weightKg: 100 });
+
+    store().finish();
+
+    expect(draft()?.status).toBe('draft');
+    expect(draft()?.endedAt).toBeNull();
+  });
+
+  it('keeps the workout open when a set holds a negative weight', () => {
+    store().addSet(cardId(), { reps: 10, weightKg: -5 });
+
+    store().finish();
+
+    expect(draft()?.status).toBe('draft');
+  });
+
+  it('keeps the workout open when the target holds reps of zero', () => {
+    store().setTarget(cardId(), { targetReps: 0 });
+
+    store().finish();
+
+    expect(draft()?.status).toBe('draft');
+  });
+
+  /**
+   * The other half, and the reason the gate is not a wall: a draft is only held open while it holds
+   * something the contract refuses. Once the value is corrected, the same tap finishes the workout.
+   */
+  it('finishes once the value is corrected', () => {
+    store().addSet(cardId(), { reps: 10.5, weightKg: 100 });
+    store().finish();
+
+    store().updateSet(cardId(), setId(), { reps: 10 });
+    store().finish();
+
+    expect(draft()?.status).toBe('finished');
+    expect(draft()?.endedAt).toEqual(expect.any(Number));
+  });
+});
+
+/**
+ * The search the finish gate runs, and the reason it names the field instead of saying "no".
+ *
+ * A message that does not say where to look turns a session one correction away from being saved into
+ * a puzzle, so what is asserted is the card, the row and the rule's own words.
+ */
+describe('finding the number that keeps a draft open', () => {
+  beforeEach(() => {
+    store().start();
+    store().addExercise(EXERCISE_ID);
+    store().addExercise(OTHER_EXERCISE_ID);
+  });
+
+  function cardId(position: number): string {
+    return draft()?.exercises[position]?.id ?? '';
+  }
+
+  function problemInCurrentDraft() {
+    const current = draft();
+
+    if (!current) {
+      throw new Error('expected an open draft');
+    }
+
+    return findWorkoutNumberProblem(current);
+  }
+
+  it('finds nothing in a draft the contract takes', () => {
+    store().addSet(cardId(0), { reps: 5, weightKg: 100 });
+    store().setTarget(cardId(1), { targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 });
+
+    expect(problemInCurrentDraft()).toBeNull();
+  });
+
+  it('names the card, the position of the set and the rule it breaks', () => {
+    store().addSet(cardId(1), { reps: 10.5, weightKg: 100 });
+
+    expect(problemInCurrentDraft()).toEqual({
+      exerciseId: OTHER_EXERCISE_ID,
+      setNumber: 1,
+      field: 'reps',
+      refusal: 'Las reps tienen que ser un número entero mayor que cero.',
+    });
+  });
+
+  /**
+   * The target is read before the sets, because that is the order the card is laid out in: the first
+   * thing named has to be the first thing the person would find by looking.
+   */
+  it('names the target before the sets of the same card', () => {
+    store().addSet(cardId(0), { reps: 10.5, weightKg: 100 });
+    store().setTarget(cardId(0), { targetWeightMax: -20 });
+
+    expect(problemInCurrentDraft()).toEqual({
+      exerciseId: EXERCISE_ID,
+      setNumber: null,
+      field: 'weightKg',
+      refusal: 'El peso no puede ser negativo.',
+    });
   });
 });
 

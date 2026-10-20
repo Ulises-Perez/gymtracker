@@ -114,6 +114,65 @@ export function parseDecimalInput(value: string): number | null {
 }
 
 /**
+ * The numbers of a set, which are the numbers the save contract scores.
+ *
+ * Two kinds and not five fields: the objective's reps are reps and its two weights are weights, and
+ * the rule is about what the number is, not about where on the card it was typed.
+ */
+export type WorkoutNumberField = 'reps' | 'weightKg';
+
+type WorkoutNumberRule = {
+  /** The words the person is told, next to the field they typed it into. */
+  refuses: string;
+  accepts: (value: number) => boolean;
+};
+
+/**
+ * The one rule a number of a set has to meet, and the sentence to say when it does not.
+ *
+ * It lives here, beside the parser that produces the values, and **not** beside the schema that also
+ * enforces it — and that is a deliberate placement, not an oversight. `src/schemas/workout.ts` carries
+ * Zod, and the store is part of the initial bundle (`lib/save-sync.ts` imports it at startup), so a
+ * store that imported the schema to ask this question would put the parser on the first paint. Here
+ * the rule is reachable from the field, the store and the contract at no cost, and it is still the
+ * only one there is: the payload schema is *derived* from this table, so the contract and the fields
+ * cannot disagree about a number, which is exactly the drift that froze a session for good.
+ *
+ * Both bounds are the database's own: `reps` is an `INT` and a set of zero reps is not a set, while a
+ * weight is a `DECIMAL` that a person wrote down — fractional, never negative.
+ */
+export const workoutNumberRules: Record<WorkoutNumberField, WorkoutNumberRule> = {
+  reps: {
+    refuses: 'Las reps tienen que ser un número entero mayor que cero.',
+    accepts: (value) => Number.isInteger(value) && value > 0,
+  },
+  weightKg: {
+    refuses: 'El peso no puede ser negativo.',
+    accepts: (value) => value >= 0,
+  },
+};
+
+/**
+ * Why the contract refuses a value, or null when it takes it.
+ *
+ * `null` and `undefined` are taken, and that is not a hole in the rule: both mean "not said yet", and
+ * every one of these fields is optional — a set with the reps recorded and the weight left blank is a
+ * real set, and a target that only says "10 reps" is a real target.
+ */
+export function workoutNumberRefusal(
+  field: WorkoutNumberField,
+  value: number | null | undefined,
+): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const rule = workoutNumberRules[field];
+
+  return rule.accepts(value) ? null : rule.refuses;
+}
+
+/**
  * Single sanctioned conversion point for Postgres `DECIMAL` columns.
  *
  * `supabase-js` returns numeric/decimal columns as strings, so arithmetic on a

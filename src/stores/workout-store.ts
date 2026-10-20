@@ -3,7 +3,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { newId } from '../lib/ids.ts';
 import { indexedDbStorage } from '../lib/storage.ts';
-import { localIsoDate } from '../lib/utils.ts';
+import { localIsoDate, workoutNumberRefusal } from '../lib/utils.ts';
+import type { WorkoutNumberField } from '../lib/utils.ts';
 
 /**
  * The workout in progress, on the device.
@@ -120,6 +121,70 @@ export type WorkoutDraft = {
   exercises: WorkoutExerciseDraft[];
   customExercises: CustomExerciseDraft[];
 };
+
+/**
+ * A number in the draft that the save contract would refuse, and why it would refuse it.
+ */
+export type WorkoutNumberProblem = {
+  /** The card, by the id of the exercise it names: this store holds ids, the screen holds names. */
+  exerciseId: string;
+  /** Which row: the set at this position, counting from one, or null for the card's target. */
+  setNumber: number | null;
+  field: WorkoutNumberField;
+  /** The words the person is told, in the app's own language. */
+  refusal: string;
+};
+
+/**
+ * The first number of the draft the save contract would refuse, or null when it would take them all.
+ *
+ * The card refuses these at the keystroke, so a session typed in this build finds nothing here. What
+ * this is for is the draft that did not come from those keystrokes: a session restored from an older
+ * build, or one written into the store by anything that is not the card. Such a draft cannot be
+ * saved — the payload fails its own contract and the queue spends its retries on the same bytes — and
+ * once `finish()` has run it cannot be corrected either, because a finished draft takes no more edits.
+ * Finding it before the freeze is the difference between "fix that field" and "lose the session".
+ *
+ * The order is the order of the screen: each card, its target first and then its sets. The first
+ * problem is the one to name, because a list of them would be a wall of text over a session that is
+ * one correction away from being fine.
+ */
+export function findWorkoutNumberProblem(draft: WorkoutDraft): WorkoutNumberProblem | null {
+  for (const card of draft.exercises) {
+    const rows: Array<{
+      setNumber: number | null;
+      numbers: Array<[WorkoutNumberField, number | null]>;
+    }> = [
+      {
+        setNumber: null,
+        numbers: [
+          ['reps', card.targetReps],
+          ['weightKg', card.targetWeightMin],
+          ['weightKg', card.targetWeightMax],
+        ],
+      },
+      ...card.sets.map((set, index) => ({
+        setNumber: index + 1,
+        numbers: [
+          ['reps', set.reps],
+          ['weightKg', set.weightKg],
+        ] as Array<[WorkoutNumberField, number | null]>,
+      })),
+    ];
+
+    for (const row of rows) {
+      for (const [field, value] of row.numbers) {
+        const refusal = workoutNumberRefusal(field, value);
+
+        if (refusal !== null) {
+          return { exerciseId: card.exerciseId, setNumber: row.setNumber, field, refusal };
+        }
+      }
+    }
+  }
+
+  return null;
+}
 
 type WorkoutStore = {
   draft: WorkoutDraft | null;
@@ -437,18 +502,30 @@ export const useWorkoutStore = create<WorkoutStore>()(
             ) ?? state,
         ),
 
-      // The double-finish guard the plan asks for falls out of `edit`: once the
-      // status is no longer `draft` there is nothing here to change, so a second
-      // tap cannot move `endedAt`, which is what the duration and the payload are
-      // built from.
+      /**
+       * Freezes the workout, unless the contract would refuse what it holds.
+       *
+       * `finish()` is the freeze, so this is the one place where a session the payload schema refuses
+       * can still be stopped: afterwards the draft takes no more edits, its payload fails on every
+       * retry and the person can only discard the session. Refusing to finish keeps it a draft —
+       * editable, and one correction away from saving. The screen is where the person is told which
+       * field to correct, because only the screen knows the exercise's name; this is the invariant
+       * underneath, for any caller that arrives without asking first.
+       *
+       * The double-finish guard the plan asks for still falls out of `edit`: once the status is no
+       * longer `draft` there is nothing here to change, so a second tap cannot move `endedAt`, which is
+       * what the duration and the payload are built from.
+       */
       finish: () =>
         set(
           (state) =>
-            edit(state, (draft) => ({
-              ...draft,
-              status: 'finished',
-              endedAt: Date.now(),
-            })) ?? state,
+            edit(state, (draft) => {
+              if (findWorkoutNumberProblem(draft)) {
+                return draft;
+              }
+
+              return { ...draft, status: 'finished', endedAt: Date.now() };
+            }) ?? state,
         ),
     }),
     {

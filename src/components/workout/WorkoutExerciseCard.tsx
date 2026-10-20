@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { useLastSets } from '../../hooks/useCatalog.ts';
 import type { LastSet } from '../../lib/catalog-api.ts';
-import { parseDecimalInput } from '../../lib/utils.ts';
+import { parseDecimalInput, workoutNumberRefusal } from '../../lib/utils.ts';
+import type { WorkoutNumberField } from '../../lib/utils.ts';
 import type {
   WorkoutExerciseDraft,
   WorkoutSetDraft,
@@ -104,18 +105,21 @@ export function WorkoutExerciseCard({
           <NumberCell
             label="Reps del objetivo"
             shortLabel="Reps"
+            field="reps"
             value={card.targetReps}
             onChange={(value) => onSetTarget({ targetReps: value })}
           />
           <NumberCell
             label="Peso mínimo del objetivo"
             shortLabel="Mín kg"
+            field="weightKg"
             value={card.targetWeightMin}
             onChange={(value) => onSetTarget({ targetWeightMin: value })}
           />
           <NumberCell
             label="Peso máximo del objetivo"
             shortLabel="Máx kg"
+            field="weightKg"
             value={card.targetWeightMax}
             onChange={(value) => onSetTarget({ targetWeightMax: value })}
           />
@@ -197,13 +201,16 @@ function SetRow({
        * an empty value instead of an error, so the user would just see their typing
        * disappear.
        *
-       * They are uncontrolled on purpose. The value is committed on every change,
-       * but the field keeps its own text: a controlled input would rewrite "72," to
-       * "72" mid-keystroke and the next digit would land after it.
+       * They are uncontrolled on purpose. The value is committed on every change the
+       * contract accepts, but the field keeps its own text: a controlled input would
+       * rewrite "72," to "72" mid-keystroke and the next digit would land after it.
+       * A value the contract refuses is not committed at all, and the cell says why
+       * (`NumberCell`) instead of quietly storing something the payload would reject.
        */}
       <NumberCell
         label={`Reps serie ${position}`}
         shortLabel="Reps"
+        field="reps"
         value={set.reps}
         replaced={reps.replaced}
         onFocus={reps.takeHold}
@@ -212,6 +219,7 @@ function SetRow({
       <NumberCell
         label={`Peso en kg serie ${position}`}
         shortLabel="kg"
+        field="weightKg"
         value={set.weightKg}
         replaced={weight.replaced}
         onFocus={weight.takeHold}
@@ -273,10 +281,25 @@ function useCorrection(committed: number | null, commit: (value: number | null) 
  * The crossed value is announced as "Valor anterior" instead of being swept out of the tree: the
  * correction is information, and the users who cannot see the crossing are the ones who would lose
  * it. The figures are tabular so a column does not move while it is being written.
+ *
+ * **A refused value is not written down, and the field says why.** The rule is the save contract's own
+ * (`workoutNumberRefusal`), asked here before the value can reach the draft, so the draft cannot hold
+ * a number the payload would reject. Three decisions follow from that, and they are the deliberate
+ * part:
+ *
+ * - **The text stays exactly as typed.** These fields are uncontrolled on purpose, and rewriting
+ *   "10,5" to something else mid-keystroke would take the typing away from the person who is in the
+ *   middle of fixing it. It is also the only place the refused value is visible.
+ * - **The stored value is the last one the rule took** — or `null` if there never was one — so what
+ *   the session holds is always something the contract accepts. The message is what says that what
+ *   is on screen is not what is recorded yet.
+ * - **The correction mark follows the draft, not the text**, because nothing new was committed: the
+ *   crossed value keeps meaning "this is what the stored value replaced".
  */
 function NumberCell({
   label,
   shortLabel,
+  field,
   value,
   replaced = null,
   onFocus,
@@ -284,11 +307,14 @@ function NumberCell({
 }: {
   label: string;
   shortLabel: string;
+  field: WorkoutNumberField;
   value: number | null;
   replaced?: number | null;
   onFocus?: () => void;
   onChange: (value: number | null) => void;
 }) {
+  const refusalId = useId();
+  const [refusal, setRefusal] = useState<string | null>(null);
   return (
     /*
      * The gap between the label row and the field is two steps, not one: the focus
@@ -311,13 +337,32 @@ function NumberCell({
       </span>
       <input
         aria-label={label}
+        aria-invalid={refusal ? true : undefined}
+        aria-describedby={refusal ? refusalId : undefined}
         defaultValue={value === null ? '' : String(value)}
         inputMode="decimal"
         autoComplete="off"
         onFocus={onFocus}
-        onChange={(event) => onChange(parseDecimalInput(event.target.value))}
+        onChange={(event) => {
+          const typed = parseDecimalInput(event.target.value);
+          const refused = workoutNumberRefusal(field, typed);
+
+          setRefusal(refused);
+
+          // Refused values stop here: the draft is only ever written with what the contract takes.
+          if (refused === null) {
+            onChange(typed);
+          }
+        }}
         className="border-rule focus:border-primary tabular min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 text-base"
       />
+      {/* The same shape as `Input`'s error: words in danger red, wired to the field, announced when
+          it appears. It is a live region because it shows up after the person acted. */}
+      {refusal ? (
+        <p id={refusalId} role="alert" className="text-danger text-sm">
+          {refusal}
+        </p>
+      ) : null}
     </div>
   );
 }

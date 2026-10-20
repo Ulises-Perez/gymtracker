@@ -178,6 +178,79 @@ describe('WorkoutPage', () => {
     });
   });
 
+  /**
+   * The gate that no single field can be, and the reason it exists at all: a draft restored from an
+   * older build — or from anything else that writes to the store — can hold a value this build
+   * refuses. Finishing it would freeze a session whose payload the contract rejects: the save would
+   * burn its retries, the draft could no longer be edited, and the only two buttons left would be the
+   * same invalid retry and a discard.
+   */
+  it('refuses to finish a draft that holds a value the save contract would refuse', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+
+    // Written into the store directly, the way a draft from an older build arrives: nothing was
+    // typed in this session, so no field on screen has had the chance to refuse it.
+    const cardId = draft()?.exercises[0]?.id ?? '';
+    useWorkoutStore.getState().addSet(cardId, { reps: 10.5, weightKg: 100 });
+
+    // Waited for, so the click below happens against a screen that has the set: a store write made
+    // from the test is not a render, and a click before it lands would be read by a stale one.
+    expect(await screen.findByLabelText('Reps serie 1')).toHaveValue('10.5');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    // Told which field it is, by the card's name and the row it is in, and why.
+    expect(screen.getByRole('alert')).toHaveTextContent('«Press Banca», serie 1');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Las reps tienen que ser un número entero mayor que cero.',
+    );
+
+    // Nothing was frozen and nothing was sent: the draft is still the one being edited.
+    expect(draft()?.status).toBe('draft');
+    expect(screen.getByLabelText('Título')).toBeInTheDocument();
+    expect(fake.rpc).not.toHaveBeenCalledWith('save_workout', expect.anything());
+  });
+
+  /**
+   * The other half of the same gate: correcting the value lets the same tap through, and the warning
+   * goes away with it instead of hanging over a session that is fine.
+   */
+  it('finishes once the refused value is corrected', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+
+    const cardId = draft()?.exercises[0]?.id ?? '';
+    useWorkoutStore.getState().addSet(cardId, { reps: 10.5, weightKg: 100 });
+
+    // Waited for, so the click below happens against a screen that has the set: a store write made
+    // from the test is not a render, and a click before it lands would be read by a stale one.
+    expect(await screen.findByLabelText('Reps serie 1')).toHaveValue('10.5');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('No se puede finalizar');
+
+    // Corrected the way the person would: in the field, which then commits what the contract takes.
+    fireEvent.change(await screen.findByLabelText('Reps serie 1'), { target: { value: '10' } });
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    await vi.waitFor(() => {
+      expect(fake.rpc).toHaveBeenCalledWith(
+        'save_workout',
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            exercises: [expect.objectContaining({ sets: [expect.objectContaining({ reps: 10 })] })],
+          }),
+        }),
+      );
+    });
+  });
+
   it('counts a rest down when one is asked for', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));

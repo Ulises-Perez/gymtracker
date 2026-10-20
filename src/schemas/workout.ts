@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { workoutNumberRules } from '../lib/utils.ts';
+import type { WorkoutNumberField } from '../lib/utils.ts';
+
 /**
  * Contract of the `save_workout(payload jsonb)` RPC, in `src/lib`.
  *
@@ -22,6 +25,28 @@ import { z } from 'zod';
  */
 
 /**
+ * A number of a set: `null` when it was not said, and the field's own rule when it was.
+ *
+ * Written as the shared rule and not as `int().positive()` / `nonnegative()` again, and that is the
+ * whole point of the function: the fields guard what is typed with the same table
+ * (`workoutNumberRefusal`, in `lib/utils.ts`), so the contract and the input cannot drift apart. When
+ * they did, a set typed as "10,5" was accepted by the field, frozen by `finish()` and then refused
+ * here on the way to the server — a finished draft with no way out but to lose the session.
+ *
+ * The rule lives in `lib/utils.ts` rather than here because this module carries Zod, and the store is
+ * in the initial bundle: importing the schema to ask the question would put the parser on the first
+ * paint. Deriving the schema from the rule keeps one source of truth without that cost.
+ */
+function optionalWorkoutNumber(field: WorkoutNumberField) {
+  const rule = workoutNumberRules[field];
+
+  return z.number().refine(rule.accepts, { message: rule.refuses }).nullish();
+}
+
+const repsValueSchema = optionalWorkoutNumber('reps');
+const weightKgValueSchema = optionalWorkoutNumber('weightKg');
+
+/**
  * The scored fields of one set, which both shapes carry.
  *
  * The card that a set belongs to is not part of them: in the modern shape the set lives inside its
@@ -31,8 +56,8 @@ import { z } from 'zod';
 const workoutSetValuesSchema = z.object({
   id: z.uuid(),
   set_number: z.number().int().positive(),
-  reps: z.number().int().positive().nullish(),
-  weight_kg: z.number().nonnegative().nullish(),
+  reps: repsValueSchema,
+  weight_kg: weightKgValueSchema,
   rpe: z.number().min(1).max(10).nullish(),
   is_warmup: z.boolean(),
   notes: z.string().nullish(),
@@ -73,9 +98,9 @@ export const customExercisePayloadSchema = z.object({
  */
 export const workoutExercisePayloadSchema = z.object({
   exercise_id: z.uuid(),
-  target_reps: z.number().int().positive().nullish(),
-  target_weight_min: z.number().nonnegative().nullish(),
-  target_weight_max: z.number().nonnegative().nullish(),
+  target_reps: repsValueSchema,
+  target_weight_min: weightKgValueSchema,
+  target_weight_max: weightKgValueSchema,
   sets: z.array(workoutSetValuesSchema),
 });
 
@@ -91,9 +116,9 @@ export const workoutExercisePayloadSchema = z.object({
 export const exerciseTargetPayloadSchema = z.object({
   exercise_id: z.uuid(),
   position: z.number().int().positive(),
-  target_reps: z.number().int().positive().nullish(),
-  target_weight_min: z.number().nonnegative().nullish(),
-  target_weight_max: z.number().nonnegative().nullish(),
+  target_reps: repsValueSchema,
+  target_weight_min: weightKgValueSchema,
+  target_weight_max: weightKgValueSchema,
 });
 
 /**
