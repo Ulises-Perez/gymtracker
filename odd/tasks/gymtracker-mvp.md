@@ -1,6 +1,6 @@
 # GymTracker MVP — Tareas ODD
 
-**Estado:** **Fases 0 a 6 cerradas** y **Fase 7 en curso**: T7.1 (iconos, manifest, splash, OG), T7.2 (service worker), T7.3 (prompt de instalación + banner de versión), T7.4 (**Lighthouse 90+ ×4**: medición de controles **hecha** —**36 mediciones, 0 hallazgos**— y **92 / 100 / 100 / 100** en móvil, **100 / 100 / 100 / 100** en escritorio) y T7.6 (límite de errores propio, **sin Sentry**) **cerradas** — **565/565 unit tests**, bundle inicial **120.92 kB gzip de 180** (`L53`, `L54`, `L56`, `L57`) —, **T7.5 (el deploy) también cerrada**: la app está publicada en **https://gymtracker-devkiings-projects.vercel.app** (Lighthouse **96 / 100 / 100 / 100** en móvil y **100 / 100 / 100 / 100** en escritorio, medido contra la URL pública), el repo es **https://github.com/Ulises-Perez/gymtracker** y Vercel está conectado a él, así que cada push despliega. Quedan dos cosas que son de la persona: la **E2E en un dispositivo real** y la **Site URL y las Redirect URLs de Supabase** con el dominio de producción (el paso 2 del README). La suite pgTAP completa corre **en verde contra la base hosted (6 archivos, 105 aserciones)** y las **13 migraciones están aplicadas en el hosted** (`L55`). La base hosted está enlazada y sana (`ACTIVE_HEALTHY`, `sa-east-1`, Postgres 17.11). **T2.5**: el alta **desde la app** llegó al hosted y la frenó la **tasa de correos del servidor** (`429`), no el código (`L56`). Todo el trabajo se rutea por ODD (ver `L6`).
+**Estado:** **Fases 0 a 6 cerradas** y **Fase 7 en curso**: T7.1 (iconos, manifest, splash, OG), T7.2 (service worker), T7.3 (prompt de instalación + banner de versión), T7.4 (**Lighthouse 90+ ×4**: medición de controles **hecha** —**36 mediciones, 0 hallazgos**— y **92 / 100 / 100 / 100** en móvil, **100 / 100 / 100 / 100** en escritorio) y T7.6 (límite de errores propio, **sin Sentry**) **cerradas** — **567/567 unit tests**, bundle inicial **120.92 kB gzip de 180** (`L53`, `L54`, `L56`, `L57`) —, **T7.5 (el deploy) también cerrada**: la app está publicada en **https://gymtracker-devkiings-projects.vercel.app** (Lighthouse **96 / 100 / 100 / 100** en móvil y **100 / 100 / 100 / 100** en escritorio, medido contra la URL pública), el repo es **https://github.com/Ulises-Perez/gymtracker** y Vercel está conectado a él, así que cada push despliega. Quedan dos cosas que son de la persona: la **E2E en un dispositivo real** y la **Site URL y las Redirect URLs de Supabase** con el dominio de producción (el paso 2 del README). La suite pgTAP completa corre **en verde contra la base hosted (6 archivos, 105 aserciones)** y las **13 migraciones están aplicadas en el hosted** (`L55`). La base hosted está enlazada y sana (`ACTIVE_HEALTHY`, `sa-east-1`, Postgres 17.11). **T2.5**: el alta **desde la app** llegó al hosted y la frenó la **tasa de correos del servidor** (`429`), no el código (`L56`). Todo el trabajo se rutea por ODD (ver `L6`).
 **Repo:** `C:\Users\ulise\OneDrive\Documentos\Pogramming\JS\React\GymTracker`, rama `feat/gymtracker-mvp`, repo propio. `node_modules` es un junction a `C:\Users\ulise\develop\gymtracker-modules\node_modules`.
 **Specs:** los `S#` citan **verbatim** `PLAN.md` §1, §3, §6, §7 y §9, que es la fuente de requisitos declarada en `L1`. Los pedidos del usuario, las decisiones y la evidencia están en el `## Log`, al final.
 
@@ -1461,3 +1461,56 @@ está** (`toHaveCount(0)`), que es la forma de fijar una ausencia.
 **Lo que sigue siendo de la persona**: la **E2E en un dispositivo real** y la **Site URL +
 las Redirect URLs** de Supabase con el dominio de producción (los dos pendientes que ya
 venían de `L60`).
+
+### L62 · La pasada de verificación cerrada, con el veredicto terminal (2026-10-20)
+
+**Lo que se había pedido**: *"verifica o busca issues y resuelvelos para dejar lo mejor
+correctamente el proyecto"* (`L60`), y la pasada tenía **dos tareas abiertas**: **V4**
+(el re-juzgado acotado) y **V5** (la verificación final y el veredicto terminal). Las dos
+están **cerradas** ✓, y el libro mayor completo vive en
+**`odd/tasks/gymtracker-verificacion.md`** (`L4` y `L5`).
+
+**Lo que encontró el re-juzgado #1** (dos jueces ciegos, el mismo alcance, sin ver al
+otro ✓): un hallazgo **MAJOR corroborado por los dos** ✓ y dos **MINOR** de un juez solo.
+El MAJOR era que **F1 estaba arreglado a medias**: el arreglo protege los borradores
+que escribe esta build —la tarjeta rechaza el número en la pulsación— pero un borrador
+escrito por la build vieja podía traerlo, y esa sesión quedaba **congelada** sobre el
+número que el contrato no toma: sin más edición, con un reintento que reconstruía el
+mismo payload rechazado. **El defecto F1 en el único camino que el arreglo no alcanzó.**
+
+**La ronda #2** (`2008270`): la migración del borrador aplica **la misma regla que la
+tarjeta aplica en la pulsación** —*un valor que el contrato de guardado rechaza no se
+escribe*— así que descarta el número rechazado de cada serie restaurada. La persona
+conserva la sesión y sólo se pierde el número que el contrato no iba a aceptar.
+
+**El re-juzgado #2** encontró **un agujero en ese arreglo**, y **los dos jueces lo
+encontraron** ✓: la regla vivía dentro de la migración, y zustand **sólo migra cuando
+cambia la versión** —las builds intermedias ya persistían en 3 y reescribían la entrada
+como 3—. **El cierre** (`2e14887`): **la versión del formato se mueve con la regla**
+(pasa a **4**), así que un borrador escrito por cualquier build anterior pasa por la
+migración y queda reparado. **RED con el escenario del juez** y GREEN después ✓.
+
+**El veredicto terminal**: **APPROVED** ✓ — ningún hallazgo severo queda abierto en el
+árbol final, con la **desviación de rondas declarada** (el presupuesto de la pasada
+son dos rondas y dos re-juzgados: el agujero se cerró **dentro del mismo trabajo
+unitario**, y no se corrió un tercer re-juzgado, así que el veredicto descansa en la
+**verificación final independiente del padre**).
+
+**La verificación final, sobre el árbol final** (`2e14887`): **567/567 unit tests** ✓ ·
+E2E **1 passed** contra el stack local ✓ · Lighthouse móvil **92 / 92 / 92** con
+**100 / 100 / 100** ✓ · bundle inicial **121.19 kB gzip de 180** ✓ · audit de UI
+**36 mediciones, 0 hallazgos** ✓ · pgTAP **110/110** en local **y** en el hosted ✓ ·
+consola **limpia en las cuatro pantallas** ✓ · typecheck, lint y prettier limpios ✓.
+
+**Lo que queda anotado y no se arregla** (con su motivo, en `L5`): **F5** (el `GRANT` de
+`service_role`: el privilegio está igual, sin efecto observable ✓) · **R3** (el Finalizar
+no se bloquea mientras un campo muestra un valor rechazado: es la consecuencia de una
+decisión ya escrita) · **R5** (el payload viejo que quedó encolado: la sesión se
+recupera ✓ y la entrada vieja no se persiste al fallar su escritura).
+
+**Lo que sigue siendo de la persona** ✓: la **E2E en un dispositivo real** ✓ · la **Site
+URL + las Redirect URLs** de Supabase con el dominio de producción ✓ · y **nuevo**: la
+decisión de **R2** —el Inicio cuenta los **ejercicios distintos** de la sesión y su
+detalle lista las **tarjetas**; con el mismo ejercicio en dos tarjetas los dos números
+difieren, y cuál es el correcto es de la persona (su arreglo, además, es una migración
+nueva contra el hosted) ✓.

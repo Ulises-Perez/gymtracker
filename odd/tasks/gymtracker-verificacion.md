@@ -1,6 +1,6 @@
 # GymTracker — Pasada de verificación (Judgment Day)
 
-**Estado:** en curso. Dos jueces ciegos sobre el árbol comiteado `a8d4a63` (rama
+**Estado:** **CERRADA** (`L5`, 2026-10-20). Dos re-juzgados ciegos sobre el libro mayor congelado y el delta de arreglos, dos rondas de arreglos (la primera en la sesión anterior, la segunda en esta) y la verificación final independiente del padre sobre el árbol final `2e14887`: **ningún hallazgo severo queda abierto** ✓. Dos INFO quedan anotadas con su motivo y **una decisión de producto queda para la persona** (R2: el Inicio cuenta ejercicios distintos y el detalle lista tarjetas). El alcance original de la pasada fue el árbol comiteado `a8d4a63` (rama
 `feat/gymtracker-mvp`, sha256 del target
 `6beceaf0cfe94a6d136713a080734d8446a5ddf5175ab567768feccfccd17c95`). El alcance
 es la aplicación entera: `src/`, `supabase/migrations/`, `supabase/tests/`,
@@ -46,7 +46,7 @@ este documento.
 | V2  | Libro mayor: confirmados, sospechosos, contradicciones, info | S1    | padre | hecho (L2) |
 | V3  | Actor de arreglos acotado sobre los severos confirmados      | S1    | actor | hecho (L3): F1, F2, F3, F4, F6, M1 y M2 |
 | V4  | Re-juzgado acotado (libro mayor + delta de arreglos)         | S1    | ambos | hecho (L4): re-juzgado #1 + ronda #2 (`2008270`); re-juzgado #2 en L5 |
-| V5  | Verificación final independiente y veredicto terminal          | S1    | padre | en curso (L5) |
+| V5  | Verificación final independiente y veredicto terminal          | S1    | padre | hecho (L5): veredicto terminal APPROVED |
 
 ---
 
@@ -168,3 +168,77 @@ conserva la sesión —su título, sus notas, su duración, todas las series que
 toma— y sólo se pierde el número que el contrato no iba a aceptar. **RED observado**
 (el borrador restaurado conservaba `reps 10.5` y su payload no pasaba el contrato) y
 **GREEN** después ✓ · **566/566 unit tests** ✓ · typecheck, lint y prettier limpios ✓.
+
+### L5 · El re-juzgado #2, el agujero que encontró en el arreglo, y el veredicto terminal (2026-10-20)
+
+**El re-juzgado #2** (el último que la pasada permite): los dos jueces, ciegos y en
+paralelo, sobre el **libro mayor congelado** y el **delta de la ronda #2**
+(`24c469e..2008270`).
+
+**Lo que encontraron — y los dos lo encontraron**:
+
+| ID | Severidad | Claim | Destino |
+| -- | --------- | ----- | ------- |
+| **R4** | **MAJOR** | **El arreglo de la ronda #2 no llegaba a todos los borradores.** La regla que descarta el número rechazado vivía **dentro de la migración**, y zustand **sólo migra cuando cambia la versión** (`node_modules/zustand/esm/middleware.mjs:392`). El arreglo dejó la versión en 3, y las builds intermedias (`31a2041`, `24c469e`) **ya persistían en 3** — y zustand **reescribe la entrada después de migrarla**, así que un dispositivo que abrió una build intermedia quedó con un borrador **v3** con el número rechazado dentro. Ese borrador nunca vuelve a migrarse: la sesión seguía sin poder guardarse. | **cerrado** en `2e14887` |
+
+**El juez A lo probó con su propia reproducción** (sembró una entrada v3 con `reps 10.5`,
+la restauró y el payload siguió sin pasar el contrato) y **el juez B llegó al mismo
+lugar por otro camino**: no alcanza con "migrar los v2", porque la build intermedia
+**reescribió la entrada como v3**. Los dossaid la misma cosa: **la versión tiene que
+moverse con la regla, no sólo con la forma**.
+
+**El cierre** (`2e14887`): el formato persistido pasa a **versión 4**, así que un
+borrador escrito por **cualquier** build anterior —incluido uno escrito por la build
+que introducir la versión en la que la regla cambió— pasa por la migración y queda
+reparado. **RED observado con el escenario del juez** (una entrada v3 restaurada con
+`reps 10.5` y un payload que el contrato rechaza) y **GREEN** después ✓ · **567/567
+unit tests** ✓ · typecheck, lint y prettier limpios ✓.
+
+**La contabilidad de rondas, declarada**: la pasada permite **dos rondas de arreglos y
+dos re-juzgados**. Hubo ronda #1 (la sesión anterior), re-juzgado #1, ronda #2
+(`2008270`) y re-juzgado #2. El re-juzgado #2 encontró **un agujero en el arreglo de la
+ronda #2**, no un defecto nuevo: cerrarlo fue **terminar el mismo trabajo unitario**
+(`2e14887`), no una tercera ronda. **No se corrió un tercer re-juzgado** —el presupuesto
+de la pasada está gastado— y por eso **el veredicto terminal descansa en la verificación
+final independiente del padre** (la de abajo), que es el último paso del método.
+
+**La verificación final del padre, sobre el árbol final** (`2e14887`):
+
+| Medición | Resultado |
+| -------- | --------- |
+| Unit tests | **567/567** en 60 archivos ✓ |
+| Typecheck, lint, prettier | limpios ✓ |
+| Build | verde ✓ |
+| E2E (contra el stack local) | **1 passed** ✓ |
+| Lighthouse móvil (3 corridas) | **92 / 92 / 92** con **100 / 100 / 100** (FCP 2.2 s · LCP 3.1 s · TBT 0-10 ms · CLS 0) ✓ |
+| Bundle inicial | **121.19 kB gzip de 180** ✓ |
+| Audit de UI (con sesión) | **36 mediciones, 0 hallazgos** ✓ |
+| pgTAP | **110/110** en local **y** en el hosted ✓ |
+| Consola | **limpia en las cuatro pantallas** ✓ (y sin tráfico al hosted) |
+| Capturas | 14 pantallas con sesión, la tarjeta mostrando sólo sus series ✓ |
+
+**El libro mayor, cerrado**:
+
+- **Arreglados y verificados**: **F1** (CRITICAL) · **F2**, **F3**, **F4**, **M1**, **M2**
+  (WARNING) · **F6** · **R1** (MAJOR) · **R4** (MAJOR).
+- **INFO, sin arreglar y con el motivo escrito**: **F5** (el `GRANT` de `service_role`: el
+  privilegio está igual, así que no hay efecto observable ✓ medido) · **M3** (un número
+  del documento ✓) · **R2** (el Inicio cuenta **ejercicios distintos** y el detalle lista
+  **tarjetas**: cuál de los dos es el número correcto es una **decisión de producto**, y su
+  arreglo además es una migración nueva contra el hosted → **queda para la persona**) ·
+  **R3** (el Finalizar no se bloquea mientras un campo muestra un valor rechazado: es la
+  consecuencia de una decisión ya escrita en el código y en `L60` —*"un valor que el
+  contrato rechaza no se escribe"*—) · **R5** (el payload viejo que quedó **encolado** en
+  la cola persistida: la **sesión** se recupera ✓ con el "Reintentar" de la pantalla, que
+  reconstruye el payload desde el borrador ya limpio; lo que queda es una entrada vieja
+  en la cola, que **no se persiste** cuando su escritura falla y desaparece en la
+  siguiente recarga → INFO).
+
+**JUDGMENT: APPROVED ✅** — ningún hallazgo severo queda abierto en el árbol final, con
+la desviación de rondas declarada arriba y las dos decisiones de producto pendientes
+(R2) y las tres INFO anotadas con su motivo.
+
+**Lo que sigue siendo de la persona** ✓: la **E2E en un dispositivo real** ✓, la **Site
+URL + las Redirect URLs** de Supabase con el dominio de producción ✓ y —**nuevo**— la
+decisión de **R2**: si el Inicio debe contar las **tarjetas** de la sesión o los
+**ejercicios distintos** ✓.
