@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from './zod.ts';
 
 /**
  * The contract of `dashboard_summary()`, in `src/lib`.

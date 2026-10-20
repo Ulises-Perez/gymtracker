@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from './zod.ts';
 
 import { workoutNumberRules } from '../lib/utils.ts';
 import type { WorkoutNumberField } from '../lib/utils.ts';
