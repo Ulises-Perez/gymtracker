@@ -6,6 +6,9 @@ dist/
 dev-dist/
 *.tsbuildinfo
 
+# Vercel: the link to the project (project id and org), per clone
+.vercel/
+
 # Bundle analysis report (rollup-plugin-visualizer)
 stats/
 
@@ -42,3 +45,4 @@ Thumbs.db
 .impeccable/build/
 .impeccable/review/
 .impeccable/config.local.json
+.env*

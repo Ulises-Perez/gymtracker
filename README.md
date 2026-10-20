@@ -134,6 +134,72 @@ servidor que ya estuviera ahí se habría construido con el `.env` de ese día �
 que apunta al **proyecto hosted**— y la suite habría registrado su cuenta y
 anotado su entrenamiento en los datos reales.
 
+## Conectarse desde una IA (Vercel y Supabase)
+
+La idea es que **cualquier agente de IA pueda conectar y desplegar sin que
+nadie le explique el terreno**. Eso vive en la máquina, no en el repo:
+
+| Herramienta | Estado global                                                 | Credencial                                                        |
+| ----------- | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `vercel`    | CLI **64.7.0** instalada con `npm i -g vercel`                  | Token en el login global del CLI (`vercel login` una sola vez)     |
+| `supabase`  | CLI **2.121.0** instalada con `npm i -g supabase`                | Token en el **Administrador de credenciales de Windows** (el CLI lo busca solo) |
+| `gh`        | GitHub CLI **2.96.0** (ya instalada en el sistema)               | Token en el **keyring de Windows**, con los permisos `repo` y `workflow` |
+
+El proyecto además usa el CLI de Supabase como dependencia del proyecto
+(`npm i -D supabase`), así que `npx --no-install supabase` también funciona
+sin instalar nada.
+
+**GitHub ya está resuelto en esta máquina**, y es lo mismo para cualquier
+proyecto y para cualquier agente:
+
+- `gh auth status` muestra la cuenta (**Ulises-Perez**) y sus permisos.
+- `gh auth setup-git` (ya ejecutado, y es una configuración **global**) hace que
+  `git push` y `git pull` usen ese token sin pedir nada: el helper de
+  credenciales de git apunta al keyring del `gh`.
+- Crear el repo de un proyecto nuevo: `gh repo create <nombre> --private
+  --source=. --remote=origin --push`. Después, `git push` alcanza.
+- El repo de este proyecto es **https://github.com/Ulises-Perez/gymtracker**
+  (privado) y su rama es `feat/gymtracker-mvp`, que es donde vive el MVP.
+
+**Lo que un agente tiene que hacer, en orden**:
+
+1. **Verificar que las CLIs responden**: `vercel --version` y `supabase --version`.
+2. **Vercel**: si `vercel whoami` no devuelve una cuenta, falta el login (es
+   interactivo y lo hace la persona, una vez):
+   `vercel login`. El token queda en la configuración global del CLI, y a partir
+   de ahí **cualquier agente, en cualquier proyecto y en cualquier sesión,
+   despliega con un comando**.
+3. **Enlazar el proyecto a Vercel** (una vez por clon):
+   `vercel link --yes --project gymtracker`.
+4. **Las variables de entorno** (una vez, y **no viven en el repo**: el harness
+   bloquea las escrituras a rutas `.env*` y la convención del proyecto es que
+   no viajen en el git). Se cargan en el proyecto de Vercel, para **Production,
+   Preview y Development** (los seis comandos, con la sintaxis que el CLI
+   64.7.0 acepta en modo no interactivo):
+   `vercel env add VITE_SUPABASE_URL --environment production --value "<valor>" --yes`
+   (y lo mismo con `preview`, `development` y con
+   `VITE_SUPABASE_PUBLISHABLE_KEY`). Los valores están en el `.env` local y en
+   `env.example`. `vercel env ls` los muestra.
+5. **Desplegar**: `vercel --prod`. El build, el motor de Node, el rewrite del
+   SPA y las cabeceras de revalidación ya están en `vercel.json`.
+6. **Supabase**: el enlace al proyecto hosted vive en
+   `supabase/.temp/linked-project.json`, que **está ignorado por git**, así que
+   en un clon nuevo hay que rehacerlo:
+   `supabase link --project-ref wcurruszasxgxzimlbdk`. Con el enlace hecho:
+   `supabase db push --linked` (migraciones) y `supabase test db --linked`
+   (la suite de pgTAP, 105 aserciones).
+
+**Las reglas que un agente tiene que respetar** (están en el código y en los
+documentos ODD, pero conviene repetirlas):
+
+- La **E2E corre contra el stack local** y falla si un request llega a
+  `*.supabase.co`. Para correrla hace falta **Docker** (el stack local) y el
+  **puerto 4173 libre**.
+- Las migraciones se aplican con `supabase db push --linked`, **nunca** con
+  `db reset`: el reset borra los datos con los que la persona prueba la app.
+- El **RED de una migración se observa antes de aplicarla**, contra la base
+  local.
+
 ## Deploy
 
 El destino es **Vercel** con el preset de Vite: build `npm run build`, salida
