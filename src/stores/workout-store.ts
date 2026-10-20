@@ -479,15 +479,20 @@ export const useWorkoutStore = create<WorkoutStore>()(
       // and `hydrated` says something about this instance, not about the data.
       partialize: (state) => ({ draft: state.draft }),
       /**
-       * The draft's shape has changed three times now, so the format is versioned and old entries are
+       * The draft's shape has changed four times now, so the format is versioned and old entries are
        * migrated instead of misread.
        *
        * This matters more than a normal migration: a draft written by an older build is missing a
        * key outright, and reading one back as `undefined` would reach the payload as `undefined`
        * where the server expects null. That is the kind of failure that looks like a broken save at
        * the worst possible moment — after the user has finished their session.
+       *
+       * And the version moves with the rule, not only with the shape: zustand runs the migration
+       * only when the persisted version differs from this one, so a rule that changes has to change
+       * the version with it. A draft persisted at the version the rule changed in would otherwise
+       * keep the number the contract refuses, for ever.
        */
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         const stored = persisted as { draft?: LegacyDraft | null } | undefined;
         const draft = stored?.draft;
@@ -498,9 +503,10 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
         /*
          * Idempotent for any older version: `customExercises` arrived at version 1, the three target
-         * fields at version 2, and the objective left the card at version 3. A draft from any build
-         * is missing whatever came after it, and the normalisation comes after the spread so a draft
-         * that already has a value keeps it — the other order is the one the compiler rejects.
+         * fields at version 2, the objective left the card at version 3, and the rule that drops the
+         * numbers the contract refuses arrived at version 4. A draft from any build is missing
+         * whatever came after it, and the normalisation comes after the spread so a draft that
+         * already has a value keeps it — the other order is the one the compiler rejects.
          *
          * The objective is dropped rather than carried: it is a number the save contract may refuse
          * (reps of zero, a negative weight), and with the fields gone from the card there is no way to

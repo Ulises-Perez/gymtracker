@@ -44,9 +44,9 @@ este documento.
 | --- | ------------------------------------------------------------ | ----- | ----- | ------ |
 | V1  | Dos jueces ciegos sobre el target inmutable                  | S1    | ambos | hecho (L2) |
 | V2  | Libro mayor: confirmados, sospechosos, contradicciones, info | S1    | padre | hecho (L2) |
-| V3  | Actor de arreglos acotado sobre los severos confirmados      | S1    | actor | en curso (JD-F-001) · el padre ya hizo F2, F3, F4, F6, M1 y M2 |
-| V4  | Re-juzgado acotado (libro mayor + delta de arreglos)         | S1    | ambos | pendiente |
-| V5  | Verificación final independiente y veredicto terminal          | S1    | padre | pendiente |
+| V3  | Actor de arreglos acotado sobre los severos confirmados      | S1    | actor | hecho (L3): F1, F2, F3, F4, F6, M1 y M2 |
+| V4  | Re-juzgado acotado (libro mayor + delta de arreglos)         | S1    | ambos | hecho (L4): re-juzgado #1 + ronda #2 (`2008270`); re-juzgado #2 en L5 |
+| V5  | Verificación final independiente y veredicto terminal          | S1    | padre | en curso (L5) |
 
 ---
 
@@ -126,3 +126,45 @@ y la config de auth del hosted ✓).
 **La verificación final de la ronda** ✓: **577/547** ✗ → **577/577 tests** ✓ · E2E **1 passed** ✓ (contra el stack local ✓) · Lighthouse local **92 / 100 / 100 / 100** ✓ (dos corridas ✓) · bundle **121.27 kB gzip de 180** ✓ · audit de UI **36 mediciones, 0 hallazgos** ✓ · pgTAP **110/110** en local y en el hosted ✓ · consola limpia ✓.
 
 **Lo que sigue siendo de la persona** ✓: la E2E en un dispositivo real ✓ y la **Site URL + las Redirect URLs** de Supabase con el dominio de producción ✓ (el paso 2 del README ✓).
+
+### L4 · El re-juzgado acotado, y el hallazgo que los dos jueces corroboraron (2026-10-20)
+
+**El método, sin cambios**: dos jueces ciejos (`jd-judge-a` y `jd-judge-b`) sobre el
+**libro mayor congelado** y el **delta de arreglos** (`a8d4a63..24c469e`), con el mismo
+alcance y sin ver al otro ✓. Es el re-juzgado #1 de los dos que la pasada permite.
+
+**Lo que los jueces**|** severidad | causado por | qué es |
+| --- | --- | --- | --- |
+| **R1** | **MAJOR** | preexistente | **F1 estaba arreglado a medias**: el arreglo protege los borradores que escribe esta build —la tarjeta rechaza el número en la pulsación, así que el borrador nunca lo tiene—, pero un borrador escrito por la build vieja puede traerlo. Esa sesión quedó **congelada** sobre el número que el contrato no toma, y un borrador congelado no admite más edición: el reintento reconstruía el mismo payload que el contrato rechaza, la escritura fallaba en cada intento y la sesión sólo se podía descartar. **El defecto F1 en el único camino que el arreglo no alcanzó.**
+| **R2** | MINOR | preexistente | **F3 está arreglado a medias**: `COUNT(DISTINCT we.exercise_id)` cuenta ejercicios **distintos**, no tarjetas. Una sesión con el mismo ejercicio en dos tarjetas —legal, y el picker no lo impide— dice "1 ejercicio" en el Inicio mientras su detalle lista dos bloques. |
+| **R3** | MINOR | **introducido** | Un valor rechazado en la pulsación nunca entra al borrador, así que la pantalla muestra "10,5" mientras el registro tiene la última aceptada, y `finishOrExplain` **no** bloquea el Finalizar en ese caso (bloquea cuando el valor *está* en el borrador). Dos estados visibles iguales, dos resultados opuestos. |
+
+**La corroboración**: R1 lo confirmaron **los dos jueces** ✓ — con pruebas propias de cada
+uno (uno restauró un borrador v2 congelado con `reps 10.5` yvio que el payload no pasa
+el contrato; el otro llegó al mismo payload por `retrySave`). R2 y R3 los vio **uno
+solo** ✗.
+
+**Lo que el padre verificó de cada uno** (el método pide verificar, no creer):
+
+- **R1: reproducido** ✓. El RED se observó con un test del store (un borrador v2
+  congelado con `reps 10.5` sobrevive a la migración, y su payload no pasa
+  `saveWorkoutVariablesSchema`). **Es severo y está corroborado** → entra en la ronda de
+  arreglos.
+- **R2: real, pero es INFO** ✗. Es la diferencia entre "tarjetas" y "ejercicios
+  distintos", y **cuál de los dos es el número correcto es una decisión de producto** que
+  el documento no toma: el Inicio dice "N ejercicios" y el detalle lista N bloques. Como
+  lo vio un juez solo y la severidad es menor, queda anotado y **no se arregla** en esta
+  ronda (y su arreglo, además, es una migración nueva contra el hosted).
+- **R3: real, y es la consecuencia de una decisión ya tomada** ✗. El comportamiento
+  ("el valor rechazado no se escribe; el campo dice por qué") es **explícito** en el
+  código y en `L60`. Que el Finalizar no se bloquee en ese caso es discutible, pero el
+  diseño elegido fue ése y el mismo estado visible produce el mismo resultado una vez
+  arreglado R1. Queda como INFO.
+
+**La ronda de arreglos #2** (`2008270`): la migración del borrador aplica **la misma regla
+que la tarjeta aplica en la pulsación** —*un valor que el contrato de guardado rechaza no
+se escribe*—, así que descarta el número rechazado de cada serie restaurada. La persona
+conserva la sesión —su título, sus notas, su duración, todas las series que el contrato
+toma— y sólo se pierde el número que el contrato no iba a aceptar. **RED observado**
+(el borrador restaurado conservaba `reps 10.5` y su payload no pasaba el contrato) y
+**GREEN** después ✓ · **566/566 unit tests** ✓ · typecheck, lint y prettier limpios ✓.

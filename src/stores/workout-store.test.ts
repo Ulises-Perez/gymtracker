@@ -395,7 +395,7 @@ describe('surviving a reload', () => {
     // zustand's envelope, exactly: the partialised state and a format version.
     // No action can show up here, because a function does not survive JSON —
     // which is also why the queue needs a dispatcher to be resumable.
-    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 3 });
+    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 4 });
   });
 });
 
@@ -648,6 +648,64 @@ describe('a session frozen by an older build', () => {
     expect(restored.exercises[0]?.sets[1]?.weightKg).toBe(80);
 
     // And the session is savable: the payload of the restored draft is one the contract accepts.
+    const variables = { kind: 'save-workout' as const, payload: toSaveWorkoutPayload(restored) };
+
+    expect(saveWorkoutVariablesSchema.safeParse(variables).success).toBe(true);
+  });
+
+  /**
+   * The rule has to reach a draft written by **any** build, not only by one whose version
+   * differs from the store's: zustand runs the migration only on a version change, so a draft
+   * persisted at the current version would keep the refused number for ever. The version is bumped
+   * with the rule for exactly that reason — the rule changed, so the format changed with it.
+   */
+  it('repairs a draft persisted at the version the rule changed in', async () => {
+    await indexedDbStorage.setItem(
+      WORKOUT_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          draft: {
+            workoutId: '01920000-0000-7000-8000-0000000000fe',
+            date: '2026-10-01',
+            title: 'Empuje',
+            notes: '',
+            startedAt: 1,
+            endedAt: 2,
+            status: 'finished',
+            customExercises: [],
+            exercises: [
+              {
+                id: 'card-vieja',
+                exerciseId: EXERCISE_ID,
+                sets: [
+                  {
+                    id: '01920000-0000-7000-8000-0000000000b1',
+                    reps: 10.5,
+                    weightKg: 60,
+                    rpe: null,
+                    isWarmup: false,
+                    notes: null,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        // The version the build that froze the session persisted at.
+        version: 3,
+      }),
+    );
+
+    await useWorkoutStore.persist.rehydrate();
+
+    const restored = draft();
+
+    if (!restored) {
+      throw new Error('the draft was not restored');
+    }
+
+    expect(restored.exercises[0]?.sets[0]?.reps).toBeNull();
+
     const variables = { kind: 'save-workout' as const, payload: toSaveWorkoutPayload(restored) };
 
     expect(saveWorkoutVariablesSchema.safeParse(variables).success).toBe(true);
