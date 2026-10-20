@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { dispatchQueuedMutation, SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
 import type { QueuedMutationVariables } from '../lib/queued-mutations.ts';
-import { markStaleAfterSave } from '../lib/stale-after-save.ts';
+import { markStaleAfterSave } from '../lib/stale-after-write.ts';
 import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
 import type { SaveWorkoutResult } from '../schemas/workout.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
@@ -36,7 +36,7 @@ export function useSaveWorkout() {
      * finished.
      *
      * It waits for success rather than firing when the user taps finish, because a save made offline
-     * has not changed anything yet. Which reads it marks lives in `stale-after-save.ts`, shared with
+     * has not changed anything yet. Which reads it marks lives in `stale-after-write.ts`, shared with
      * the subscription that hears resumed writes, because the two have to agree.
      */
     onSuccess: () => {

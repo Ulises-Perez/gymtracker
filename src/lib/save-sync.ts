@@ -4,7 +4,7 @@ import { useWorkoutStore } from '../stores/workout-store.ts';
 import { queuedMutationKind } from './queued-mutations.ts';
 import type { QueuedMutationVariables } from './queued-mutations.ts';
 import { queryClient } from './queryClient.ts';
-import { markStaleAfterSave } from './stale-after-save.ts';
+import { markStaleAfterSave } from './stale-after-write.ts';
 
 /**
  * Clears the draft once its write has landed, however late that is.

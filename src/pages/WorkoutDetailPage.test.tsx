@@ -1,5 +1,5 @@
 import { MutationObserver, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,6 +21,7 @@ vi.mock('../hooks/useAuth.ts', () => ({
 const WORKOUT_ID = '33333333-3333-4333-8333-333333333333';
 const PRESS_BANCA = '01920000-0000-7000-8000-0000000000a1';
 const CARD_ID = '01920000-0000-7000-8000-0000000000c1';
+const USER_ID = '00000000-0000-4000-a000-000000000001';
 
 let fake: ReturnType<typeof createFakeSupabase>;
 let client: ReturnType<typeof createQueryClient>;
@@ -272,6 +273,27 @@ describe('WorkoutDetailPage', () => {
     // A soft delete stops showing it and keeps the sets, and the confirmation says exactly that
     // instead of promising it can be brought back — there is no screen that does that.
     expect(await screen.findByRole('alert')).toHaveTextContent('sus series quedan guardadas');
+  });
+
+  it('marks the reads the deleted workout was in as stale', async () => {
+    /*
+     * The home screen reads the summary of the account, and that read is cached: without being
+     * told that the workout is gone, it keeps answering with a workout that was deleted, and the
+     * Inicio shows a streak and a last workout that do not exist any more.
+     */
+    client.setQueryData(['dashboard', USER_ID], {
+      streak: 1,
+      last_workout: { id: WORKOUT_ID, date: '2026-10-13', exercise_count: 0 },
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Borrar este entrenamiento' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, borrar' }));
+
+    await waitFor(() => {
+      expect(client.getQueryState(['dashboard', USER_ID])?.isInvalidated).toBe(true);
+    });
   });
 
   it('does not delete when the confirmation is cancelled', async () => {

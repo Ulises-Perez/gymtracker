@@ -10,6 +10,7 @@ import { useWeightUnit } from '../hooks/useProfile.ts';
 import { useWorkoutDetail } from '../hooks/useWorkoutDetail.ts';
 import type { WorkoutExerciseDetail, WorkoutSetDetail } from '../lib/history-api.ts';
 import { softDeleteWorkout } from '../lib/history-api.ts';
+import { markStaleAfterDelete } from '../lib/stale-after-write.ts';
 import { formatWeight } from '../lib/units.ts';
 import type { WeightUnit } from '../lib/units.ts';
 import { formatIsoDate } from '../lib/utils.ts';
@@ -54,6 +55,11 @@ export function WorkoutDetailPage() {
        * navigating first would show the row for as long as the refetch takes.
        */
       await queryClient.invalidateQueries({ queryKey: ['history'] });
+      /*
+       * And the other reads that saw the workout: the summary of the account is cached, so the
+       * Inicio kept showing a streak and a last workout that were already deleted.
+       */
+      markStaleAfterDelete(queryClient);
       void navigate('/history', { replace: true });
     },
   });

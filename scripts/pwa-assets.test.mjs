@@ -156,7 +156,14 @@ describe('the document head', () => {
     expect(indexHtml).toContain(
       '<meta property="og:description" content="Registrá tus entrenamientos, incluso sin señal." />',
     );
-    expect(indexHtml).toContain('<meta property="og:image" content="/og-image.png" />');
+    /*
+     * Absolute, because the share card is fetched by a crawler that may not be on the page's
+     * origin: a relative URL is resolved against the page, and the page it resolves against is not
+     * necessarily the one the card is shown for.
+     */
+    expect(indexHtml).toContain(
+      '<meta property="og:image" content="https://gymtracker-devkiings-projects.vercel.app/og-image.png" />',
+    );
 
     for (const spec of SPLASH_SPECS) {
       expect(indexHtml, `${spec.file} is linked`).toContain(`href="/${spec.file}"`);
