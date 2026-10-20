@@ -251,14 +251,6 @@ describe('refusing to freeze a draft the contract would refuse', () => {
     expect(draft()?.status).toBe('draft');
   });
 
-  it('keeps the workout open when the target holds reps of zero', () => {
-    store().setTarget(cardId(), { targetReps: 0 });
-
-    store().finish();
-
-    expect(draft()?.status).toBe('draft');
-  });
-
   /**
    * The other half, and the reason the gate is not a wall: a draft is only held open while it holds
    * something the contract refuses. Once the value is corrected, the same tap finishes the workout.
@@ -304,7 +296,7 @@ describe('finding the number that keeps a draft open', () => {
 
   it('finds nothing in a draft the contract takes', () => {
     store().addSet(cardId(0), { reps: 5, weightKg: 100 });
-    store().setTarget(cardId(1), { targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 });
+    store().addSet(cardId(1), { reps: 10, weightKg: 80 });
 
     expect(problemInCurrentDraft()).toBeNull();
   });
@@ -321,19 +313,17 @@ describe('finding the number that keeps a draft open', () => {
   });
 
   /**
-   * The target is read before the sets, because that is the order the card is laid out in: the first
-   * thing named has to be the first thing the person would find by looking.
+   * The card has no objective row anymore, so the search has no objective to name: everything it
+   * reports is a series, and the number it gives is that series' position.
    */
-  it('names the target before the sets of the same card', () => {
-    store().addSet(cardId(0), { reps: 10.5, weightKg: 100 });
-    store().setTarget(cardId(0), { targetWeightMax: -20 });
+  it('names a series and never an objective', () => {
+    store().addSet(cardId(0), { reps: 10, weightKg: -20 });
 
-    expect(problemInCurrentDraft()).toEqual({
-      exerciseId: EXERCISE_ID,
-      setNumber: null,
-      field: 'weightKg',
-      refusal: 'El peso no puede ser negativo.',
-    });
+    const problem = problemInCurrentDraft();
+
+    expect(problem?.setNumber).toBe(1);
+    expect(problem?.field).toBe('weightKg');
+    expect(problem?.exerciseId).toBe(EXERCISE_ID);
   });
 });
 
@@ -403,7 +393,7 @@ describe('surviving a reload', () => {
     // zustand's envelope, exactly: the partialised state and a format version.
     // No action can show up here, because a function does not survive JSON —
     // which is also why the queue needs a dispatcher to be resumable.
-    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 2 });
+    expect(persisted).toEqual({ state: { draft: expect.any(Object) }, version: 3 });
   });
 });
 
@@ -484,105 +474,33 @@ describe('custom exercises created on the device', () => {
   });
 });
 
-describe('the target a card sets for itself', () => {
-  const REPS = 10;
-
-  it('starts empty, because a target is optional', () => {
+/**
+ * The objective that left the card.
+ *
+ * The card used to open with a row of three optional fields: the reps it aimed for and the range of
+ * weights, between a minimum and a maximum. What the card shows now is the series — the reps and
+ * the kilos actually lifted. The objective is not a smaller thing to hide, it is a different thing:
+ * a session is a record of what was lifted, and a target nobody lifted is not part of it.
+ */
+describe('the objective that left the card', () => {
+  it('keeps no objective in the draft', () => {
     store().start();
     store().addExercise(EXERCISE_ID);
 
-    expect(draft()?.exercises[0]).toMatchObject({
-      targetReps: null,
-      targetWeightMin: null,
-      targetWeightMax: null,
-    });
-  });
+    const card = draft()?.exercises[0];
 
-  it('takes the three values independently, because they are typed at different moments', () => {
-    store().start();
-    store().addExercise(EXERCISE_ID);
-
-    const cardId = draft()?.exercises[0]?.id ?? '';
-
-    store().setTarget(cardId, { targetReps: REPS });
-
-    expect(draft()?.exercises[0]).toMatchObject({
-      targetReps: REPS,
-      targetWeightMin: null,
-      targetWeightMax: null,
-    });
-
-    store().setTarget(cardId, { targetWeightMax: 80 });
-
-    // What was already there is untouched: each field is written on its own.
-    expect(draft()?.exercises[0]).toMatchObject({ targetReps: REPS, targetWeightMax: 80 });
+    expect(card).not.toHaveProperty('targetReps');
+    expect(card).not.toHaveProperty('targetWeightMin');
+    expect(card).not.toHaveProperty('targetWeightMax');
   });
 
   /**
-   * The target is set on the way in and not in a second call, so the card is never briefly without
-   * it. A screen that added the card and patched it afterwards would render an aimless card for a
-   * frame, and an interruption in between would leave one.
+   * A draft written by the previous build carries the objective the card no longer asks for, and it
+   * may carry one the save contract would refuse. With the fields gone there is no way to correct
+   * it, and a session frozen over a number nobody can fix is exactly the defect the contract was
+   * written to kill. So the objective is dropped on the way in, and the series are what survive.
    */
-  it('takes the target with the exercise, in the same action', () => {
-    store().start();
-
-    store().addExercise(EXERCISE_ID, {
-      targetReps: REPS,
-      targetWeightMin: 60,
-      targetWeightMax: 80,
-    });
-
-    expect(draft()?.exercises[0]).toMatchObject({
-      targetReps: REPS,
-      targetWeightMin: 60,
-      targetWeightMax: 80,
-    });
-  });
-
-  it('takes it with a custom exercise too', () => {
-    store().start();
-
-    store().addCustomExercise('Press con banda', null, { targetReps: REPS });
-
-    expect(draft()?.exercises[0]).toMatchObject({
-      targetReps: REPS,
-      targetWeightMin: null,
-      targetWeightMax: null,
-    });
-  });
-
-  it('still works without one, because a target is optional', () => {
-    store().start();
-
-    store().addExercise(EXERCISE_ID);
-
-    expect(draft()?.exercises[0]).toMatchObject({
-      targetReps: null,
-      targetWeightMin: null,
-      targetWeightMax: null,
-    });
-  });
-
-  it('refuses to set one on a workout that is already finished', () => {
-    store().start();
-    store().addExercise(EXERCISE_ID);
-
-    const cardId = draft()?.exercises[0]?.id ?? '';
-
-    store().finish();
-    const finished = draft();
-
-    store().setTarget(cardId, { targetReps: REPS });
-
-    expect(draft()).toEqual(finished);
-  });
-
-  /**
-   * The shape of the persisted draft changed again, and a draft written by the previous build has
-   * cards with no target fields at all. Read back as `undefined` they would reach the payload as
-   * `undefined` where the server expects null, so the migration fills them.
-   */
-  it('fills the target fields in for a draft persisted by the previous build', async () => {
+  it('drops the inherited objective and keeps the series', async () => {
     await indexedDbStorage.setItem(
       WORKOUT_STORAGE_KEY,
       JSON.stringify({
@@ -596,44 +514,76 @@ describe('the target a card sets for itself', () => {
             endedAt: null,
             status: 'draft',
             customExercises: [],
-            exercises: [{ id: 'card-vieja', exerciseId: EXERCISE_ID, sets: [] }],
+            exercises: [
+              {
+                id: 'card-vieja',
+                exerciseId: EXERCISE_ID,
+                sets: [
+                  {
+                    id: 'set-vieja',
+                    reps: 10,
+                    weightKg: 60,
+                    rpe: null,
+                    isWarmup: false,
+                    notes: null,
+                  },
+                ],
+                // The objective the previous build asked for, one of them the contract refuses.
+                targetReps: 0,
+                targetWeightMin: 60,
+                targetWeightMax: 80,
+              },
+            ],
           },
         },
-        version: 1,
+        version: 2,
       }),
     );
 
     await useWorkoutStore.persist.rehydrate();
 
-    expect(draft()?.exercises[0]).toMatchObject({
-      id: 'card-vieja',
-      targetReps: null,
-      targetWeightMin: null,
-      targetWeightMax: null,
-    });
+    const card = draft()?.exercises[0];
+
+    expect(card).not.toHaveProperty('targetReps');
+    expect(card).not.toHaveProperty('targetWeightMin');
+    expect(card).not.toHaveProperty('targetWeightMax');
+
+    // The series are the session: they survive the migration untouched.
+    expect(card?.sets).toEqual([
+      {
+        id: 'set-vieja',
+        reps: 10,
+        weightKg: 60,
+        rpe: null,
+        isWarmup: false,
+        notes: null,
+      },
+    ]);
+
+    // And the objective the contract would have refused cannot freeze the session.
+    const restored = draft();
+
+    if (!restored) {
+      throw new Error('the draft was not restored');
+    }
+
+    expect(findWorkoutNumberProblem(restored)).toBeNull();
   });
 });
 
 describe('repeating a stored workout', () => {
   const SOURCE = {
     title: 'Empuje',
-    exercises: [
-      { exerciseId: EXERCISE_ID, targetReps: 8, targetWeightMin: 60, targetWeightMax: 80 },
-      {
-        exerciseId: OTHER_EXERCISE_ID,
-        targetReps: null,
-        targetWeightMin: null,
-        targetWeightMax: null,
-      },
-    ],
+    exercises: [{ exerciseId: EXERCISE_ID }, { exerciseId: OTHER_EXERCISE_ID }],
   };
 
   /**
    * The shape of a repeated session, in one assertion: a brand-new draft, the stored cards in their
-   * stored order, each with its target copied, and no sets at all. The load comes from the history
-   * later, which is where a gym wants it.
+   * stored order, and no sets at all. The load comes from the history later, which is where a gym
+   * wants it. The objective of the session being repeated is not carried: it is not a number
+   * anybody lifted, and the card has nowhere to show it.
    */
-  it('opens a new draft with the stored cards in order, with their targets and no sets', () => {
+  it('opens a new draft with the stored cards in order and no sets', () => {
     vi.useFakeTimers();
 
     try {
@@ -652,16 +602,8 @@ describe('repeating a stored workout', () => {
         OTHER_EXERCISE_ID,
       ]);
       expect(draft()?.exercises.map((card) => card.sets)).toEqual([[], []]);
-      expect(draft()?.exercises[0]).toMatchObject({
-        targetReps: 8,
-        targetWeightMin: 60,
-        targetWeightMax: 80,
-      });
-      expect(draft()?.exercises[1]).toMatchObject({
-        targetReps: null,
-        targetWeightMin: null,
-        targetWeightMax: null,
-      });
+      expect(draft()?.exercises[0]).not.toHaveProperty('targetReps');
+      expect(draft()?.exercises[1]).not.toHaveProperty('targetReps');
     } finally {
       vi.useRealTimers();
     }

@@ -90,13 +90,10 @@ test('records a workout offline and syncs it when the connection comes back', as
   await page.getByRole('button', { name: 'Press Banca', exact: true }).click();
 
   /*
-   * The target the session sets for itself, typed on the card. It travels in the payload, and a
-   * payload the RPC cannot read fails the whole save -- so the records arriving at the end of this
-   * test are also the evidence that these three values reached the database, not just the screen.
+   * The card asks for the series and nothing else. The objective the session used to set for
+   * itself — the reps it aimed for and the range of weights — is gone from the card, so what the
+   * person lifts is what the card holds.
    */
-  await page.getByLabel('Reps del objetivo').fill('8');
-  await page.getByLabel('Peso mínimo del objetivo').fill('60');
-  await page.getByLabel('Peso máximo del objetivo').fill('80');
 
   for (const [index, [reps, weight]] of SETS.entries()) {
     const position = index + 1;
@@ -173,12 +170,13 @@ test('records a workout offline and syncs it when the connection comes back', as
   // The workout screen, with a draft that is ready to be trained.
   await expect(page.getByRole('region', { name: 'Entrenar' })).toBeVisible();
 
-  // What was aimed for travels with the copy; what was lifted does not.
+  // The copy carries the exercises and their order, and no series: the load comes from the history
+  // when the next set starts, which is where a gym wants it.
   await expect(page.getByLabel('Título')).toHaveValue('Empuje');
-  await expect(page.getByLabel('Reps del objetivo')).toHaveValue('8');
-  await expect(page.getByLabel('Peso mínimo del objetivo')).toHaveValue('60');
-  await expect(page.getByLabel('Peso máximo del objetivo')).toHaveValue('80');
   await expect(page.getByLabel('Reps serie 1')).toHaveCount(0);
+  // And the objective the session being repeated no longer travels: it is a number nobody lifted,
+  // and the card has nowhere to show it.
+  await expect(page.getByLabel('Reps del objetivo')).toHaveCount(0);
 
   expect([...hostedHosts]).toEqual([]);
 });

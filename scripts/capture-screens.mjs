@@ -183,7 +183,7 @@ async function register(page) {
   await page.getByRole('navigation', { name: 'Navegación principal' }).waitFor();
 }
 
-/** Opens a workout and fills one card: a title, a target on the card, and three recorded series. */
+/** Opens a workout and fills one card: a title and three recorded series. */
 async function startWorkout(page) {
   await page.goto(`${BASE_URL}/workout`);
   await page.getByRole('button', { name: 'Nuevo workout' }).click();
@@ -194,10 +194,7 @@ async function startWorkout(page) {
   // catalogue also holds "Press Banca Declinado" and "Press Banca Inclinado".
   await page.getByRole('button', { name: 'Press Banca', exact: true }).click();
 
-  await page.getByLabel('Reps del objetivo').fill('8');
-  await page.getByLabel('Peso mínimo del objetivo').fill('60');
-  await page.getByLabel('Peso máximo del objetivo').fill('80');
-
+  // The card asks for the series and nothing else: the objective it used to open with is gone.
   for (const [index, [reps, weight]] of SETS.entries()) {
     const position = index + 1;
 

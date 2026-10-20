@@ -80,16 +80,15 @@ export type WorkoutSetDetail = {
  * The set that used to be named by its exercise is named by one of these now, which is what makes
  * the order and a repeated exercise representable at all.
  *
- * The target travels with the card (migration 0012): it is what lets "repeat workout" open the same
- * exercises, in the same order, with the aim they had that day.
+ * The objective of the card is not read: the card does not show it and the repeated session does
+ * not carry it, so a column nobody reads is a column the app pays for on every detail. It stays in
+ * the database — the CSV export still reads it — and the sessions saved while the app asked for it
+ * keep it.
  */
 export type WorkoutExerciseDetail = {
   id: string;
   exerciseId: string;
   position: number;
-  targetReps: number | null;
-  targetWeightMin: number | null;
-  targetWeightMax: number | null;
 };
 
 export type WorkoutDetail = {
@@ -112,9 +111,6 @@ type WorkoutExerciseRow = {
   id: string;
   exercise_id: string;
   position: number;
-  target_reps: number | null;
-  target_weight_min: string | null;
-  target_weight_max: string | null;
 };
 
 /**
@@ -153,7 +149,7 @@ export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDeta
 
   const exercises = await supabase
     .from('workout_exercises')
-    .select('id, exercise_id, position, target_reps, target_weight_min, target_weight_max')
+    .select('id, exercise_id, position')
     .eq('workout_id', workoutId)
     // The order is the point of reading this table: `position` is the place the card had in the
     // session, and it is what the screen shows the cards in.
@@ -177,11 +173,6 @@ export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDeta
       id: row.id,
       exerciseId: row.exercise_id,
       position: row.position,
-      targetReps: row.target_reps,
-      // A5: a DECIMAL arrives as a string and becomes a number here and nowhere else. Null stays
-      // null, because a target nobody set is not a target of zero.
-      targetWeightMin: row.target_weight_min === null ? null : toNumber(row.target_weight_min),
-      targetWeightMax: row.target_weight_max === null ? null : toNumber(row.target_weight_max),
     })),
     sets: (sets.data as WorkoutSetRow[]).map((row) => ({
       id: row.id,

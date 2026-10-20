@@ -15,17 +15,11 @@ const CARDS: WorkoutExerciseDraft[] = [
     id: 'card-1',
     exerciseId: 'ex-1',
     sets: [],
-    targetReps: null,
-    targetWeightMin: null,
-    targetWeightMax: null,
   },
   {
     id: 'card-2',
     exerciseId: 'ex-2',
     sets: [],
-    targetReps: null,
-    targetWeightMin: null,
-    targetWeightMax: null,
   },
 ];
 

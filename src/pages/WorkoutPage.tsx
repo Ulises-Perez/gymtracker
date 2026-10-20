@@ -64,7 +64,6 @@ export function WorkoutPage() {
   const addExercise = useWorkoutStore((state) => state.addExercise);
   const addCustomExercise = useWorkoutStore((state) => state.addCustomExercise);
   const removeExercise = useWorkoutStore((state) => state.removeExercise);
-  const setTarget = useWorkoutStore((state) => state.setTarget);
   const reorderExercises = useWorkoutStore((state) => state.reorderExercises);
   const addSet = useWorkoutStore((state) => state.addSet);
   const updateSet = useWorkoutStore((state) => state.updateSet);
@@ -350,7 +349,6 @@ export function WorkoutPage() {
             onUpdateSet={updateSet}
             onRemoveSet={removeSet}
             onRemoveExercise={removeExercise}
-            onSetTarget={setTarget}
           />
         </Suspense>
       )}
@@ -413,15 +411,13 @@ export function WorkoutPage() {
 /**
  * "«Press Banca», serie 1. Las reps tienen que ser un número entero mayor que cero."
  *
- * The card by the name the picker gave it and the row the way the row is written on it — the target's
- * row has no number, so it is called what the card calls it. The rule's own words come last, so the
- * sentence leads with where to look and ends with what to fix.
+ * The card by the name the picker gave it and the series the way the series is written on it. The
+ * rule's own words come last, so the sentence leads with where to look and ends with what to fix.
  */
 function describeNumberProblem(problem: WorkoutNumberProblem, names: Map<string, string>): string {
   const card = names.get(problem.exerciseId) ?? 'este ejercicio';
-  const row = problem.setNumber === null ? 'objetivo' : `serie ${problem.setNumber}`;
 
-  return `«${card}», ${row}. ${problem.refusal}`;
+  return `«${card}», serie ${problem.setNumber}. ${problem.refusal}`;
 }
 
 /**

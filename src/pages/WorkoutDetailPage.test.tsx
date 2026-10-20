@@ -355,12 +355,10 @@ describe('WorkoutDetailPage', () => {
       expect(repeated?.status).toBe('draft');
       expect(repeated?.title).toBe('Empuje');
       expect(repeated?.exercises.map((card) => card.exerciseId)).toEqual([PRESS_BANCA]);
-      expect(repeated?.exercises[0]).toMatchObject({
-        targetReps: 5,
-        targetWeightMin: 60,
-        targetWeightMax: 80,
-        sets: [],
-      });
+      expect(repeated?.exercises[0]).toMatchObject({ sets: [] });
+      // The objective of the session being repeated does not travel: it is a number nobody lifted,
+      // and the card has nowhere to show it.
+      expect(repeated?.exercises[0]).not.toHaveProperty('targetReps');
     });
 
     it('lands on the workout screen with the repeated draft ready to train', async () => {

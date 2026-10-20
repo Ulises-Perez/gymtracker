@@ -116,9 +116,6 @@ describe('fetchWorkoutDetail', () => {
     id: CARD_ID,
     exercise_id: EXERCISE_ID,
     position: 1,
-    target_reps: null,
-    target_weight_min: null,
-    target_weight_max: null,
   };
 
   /** The builder one table's query ran on, so its shape can be asserted separately. */
@@ -173,51 +170,25 @@ describe('fetchWorkoutDetail', () => {
         id: CARD_ID,
         exerciseId: EXERCISE_ID,
         position: 1,
-        targetReps: null,
-        targetWeightMin: null,
-        targetWeightMax: null,
       },
     ]);
     expect(builderFor('workout_exercises')?.calls).toContain('order position');
   });
 
   /**
-   * Repeating a workout faithfully needs the target that was stored on each card, and that target
-   * has lived in this table since 0012. A target the read does not ask for is a target that always
-   * arrives null, which would repeat the exercises without the aim they had.
+   * The read is the limit of what the app knows about a saved session, and it does not ask for the
+   * objective any more: the card does not show it, the repeated session does not carry it, and a
+   * column nobody reads is a column the app pays for on every detail. The data stays in the
+   * database — the CSV export still reads it — but this screen has no use for it.
    */
-  it('reads each card target, turning the decimal weights into numbers', async () => {
-    fake.setTableResult('workout_exercises', {
-      data: [
-        {
-          ...CARD_ROW,
-          target_reps: 8,
-          target_weight_min: '60.00',
-          target_weight_max: '80.00',
-        },
-        {
-          ...CARD_ROW,
-          id: '01920000-0000-7000-8000-0000000000c2',
-          position: 2,
-        },
-      ],
-      error: null,
-    });
+  it('does not ask for the objective columns', async () => {
+    await fetchWorkoutDetail(row(1).id);
 
-    const detail = await fetchWorkoutDetail(row(1).id);
+    const calls = builderFor('workout_exercises')?.calls.join(' ') ?? '';
 
-    expect(detail.exercises[0]).toMatchObject({
-      targetReps: 8,
-      targetWeightMin: 60,
-      targetWeightMax: 80,
-    });
-    // A card with no target stays null instead of collapsing to zero: zero is a claim nobody made.
-    expect(detail.exercises[1]).toMatchObject({
-      targetReps: null,
-      targetWeightMin: null,
-      targetWeightMax: null,
-    });
-    expect(builderFor('workout_exercises')?.calls.join(' ')).toContain('target_reps');
+    expect(calls).not.toContain('target_reps');
+    expect(calls).not.toContain('target_weight_min');
+    expect(calls).not.toContain('target_weight_max');
   });
 
   it('refuses a workout that is not there instead of returning an empty one', async () => {

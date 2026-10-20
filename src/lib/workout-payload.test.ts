@@ -44,9 +44,6 @@ function card(overrides: Partial<WorkoutExerciseDraft> = {}): WorkoutExerciseDra
     id: '01920000-0000-7000-8000-0000000000c1',
     exerciseId: PRESS_BANCA,
     sets: [set()],
-    targetReps: null,
-    targetWeightMin: null,
-    targetWeightMax: null,
     ...overrides,
   };
 }
@@ -326,41 +323,15 @@ describe('the custom exercises the payload carries', () => {
   });
 });
 
-describe('the targets the payload carries', () => {
-  /**
-   * The target belongs to the card (0012 absorbed `workout_exercise_targets`), so it travels with
-   * the card and not in a parallel array where it could be filed against the wrong one.
-   */
-  it('carries the target with the card that has one', () => {
-    const payload = toSaveWorkoutPayload(
-      draft({
-        exercises: [card({ targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 })],
-      }),
-    );
-
-    expect(payload.exercises[0]).toMatchObject({
-      exercise_id: PRESS_BANCA,
-      target_reps: 10,
-      target_weight_min: 60,
-      target_weight_max: 80,
-    });
-  });
-
-  it('sends a half-written target with nulls for the rest', () => {
-    const payload = toSaveWorkoutPayload(draft({ exercises: [card({ targetReps: 8 })] }));
-
-    expect(payload.exercises[0]).toMatchObject({
-      target_reps: 8,
-      target_weight_min: null,
-      target_weight_max: null,
-    });
-  });
-
-  /**
-   * A card with no target is still a card, so its target fields are null and not omitted: the card
-   * is in the array whatever it holds.
-   */
-  it('keeps a card that has no target at all, with nulls for its target', () => {
+/**
+ * The objective the card no longer asks for still travels on the wire, and it travels empty.
+ *
+ * The keys are part of the contract with the server: the schema demands them and the RPC reads
+ * them, so the shape of a card does not change because the app stopped asking for a target. What
+ * changes is the value: a session records what was lifted, and nobody lifted a target.
+ */
+describe('the objective on the wire', () => {
+  it('sends the objective empty, because nobody lifted a target', () => {
     const payload = toSaveWorkoutPayload(draft({ exercises: [card()] }));
 
     expect(payload.exercises[0]).toMatchObject({

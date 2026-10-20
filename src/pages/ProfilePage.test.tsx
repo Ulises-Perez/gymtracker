@@ -610,9 +610,6 @@ describe('the entry screen', () => {
     id: 'card-1',
     exerciseId: EXERCISE_ID,
     sets: [{ id: 'set-1', reps: 5, weightKg: 100, rpe: null, isWarmup: false, notes: null }],
-    targetReps: null,
-    targetWeightMin: null,
-    targetWeightMax: null,
   };
 
   it('keeps the kilo label and the kilo reference even when pounds are preferred', async () => {
@@ -644,7 +641,6 @@ describe('the entry screen', () => {
             onUpdateSet={vi.fn()}
             onRemoveSet={vi.fn()}
             onRemoveExercise={vi.fn()}
-            onSetTarget={vi.fn()}
           />
         </div>
       </QueryClientProvider>,
@@ -656,7 +652,6 @@ describe('the entry screen', () => {
     // The field says kg and the reference stays in kg: the one thing that line is for is comparing
     // with the weight about to be lifted, and pounds next to a kilo field would break exactly that.
     expect(within(card).getByLabelText('Peso en kg serie 1')).toBeInTheDocument();
-    expect(within(card).getByLabelText('Peso mínimo del objetivo')).toBeInTheDocument();
     expect(await within(card).findByText(/último: 8 × 75 kg/)).toBeInTheDocument();
     expect(within(card).queryByText(/lb/)).not.toBeInTheDocument();
   });

@@ -45,9 +45,11 @@ que ocurre en el servidor **dentro de la misma transacción** que guarda los dat
 
 ## Capabilities and Constraints
 
-- Registro de entrenamientos: ejercicios × series × repeticiones × kilos, con repeticiones y peso
-  objetivo por ejercicio (rango mínimo–máximo), sobre un catálogo de 57 ejercicios globales más los
-  propios del usuario.
+- Registro de entrenamientos: ejercicios × series × repeticiones × kilos, sobre un catálogo de 57
+  ejercicios globales más los propios del usuario. La tarjeta de cada ejercicio pide **las series**:
+  la cantidad de repeticiones y los kilos levantados, serie por serie. No hay objetivo por
+  ejercicio (decisión del 2026-10-20): el rango mínimo–máximo se retiró de la interfaz, y las
+  columnas quedan en la base sólo para las sesiones que se guardaron mientras todavía se pedía.
 - Detección automática de récords personales por 1RM estimado, en el servidor, y celebrados en
   pantalla.
 - Progreso por ejercicio: peso máximo, volumen y 1RM por sesión, en una gráfica.

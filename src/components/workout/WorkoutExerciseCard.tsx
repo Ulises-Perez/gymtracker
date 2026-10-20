@@ -8,7 +8,6 @@ import type {
   WorkoutExerciseDraft,
   WorkoutSetDraft,
   WorkoutSetPatch,
-  WorkoutTargetPatch,
 } from '../../stores/workout-store.ts';
 
 /**
@@ -29,7 +28,6 @@ type WorkoutExerciseCardProps = {
   onUpdateSet: (setId: string, patch: WorkoutSetPatch) => void;
   onRemoveSet: (setId: string) => void;
   onRemoveExercise: () => void;
-  onSetTarget: (patch: WorkoutTargetPatch) => void;
 };
 
 export function WorkoutExerciseCard({
@@ -39,7 +37,6 @@ export function WorkoutExerciseCard({
   onUpdateSet,
   onRemoveSet,
   onRemoveExercise,
-  onSetTarget,
 }: WorkoutExerciseCardProps) {
   const lastSets = useLastSets(card.exerciseId);
   const history = lastSets.data ?? [];
@@ -94,37 +91,11 @@ export function WorkoutExerciseCard({
       </header>
 
       {/*
-       * The target lives on the card and not in the picker. In the picker it would change the
-       * "one tap and out" the dialog was built around and put the aim behind a second screen, and
-       * once set there would be no way to correct it mid-session — which is exactly when someone
-       * finds out the range they typed was wrong.
+       * There is no objective row here any more. The card used to open with three optional fields —
+       * the reps it aimed for and the range of weights, between a minimum and a maximum — and the
+       * person asked for the series instead: what was lifted, series by series. The aim was a plan
+       * made before the weights were on the bar, and the session is a record of what happened.
        */}
-      <div className="mt-3">
-        <p className="text-muted text-xs">Objetivo (opcional)</p>
-        <div className="mt-1 grid grid-cols-3 gap-2">
-          <NumberCell
-            label="Reps del objetivo"
-            shortLabel="Reps"
-            field="reps"
-            value={card.targetReps}
-            onChange={(value) => onSetTarget({ targetReps: value })}
-          />
-          <NumberCell
-            label="Peso mínimo del objetivo"
-            shortLabel="Mín kg"
-            field="weightKg"
-            value={card.targetWeightMin}
-            onChange={(value) => onSetTarget({ targetWeightMin: value })}
-          />
-          <NumberCell
-            label="Peso máximo del objetivo"
-            shortLabel="Máx kg"
-            field="weightKg"
-            value={card.targetWeightMax}
-            onChange={(value) => onSetTarget({ targetWeightMax: value })}
-          />
-        </div>
-      </div>
 
       <ul aria-label={`Series de ${name}`} className="mt-3">
         {card.sets.map((set, index) => (

@@ -41,37 +41,30 @@ export type WorkoutExerciseDraft = {
   id: string;
   exerciseId: string;
   sets: WorkoutSetDraft[];
-  /**
-   * What the user set out to do with this card: how many reps, between which weights.
-   *
-   * All three are optional and independent, because they get typed at different moments and a
-   * target that only says "10 reps" is a real one. They belong to the card and not to the exercise
-   * — the same exercise can be given two different targets in a single session — which is why they
-   * travel with the card: since 0012 the card is one row, and the order of the payload's cards is the
-   * order of the session.
-   */
-  targetReps: number | null;
-  targetWeightMin: number | null;
-  targetWeightMax: number | null;
 };
 
-export type WorkoutTargetPatch = Partial<
-  Pick<WorkoutExerciseDraft, 'targetReps' | 'targetWeightMin' | 'targetWeightMax'>
->;
+/**
+ * A card as an older build wrote it: it carried the objective the card no longer asks for, and a
+ * draft restored from disk may still have it.
+ */
+type LegacyCard = WorkoutExerciseDraft & {
+  targetReps?: number | null;
+  targetWeightMin?: number | null;
+  targetWeightMax?: number | null;
+};
 
 /**
  * What repeating a saved session needs from it: the title and the cards, in their stored order.
  *
  * The notes are deliberately absent. They are a comment about the day the session happened, and
- * carrying them into a new one would put yesterday's words on today's workout.
+ * carrying them into a new one would put yesterday's words on today's workout. The objective of the
+ * session being repeated is absent for the same reason: it is a number nobody lifted, and the card
+ * has nowhere to show it.
  */
 export type RepeatSource = {
   title: string | null;
   exercises: Array<{
     exerciseId: string;
-    targetReps: number | null;
-    targetWeightMin: number | null;
-    targetWeightMax: number | null;
   }>;
 };
 
@@ -90,18 +83,13 @@ export type CustomExerciseDraft = {
 };
 
 /**
- * The draft as an older build wrote it, before custom exercises existed.
+ * The draft as an older build wrote it: before custom exercises existed, and before the objective
+ * left the card.
  *
  * Typed separately on purpose: the whole reason the migration exists is that this
  * field may not be there, and typing it as a full `WorkoutDraft` would be a lie the
  * compiler believes.
  */
-/**
- * A card as an older build wrote it: the target fields did not exist yet.
- */
-type LegacyCard = Omit<WorkoutExerciseDraft, 'targetReps' | 'targetWeightMin' | 'targetWeightMax'> &
-  Partial<Pick<WorkoutExerciseDraft, 'targetReps' | 'targetWeightMin' | 'targetWeightMax'>>;
-
 type LegacyDraft = Omit<WorkoutDraft, 'customExercises' | 'exercises'> & {
   customExercises?: CustomExerciseDraft[];
   exercises: LegacyCard[];
@@ -128,8 +116,8 @@ export type WorkoutDraft = {
 export type WorkoutNumberProblem = {
   /** The card, by the id of the exercise it names: this store holds ids, the screen holds names. */
   exerciseId: string;
-  /** Which row: the set at this position, counting from one, or null for the card's target. */
-  setNumber: number | null;
+  /** Which series: the set at this position, counting from one. */
+  setNumber: number;
   field: WorkoutNumberField;
   /** The words the person is told, in the app's own language. */
   refusal: string;
@@ -145,39 +133,22 @@ export type WorkoutNumberProblem = {
  * once `finish()` has run it cannot be corrected either, because a finished draft takes no more edits.
  * Finding it before the freeze is the difference between "fix that field" and "lose the session".
  *
- * The order is the order of the screen: each card, its target first and then its sets. The first
- * problem is the one to name, because a list of them would be a wall of text over a session that is
- * one correction away from being fine.
+ * The search is the series and nothing else: the card has no objective row any more, so there is no
+ * other number in a card that could freeze a session.
  */
 export function findWorkoutNumberProblem(draft: WorkoutDraft): WorkoutNumberProblem | null {
   for (const card of draft.exercises) {
-    const rows: Array<{
-      setNumber: number | null;
-      numbers: Array<[WorkoutNumberField, number | null]>;
-    }> = [
-      {
-        setNumber: null,
-        numbers: [
-          ['reps', card.targetReps],
-          ['weightKg', card.targetWeightMin],
-          ['weightKg', card.targetWeightMax],
-        ],
-      },
-      ...card.sets.map((set, index) => ({
-        setNumber: index + 1,
-        numbers: [
-          ['reps', set.reps],
-          ['weightKg', set.weightKg],
-        ] as Array<[WorkoutNumberField, number | null]>,
-      })),
-    ];
+    for (const [index, set] of card.sets.entries()) {
+      const numbers: Array<[WorkoutNumberField, number | null]> = [
+        ['reps', set.reps],
+        ['weightKg', set.weightKg],
+      ];
 
-    for (const row of rows) {
-      for (const [field, value] of row.numbers) {
+      for (const [field, value] of numbers) {
         const refusal = workoutNumberRefusal(field, value);
 
         if (refusal !== null) {
-          return { exerciseId: card.exerciseId, setNumber: row.setNumber, field, refusal };
+          return { exerciseId: card.exerciseId, setNumber: index + 1, field, refusal };
         }
       }
     }
@@ -202,16 +173,11 @@ type WorkoutStore = {
   repeatFrom: (source: RepeatSource) => void;
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
-  addExercise: (exerciseId: string, target?: WorkoutTargetPatch) => void;
-  addCustomExercise: (
-    name: string,
-    muscleGroupId: string | null,
-    target?: WorkoutTargetPatch,
-  ) => void;
+  addExercise: (exerciseId: string) => void;
+  addCustomExercise: (name: string, muscleGroupId: string | null) => void;
   removeExercise: (cardId: string) => void;
   reorderExercises: (from: number, to: number) => void;
   addSet: (cardId: string, seed?: WorkoutSetPatch) => void;
-  setTarget: (cardId: string, patch: WorkoutTargetPatch) => void;
   updateSet: (cardId: string, setId: string, patch: WorkoutSetPatch) => void;
   removeSet: (cardId: string, setId: string) => void;
   finish: () => void;
@@ -241,21 +207,6 @@ function createSet(seed: WorkoutSetPatch): WorkoutSetDraft {
     notes: seed.notes ?? null,
   };
 }
-
-/**
- * A card that has not been given a target yet.
- *
- * Null and not zero: a zero would be a claim that the user meant to lift nothing, and these fields
- * mean "not said yet". Null is also what the payload sends and what the database stores.
- */
-const emptyTarget: Pick<
-  WorkoutExerciseDraft,
-  'targetReps' | 'targetWeightMin' | 'targetWeightMax'
-> = {
-  targetReps: null,
-  targetWeightMin: null,
-  targetWeightMax: null,
-};
 
 /**
  * Applies `change` to an open draft, and holds both guards in one place.
@@ -359,9 +310,6 @@ export const useWorkoutStore = create<WorkoutStore>()(
                 id: newId(),
                 exerciseId: card.exerciseId,
                 sets: [],
-                targetReps: card.targetReps,
-                targetWeightMin: card.targetWeightMin,
-                targetWeightMax: card.targetWeightMax,
               })),
             },
           };
@@ -372,21 +320,17 @@ export const useWorkoutStore = create<WorkoutStore>()(
       setNotes: (notes) => set((state) => edit(state, (draft) => ({ ...draft, notes })) ?? state),
 
       /**
-       * Adds a catalogue exercise, with the target the user set on the way in.
+       * Adds a catalogue exercise as a card with no series yet.
        *
-       * The target arrives here and not in a second call, so the card is never briefly without it: a
-       * screen that added the card first and patched it afterwards would show an aimless card for a
-       * frame, and an interruption in between would leave one behind.
+       * The card used to arrive with an objective, the aim the person set for it. It does not any
+       * more: the card asks for the series, and a session is a record of what was lifted.
        */
-      addExercise: (exerciseId, target) =>
+      addExercise: (exerciseId) =>
         set(
           (state) =>
             edit(state, (draft) => ({
               ...draft,
-              exercises: [
-                ...draft.exercises,
-                { ...emptyTarget, ...target, id: newId(), exerciseId, sets: [] },
-              ],
+              exercises: [...draft.exercises, { id: newId(), exerciseId, sets: [] }],
             })) ?? state,
         ),
 
@@ -400,7 +344,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
        * refuse it, with a message meant for a person and a test each; repeating the
        * rule in a third place is how the three drift apart.
        */
-      addCustomExercise: (name, muscleGroupId, target) =>
+      addCustomExercise: (name, muscleGroupId) =>
         set(
           (state) =>
             edit(state, (draft) => {
@@ -412,10 +356,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
                   ...draft.customExercises,
                   { id: exerciseId, name: name.trim(), muscleGroupId },
                 ],
-                exercises: [
-                  ...draft.exercises,
-                  { ...emptyTarget, ...target, id: newId(), exerciseId, sets: [] },
-                ],
+                exercises: [...draft.exercises, { id: newId(), exerciseId, sets: [] }],
               };
             }) ?? state,
         ),
@@ -476,21 +417,6 @@ export const useWorkoutStore = create<WorkoutStore>()(
             ) ?? state,
         ),
 
-      /**
-       * Writes what the card is aiming for, one field at a time.
-       *
-       * A patch that leaves a field out does not clear it — the spread skips absent keys — so the
-       * three values can be typed in any order, each landing without disturbing the others. That is
-       * what makes a half-written target a real state rather than a moment to be repaired.
-       */
-      setTarget: (cardId, patch) =>
-        set(
-          (state) =>
-            edit(state, (draft) =>
-              mapCard(draft, cardId, (exercise) => ({ ...exercise, ...patch })),
-            ) ?? state,
-        ),
-
       removeSet: (cardId, setId) =>
         set(
           (state) =>
@@ -535,7 +461,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
       // and `hydrated` says something about this instance, not about the data.
       partialize: (state) => ({ draft: state.draft }),
       /**
-       * The draft's shape has changed twice now, so the format is versioned and old entries are
+       * The draft's shape has changed three times now, so the format is versioned and old entries are
        * migrated instead of misread.
        *
        * This matters more than a normal migration: a draft written by an older build is missing a
@@ -543,7 +469,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
        * where the server expects null. That is the kind of failure that looks like a broken save at
        * the worst possible moment — after the user has finished their session.
        */
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
         const stored = persisted as { draft?: LegacyDraft | null } | undefined;
         const draft = stored?.draft;
@@ -553,20 +479,24 @@ export const useWorkoutStore = create<WorkoutStore>()(
         }
 
         /*
-         * Idempotent for either older version: `customExercises` arrived at version 1 and the three
-         * target fields at version 2, and a draft from either build is missing whatever came after
-         * it. The normalisation comes after the spread so a draft that already has a value keeps
-         * it — the other order is the one the compiler rejects.
+         * Idempotent for any older version: `customExercises` arrived at version 1, the three target
+         * fields at version 2, and the objective left the card at version 3. A draft from any build
+         * is missing whatever came after it, and the normalisation comes after the spread so a draft
+         * that already has a value keeps it — the other order is the one the compiler rejects.
+         *
+         * The objective is dropped rather than carried: it is a number the save contract may refuse
+         * (reps of zero, a negative weight), and with the fields gone from the card there is no way to
+         * correct it. A session frozen over a target nobody can fix is exactly the defect the
+         * contract was written to kill, so the target does not survive the migration. The series do.
          */
         return {
           draft: {
             ...draft,
             customExercises: draft.customExercises ?? [],
             exercises: draft.exercises.map((card) => ({
-              ...card,
-              targetReps: card.targetReps ?? null,
-              targetWeightMin: card.targetWeightMin ?? null,
-              targetWeightMax: card.targetWeightMax ?? null,
+              id: card.id,
+              exerciseId: card.exerciseId,
+              sets: card.sets,
             })),
           },
         };

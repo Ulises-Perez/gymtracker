@@ -65,18 +65,24 @@ export function toSaveWorkoutPayload(draft: WorkoutDraft): ModernSaveWorkoutPayl
 }
 
 /**
- * One card: the exercise, its target, and the sets that were actually recorded.
+ * One card: the exercise, its sets, and the objective the card no longer asks for.
  *
- * A card is sent even when it has neither a target nor a set. That is the change 0012 brings: a card
- * without sets is a real card — someone added it and did not get to write anything down — so it
- * keeps its place in the session instead of disappearing.
+ * A card is sent even when it has no set. That is the change 0012 brings: a card without sets is a
+ * real card — someone added it and did not get to write anything down — so it keeps its place in
+ * the session instead of disappearing.
+ *
+ * The three objective keys travel empty. They are part of the contract with the server — the schema
+ * demands them and the RPC reads them — so the shape of a card does not change because the app
+ * stopped asking for a target. What changes is the value: a session records what was lifted, and
+ * nobody lifted a target. The columns stay in the database for the sessions that were saved while
+ * the app still asked.
  */
 function toExercise(card: WorkoutExerciseDraft): WorkoutExercisePayload {
   return {
     exercise_id: card.exerciseId,
-    target_reps: card.targetReps,
-    target_weight_min: card.targetWeightMin,
-    target_weight_max: card.targetWeightMax,
+    target_reps: null,
+    target_weight_min: null,
+    target_weight_max: null,
     sets: card.sets.filter(isRecorded).map((set, index) => ({
       id: set.id,
       /*

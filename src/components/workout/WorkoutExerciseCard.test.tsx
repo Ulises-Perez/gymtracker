@@ -23,11 +23,6 @@ function cardWith(sets: WorkoutExerciseDraft['sets']): WorkoutExerciseDraft {
     id: 'card-1',
     exerciseId: EXERCISE_ID,
     sets,
-    // The card is the thing this suite renders; the target it may or may not have belongs to
-    // another one, and leaving it empty here is what "no target yet" looks like.
-    targetReps: null,
-    targetWeightMin: null,
-    targetWeightMax: null,
   };
 }
 
@@ -52,7 +47,6 @@ function renderCard(card: WorkoutExerciseDraft, name = 'Press Banca') {
     onUpdateSet: vi.fn(),
     onRemoveSet: vi.fn(),
     onRemoveExercise: vi.fn(),
-    onSetTarget: vi.fn(),
   };
 
   render(
@@ -74,34 +68,22 @@ beforeEach(() => {
 });
 
 describe('WorkoutExerciseCard', () => {
-  it('shows an empty target to begin with, because all three are optional', () => {
-    renderCard(cardWith([]));
-
-    expect(screen.getByLabelText('Reps del objetivo')).toHaveValue('');
-    expect(screen.getByLabelText('Peso mínimo del objetivo')).toHaveValue('');
-    expect(screen.getByLabelText('Peso máximo del objetivo')).toHaveValue('');
-  });
-
-  it('shows the target that is already set', () => {
-    renderCard({ ...cardWith([]), targetReps: 10, targetWeightMin: 60, targetWeightMax: 80 });
-
-    expect(screen.getByLabelText('Reps del objetivo')).toHaveValue('10');
-    expect(screen.getByLabelText('Peso mínimo del objetivo')).toHaveValue('60');
-    expect(screen.getByLabelText('Peso máximo del objetivo')).toHaveValue('80');
-  });
-
   /**
-   * A patch carries only the field that moved. The three are typed one at a time, so sending the
-   * others along as `undefined` would clear whatever the user had already written.
+   * The card does not open with an objective anymore: it opens with the series. The three fields
+   * that asked for a target — the reps it aimed for and the range of weights — are gone, and what
+   * is left is what the person actually lifted: the reps and the kilos, one row per series.
    */
-  it('reports only the field that changed', () => {
-    const handlers = renderCard({ ...cardWith([]), targetReps: 10 });
+  it('asks for the series and for nothing else', () => {
+    renderCard(cardWith([setWith({ reps: 5, weightKg: 100 })]));
 
-    fireEvent.change(screen.getByLabelText('Peso máximo del objetivo'), {
-      target: { value: '80' },
-    });
+    expect(screen.queryByLabelText('Reps del objetivo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Peso mínimo del objetivo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Peso máximo del objetivo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Objetivo (opcional)')).not.toBeInTheDocument();
 
-    expect(handlers.onSetTarget).toHaveBeenCalledWith({ targetWeightMax: 80 });
+    // What is left: the reps and the kilos of the series, which is what the card is for.
+    expect(screen.getByLabelText('Reps serie 1')).toHaveValue('5');
+    expect(screen.getByLabelText('Peso en kg serie 1')).toHaveValue('100');
   });
 
   it('names the exercise it belongs to', () => {
@@ -279,32 +261,6 @@ describe('WorkoutExerciseCard', () => {
     expect(onUpdateSet).toHaveBeenCalledWith('set-1', { reps: 12 });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(reps).not.toHaveAttribute('aria-invalid');
-  });
-
-  /**
-   * The target is the same two numbers on another row, so it is refused by the same rule and told in
-   * the same way. An objective the contract refuses would freeze the session exactly like a set does.
-   */
-  it('refuses a target of fractional reps', () => {
-    const handlers = renderCard(cardWith([]));
-
-    const target = screen.getByLabelText('Reps del objetivo');
-    fireEvent.change(target, { target: { value: '8,5' } });
-
-    expect(handlers.onSetTarget).not.toHaveBeenCalled();
-    expect(target).toHaveAccessibleDescription(
-      'Las reps tienen que ser un número entero mayor que cero.',
-    );
-  });
-
-  it('refuses a negative target weight', () => {
-    const handlers = renderCard(cardWith([]));
-
-    const target = screen.getByLabelText('Peso mínimo del objetivo');
-    fireEvent.change(target, { target: { value: '-20' } });
-
-    expect(handlers.onSetTarget).not.toHaveBeenCalled();
-    expect(target).toHaveAccessibleDescription('El peso no puede ser negativo.');
   });
 
   it('labels the inputs of each set apart, so a screen reader can tell them apart', () => {
