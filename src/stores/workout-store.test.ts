@@ -3,6 +3,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { indexedDbStorage } from '../lib/storage.ts';
+import { saveWorkoutVariablesSchema } from '../schemas/workout.ts';
+import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
 import { findWorkoutNumberProblem, WORKOUT_STORAGE_KEY, useWorkoutStore } from './workout-store.ts';
 
 const EXERCISE_ID = '01920000-0000-7000-8000-000000000010';
@@ -568,6 +570,87 @@ describe('the objective that left the card', () => {
     }
 
     expect(findWorkoutNumberProblem(restored)).toBeNull();
+  });
+});
+
+/**
+ * A session the old build froze over a number the save contract refuses.
+ *
+ * The old build let the card take a fractional rep, the contract refused it at the save, and the
+ * draft stayed frozen: a frozen draft takes no more edits, so the only way out was to throw the
+ * session away. The rule now lives in the card, which refuses the number at the keystroke — but a
+ * draft written before that rule existed can still carry one, and the session it belongs to is
+ * still unsavable. So the rule is applied on the way in, the same way the card applies it: **a
+ * value the contract refuses is not written down.** What survives is the rest of the session, which
+ * is the part nobody can rewrite.
+ */
+describe('a session frozen by an older build', () => {
+  it('drops the number the contract refuses, so the session can be saved again', async () => {
+    await indexedDbStorage.setItem(
+      WORKOUT_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          draft: {
+            workoutId: '01920000-0000-7000-8000-0000000000ff',
+            date: '2026-10-01',
+            title: 'Empuje',
+            notes: '',
+            startedAt: 1,
+            endedAt: 2,
+            // Frozen: this is what the old build left behind when the save failed.
+            status: 'finished',
+            customExercises: [],
+            exercises: [
+              {
+                id: 'card-vieja',
+                exerciseId: EXERCISE_ID,
+                sets: [
+                  {
+                    id: '01920000-0000-7000-8000-0000000000b1',
+                    reps: 10.5,
+                    weightKg: 60,
+                    rpe: null,
+                    isWarmup: false,
+                    notes: null,
+                  },
+                  {
+                    id: '01920000-0000-7000-8000-0000000000b2',
+                    reps: 10,
+                    weightKg: 80,
+                    rpe: null,
+                    isWarmup: false,
+                    notes: null,
+                  },
+                ],
+                targetReps: 0,
+                targetWeightMin: 60,
+                targetWeightMax: 80,
+              },
+            ],
+          },
+        },
+        version: 2,
+      }),
+    );
+
+    await useWorkoutStore.persist.rehydrate();
+
+    const restored = draft();
+
+    if (!restored) {
+      throw new Error('the draft was not restored');
+    }
+
+    // The refused number is not written down, and the rest of the series is untouched.
+    expect(restored.exercises[0]?.sets[0]?.reps).toBeNull();
+    expect(restored.exercises[0]?.sets[0]?.weightKg).toBe(60);
+    expect(restored.exercises[0]?.sets[1]?.reps).toBe(10);
+    expect(restored.exercises[0]?.sets[1]?.weightKg).toBe(80);
+
+    // And the session is savable: the payload of the restored draft is one the contract accepts.
+    const variables = { kind: 'save-workout' as const, payload: toSaveWorkoutPayload(restored) };
+
+    expect(saveWorkoutVariablesSchema.safeParse(variables).success).toBe(true);
   });
 });
 

@@ -209,6 +209,24 @@ function createSet(seed: WorkoutSetPatch): WorkoutSetDraft {
 }
 
 /**
+ * A set with the numbers the save contract refuses taken out of it.
+ *
+ * The card refuses those at the keystroke, so a draft this build wrote never holds one. A draft
+ * written by an older build can: the old build froze the session over the very number the contract
+ * would not take, and the session was unsavable for ever — a frozen draft takes no more edits, and
+ * the retry rebuilt the very payload the contract refuses. The rule is applied here, on the way in,
+ * for the same reason it is applied at the keystroke: **a value the contract refuses is not written
+ * down.** What survives is the rest of the session, which is the part nobody can rewrite.
+ */
+function takeAcceptedNumbers(set: WorkoutSetDraft): WorkoutSetDraft {
+  return {
+    ...set,
+    reps: workoutNumberRefusal('reps', set.reps) === null ? set.reps : null,
+    weightKg: workoutNumberRefusal('weightKg', set.weightKg) === null ? set.weightKg : null,
+  };
+}
+
+/**
  * Applies `change` to an open draft, and holds both guards in one place.
  *
  * There has to be a draft, and it must not be finished. Restating that in every
@@ -488,6 +506,12 @@ export const useWorkoutStore = create<WorkoutStore>()(
          * (reps of zero, a negative weight), and with the fields gone from the card there is no way to
          * correct it. A session frozen over a target nobody can fix is exactly the defect the
          * contract was written to kill, so the target does not survive the migration. The series do.
+         *
+         * And the series go through the same rule the card applies at the keystroke: a number the
+         * contract refuses is not written down. That is what saves a session the old build froze
+         * over such a number — frozen, uneditable, and unsavable on every retry, which is the
+         * defect F1 was raised for. The person keeps the session; only the number the contract
+         * would not take is gone.
          */
         return {
           draft: {
@@ -496,7 +520,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
             exercises: draft.exercises.map((card) => ({
               id: card.id,
               exerciseId: card.exerciseId,
-              sets: card.sets,
+              sets: card.sets.map(takeAcceptedNumbers),
             })),
           },
         };
