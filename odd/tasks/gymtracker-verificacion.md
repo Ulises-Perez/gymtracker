@@ -103,3 +103,26 @@ defecto reproducido en la app es más que verificado ✓.
 **Lo que no se arregla y queda anotado**: F5 ✓ (no hay efecto observable ✗) y
 las dos cosas que siguen siendo de la persona ✓ (la E2E en un dispositivo real
 y la config de auth del hosted ✓).
+
+### L3 · La ronda de arreglos: qué se arregló, cómo se comprobó y qué se dejó anotado (2026-10-19)
+
+**La ronda**: los seis hallazgos reales del libro mayor (F1, F2, F3, F4, M1 y M2 ✓) más el peso muerto (F6 ✓). El resto quedó anotado, no arreglado ✓ (F5 ✓: sin efecto observable ✓; M3 ✓: un número del documento ✓).
+
+**F1, el CRÍTICO, lo Working el actor de arreglos acotado** — y el actor **murió antes de reportar** (`pi exited with code 3221226505` ✓, el modo de fallo que este proyecto ya conoce ✓) **dejando el arreglo completo y en verde** ✓. La lección del proyecto ya escrita se cumplió: *"un escritor puede morir por un crash del proceso y dejar cambios a medias en el árbol, así que hay que medir el estado del árbol después de cada uno"* ✓ — y lo que se midió fue esto ✓:
+
+- **La suite entera en verde** ✓ (577 tests en 60 archivos ✓, donde antes eran 547 ✓) · typecheck, lint y prettier limpios ✓.
+- **El arreglo, leído**: la regla vive en `lib/utils.ts` ✗ al lado del parser ✓ y el esquema de la carga **se deriva de ella** ✓, así que el contrato y los campos no pueden divergir ✓. Y está ahí ✗ en el esquema ✓ por una razón concreta ✓: el esquema carga Zod ✓ y el store está en el bundle inicial ✓, así que un store que importara el esquema para preguntar esto pondría el parser en el primer pintado ✓.
+- **Verificado en la app corriendo** ✓ (la sonda `stats/repro-number-rules.mjs` ✓): `"10,5"` y `"0"` en las reps son rechazados con *"Las reps tienen que ser un número entero mayor que cero"* ✓, un peso negativo con *"El peso no puede ser negativo"* ✓, `"72,5"` kilos **se acepta** ✓ (un peso es un DECIMAL ✓), y la sesión **se guarda** ✓ (el récord que creó es la prueba ✓). La pérdida de sesión **desapareció** ✓.
+
+**Lo demás de la ronda, con su medida**:
+
+- **F2** ✓: la lista de invalidación nombra ya `['profile-stats']` y `['workout']` ✓, con un test que la fija ✓ (el RED se vio ✗ antes del arreglo ✓).
+- **F3** ✓: la migración `0014` cuenta las **tarjetas** ✓ y la suite nueva (la primera cobertura de `dashboard_summary()` ✓) se escribió con el RED observado contra la base local ✓ (*"have: 0, want: 1"* ✓). La migración está aplicada en el hosted ✓ y la suite pasa en los dos lados ✓: **7 archivos, 110 aserciones** ✓.
+- **F4** ✓: la gráfica del peso corporal usa las mismas correcciones que su hermana ✓ (`axisSpan` y `dayIncrements` ✓) y su test lo dice ✓.
+- **M1** ✓: la consola quedó **limpia en las cuatro pantallas** ✓ — y el arreglo necesitó dos pasos ✓: el `HydrateFallback` tiene que estar **en la ruta** ✓ y no en el módulo que la ruta carga ✓, porque el router lo busca **antes** de que el módulo diferido resuelva ✓ (leído en `node_modules/react-router/dist/development/lib/hooks.js` ✓).
+- **M2** ✓: las cabeceras están **en producción** ✓ y la **CSP no rompe la app** ✓: contra la URL pública, la pantalla de acceso pinta ✓, las dos caras cargan ✓ y no hay **ni un error de consola** ✓ ni una petición fallida ✓.
+- **F6** ✓: `date-fns` fuera ✓.
+
+**La verificación final de la ronda** ✓: **577/547** ✗ → **577/577 tests** ✓ · E2E **1 passed** ✓ (contra el stack local ✓) · Lighthouse local **92 / 100 / 100 / 100** ✓ (dos corridas ✓) · bundle **121.27 kB gzip de 180** ✓ · audit de UI **36 mediciones, 0 hallazgos** ✓ · pgTAP **110/110** en local y en el hosted ✓ · consola limpia ✓.
+
+**Lo que sigue siendo de la persona** ✓: la E2E en un dispositivo real ✓ y la **Site URL + las Redirect URLs** de Supabase con el dominio de producción ✓ (el paso 2 del README ✓).
