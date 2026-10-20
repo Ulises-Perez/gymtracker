@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BodyWeightPoint } from '../../lib/body-weight-api.ts';
+import { axisSpan, dayIncrements } from '../../lib/progress-api.ts';
 import { BodyWeightChart, CHART_INK, CHART_RULE } from './BodyWeightChart.tsx';
 
 /*
@@ -67,6 +68,34 @@ describe('BodyWeightChart', () => {
     unmount();
 
     expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the axis the span of the readings and lets it step only in days', () => {
+    render(<BodyWeightChart points={POINTS} label="kg" />);
+
+    const call = uplot.mock.calls[0] as [
+      {
+        axes: { incrs?: number[] }[];
+        scales: { x: { range?: () => [number, number] } };
+      },
+      number[][],
+    ];
+
+    /*
+     * The span comes from the readings and not from the two numbers uPlot passes: with a single
+     * reading the axis falls back to its own zero-width range, the point sits on the left edge and
+     * the ticks name days that hold no reading. It is the correction the progress chart makes, and
+     * it is asserted here because the two charts share the rule and only one of them had it.
+     */
+    expect(call[0].scales.x.range?.()).toEqual(
+      axisSpan([Date.parse('2026-10-13T00:00:00Z') / 1000]),
+    );
+
+    /*
+     * And the axis may only step in days: over the short span a single reading gets, an axis that
+     * steps in hours prints the same date two or three times in a row.
+     */
+    expect(call[0].axes.at(0)?.incrs).toEqual(dayIncrements());
   });
 });
 

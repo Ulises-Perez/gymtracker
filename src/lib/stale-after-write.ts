@@ -23,20 +23,35 @@ import type { QueryClient } from '@tanstack/query-core';
  * The keys are prefixes, as `['catalog']` already was: `['progress']` covers every exercise and
  * `['history']` every account, because the write does not say which exercises it touched until after
  * it lands, and naming them would leave the rest stale.
+ *
+ * Two of them are the ones a write changes in a way the person sees: `['profile-stats']` (the
+ * profile's derived figures — the best streak comes from the dates of the workouts and the record
+ * count from the records the write moves) and `['workout']` (the detail of the workout itself, which
+ * after a delete is a workout that is gone). Marking only the history left the profile showing a
+ * "Mejor racha" next to a "Total de entrenamientos" that had already been corrected.
  */
 const STALE_AFTER_SAVE = [
   ['catalog'],
   ['history'],
   ['dashboard'],
+  ['profile-stats'],
   ['progress'],
   ['last-sets'],
+  ['workout'],
 ] as const;
 
 /**
  * The same reads, without the catalogue: deleting a workout removes no exercise, so the catalogue
  * has nothing new to say.
  */
-const STALE_AFTER_DELETE = [['history'], ['dashboard'], ['progress'], ['last-sets']] as const;
+const STALE_AFTER_DELETE = [
+  ['history'],
+  ['dashboard'],
+  ['profile-stats'],
+  ['progress'],
+  ['last-sets'],
+  ['workout'],
+] as const;
 
 /**
  * Marks them stale without refetching, which is the choice both call sites already made for the

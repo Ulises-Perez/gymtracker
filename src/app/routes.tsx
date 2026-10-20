@@ -2,7 +2,7 @@ import type { RouteObject } from 'react-router';
 
 import { AppShell } from '../components/layout/AppShell.tsx';
 import { NotFoundPage } from '../pages/NotFoundPage.tsx';
-import { lazyScreen } from './deferred-screen.tsx';
+import { hydrateFallback, lazyScreen } from './deferred-screen.tsx';
 import { RequireAuth } from './RequireAuth.tsx';
 
 /**
@@ -29,7 +29,7 @@ export const routes: RouteObject[] = [
     lazy: async () => {
       const { LoginPage } = await import('../pages/LoginPage.tsx');
 
-      return { Component: LoginPage };
+      return { Component: LoginPage, HydrateFallback: hydrateFallback };
     },
   },
   {
@@ -37,7 +37,7 @@ export const routes: RouteObject[] = [
     lazy: async () => {
       const { RegisterPage } = await import('../pages/RegisterPage.tsx');
 
-      return { Component: RegisterPage };
+      return { Component: RegisterPage, HydrateFallback: hydrateFallback };
     },
   },
   {
@@ -45,7 +45,7 @@ export const routes: RouteObject[] = [
     lazy: async () => {
       const { ForgotPasswordPage } = await import('../pages/ForgotPasswordPage.tsx');
 
-      return { Component: ForgotPasswordPage };
+      return { Component: ForgotPasswordPage, HydrateFallback: hydrateFallback };
     },
   },
   {
@@ -53,7 +53,7 @@ export const routes: RouteObject[] = [
     lazy: async () => {
       const { ResetPasswordPage } = await import('../pages/ResetPasswordPage.tsx');
 
-      return { Component: ResetPasswordPage };
+      return { Component: ResetPasswordPage, HydrateFallback: hydrateFallback };
     },
   },
   {

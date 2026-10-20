@@ -20,8 +20,19 @@ export function lazyScreen(load: () => Promise<ComponentType>) {
 
     const Screen = await load();
 
-    return { Component: Screen };
+    return { Component: Screen, HydrateFallback: hydrateFallback };
   };
+}
+
+/**
+ * What the router paints while a screen's module is still on its way.
+ *
+ * React Router asks the route for it during the first render, and a route
+ * without one leaves the screen blank and says so in the console. The shape is
+ * the app's own: the skeleton of what is coming.
+ */
+export function hydrateFallback() {
+  return <PageSkeleton label="Cargando la pantalla…" />;
 }
 
 /**

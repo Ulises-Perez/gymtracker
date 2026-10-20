@@ -6,6 +6,7 @@ import {
   normalizeForSearch,
   parseDecimalInput,
   toNumber,
+  workoutNumberRefusal,
 } from './utils';
 
 describe('toNumber', () => {
@@ -154,6 +155,47 @@ describe('parseDecimalInput', () => {
   it('returns null for what is not a number', () => {
     expect(parseDecimalInput('abc')).toBeNull();
     expect(parseDecimalInput('7a')).toBeNull();
+  });
+});
+
+/**
+ * The one rule a number of a set has to meet.
+ *
+ * It is asked by the card as the person types, by the store before it freezes a draft and by the
+ * payload schema that protects the RPC — so what is asserted here is what all three of them decide.
+ */
+describe('workoutNumberRefusal', () => {
+  it('takes the reps an integer column holds', () => {
+    expect(workoutNumberRefusal('reps', 1)).toBeNull();
+    expect(workoutNumberRefusal('reps', 12)).toBeNull();
+  });
+
+  it('refuses fractional reps and reps of zero, in words meant for a person', () => {
+    // "10,5" is what a thumb types when it means 10 and slips a decimal separator: the column is an
+    // `INT`, and half a rep is not a rep.
+    expect(workoutNumberRefusal('reps', 10.5)).toBe(
+      'Las reps tienen que ser un número entero mayor que cero.',
+    );
+    expect(workoutNumberRefusal('reps', 0)).toBe(
+      'Las reps tienen que ser un número entero mayor que cero.',
+    );
+  });
+
+  it('takes a decimal weight, which is how kilos are written here', () => {
+    expect(workoutNumberRefusal('weightKg', 72.5)).toBeNull();
+    expect(workoutNumberRefusal('weightKg', 0)).toBeNull();
+  });
+
+  it('refuses a negative weight', () => {
+    expect(workoutNumberRefusal('weightKg', -5)).toBe('El peso no puede ser negativo.');
+  });
+
+  it('takes "not said" for both, because every one of these fields is optional', () => {
+    // An empty field is null, never 0 — and a set with only reps recorded is a real set.
+    expect(workoutNumberRefusal('reps', null)).toBeNull();
+    expect(workoutNumberRefusal('reps', undefined)).toBeNull();
+    expect(workoutNumberRefusal('weightKg', null)).toBeNull();
+    expect(workoutNumberRefusal('weightKg', undefined)).toBeNull();
   });
 });
 

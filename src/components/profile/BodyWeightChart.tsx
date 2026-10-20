@@ -4,6 +4,7 @@ import 'uplot/dist/uPlot.min.css';
 
 import { buildBodyWeightSeries } from '../../lib/body-weight-api.ts';
 import type { BodyWeightPoint } from '../../lib/body-weight-api.ts';
+import { axisSpan, dayIncrements } from '../../lib/progress-api.ts';
 import type { WeightUnit } from '../../lib/units.ts';
 
 /**
@@ -63,7 +64,23 @@ export function BodyWeightChart({
         // and the figures above it.
         height: 160,
         series: [{}, { label, stroke: CHART_INK, width: 2, points: { show: true } }],
-        scales: { x: { time: true } },
+        /*
+         * The span comes from the readings and **not from the two numbers uPlot passes**, which is
+         * the whole reason it is a zero-argument closure: uPlot calls a range with `(self, null,
+         * null, key)` when it recomputes the axis, and a version that trusted those arguments
+         * answered `null === null` as "a single reading" and produced a span around 1970. The axis
+         * then fell back to its own zero-width range — the point on the left edge and ticks for
+         * days that are in no reading — and the fix did nothing at all.
+         *
+         * The readings are one per day and the span of a single one is two days wide, so the axis
+         * has something to draw. `axisSpan` is where the arithmetic is tested.
+         */
+        scales: {
+          x: {
+            time: true,
+            range: () => axisSpan(series.x),
+          },
+        },
         axes: [
           {
             /*
@@ -79,6 +96,13 @@ export function BodyWeightChart({
                   timeZone: 'UTC',
                 }).format(new Date(tick * 1000)),
               ),
+            /*
+             * And the axis may only step in days. Without this it takes hours over the two-day span
+             * a single reading gets, and since the labels carry the day alone, the same date lands
+             * two or three times in a row — an axis that looks like it has four ticks and two days.
+             * The readings are daily, so this is the axis agreeing with the data.
+             */
+            incrs: dayIncrements(),
             ...chartLines(),
           },
           chartLines(),
