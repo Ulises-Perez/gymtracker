@@ -26,38 +26,43 @@ import { RequireAuth } from './RequireAuth.tsx';
 export const routes: RouteObject[] = [
   {
     path: '/login',
+    HydrateFallback: hydrateFallback,
     lazy: async () => {
       const { LoginPage } = await import('../pages/LoginPage.tsx');
 
-      return { Component: LoginPage, HydrateFallback: hydrateFallback };
+      return { Component: LoginPage };
     },
   },
   {
     path: '/register',
+    HydrateFallback: hydrateFallback,
     lazy: async () => {
       const { RegisterPage } = await import('../pages/RegisterPage.tsx');
 
-      return { Component: RegisterPage, HydrateFallback: hydrateFallback };
+      return { Component: RegisterPage };
     },
   },
   {
     path: '/forgot-password',
+    HydrateFallback: hydrateFallback,
     lazy: async () => {
       const { ForgotPasswordPage } = await import('../pages/ForgotPasswordPage.tsx');
 
-      return { Component: ForgotPasswordPage, HydrateFallback: hydrateFallback };
+      return { Component: ForgotPasswordPage };
     },
   },
   {
     path: '/reset-password',
+    HydrateFallback: hydrateFallback,
     lazy: async () => {
       const { ResetPasswordPage } = await import('../pages/ResetPasswordPage.tsx');
 
-      return { Component: ResetPasswordPage, HydrateFallback: hydrateFallback };
+      return { Component: ResetPasswordPage };
     },
   },
   {
     element: <RequireAuth />,
+    HydrateFallback: hydrateFallback,
     children: [
       {
         path: '/',
