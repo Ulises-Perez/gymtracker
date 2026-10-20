@@ -248,12 +248,28 @@ Es un cambio del lado del servidor: no hace falta redeployar.
 
 ### 3 · Checklist antes de dar una URL por buena
 
-- [ ] `npm run build` verde (es lo mismo que corre CI: lint → typecheck → test → build).
-- [ ] Las variables cargadas en Vercel, para Production **y** Preview.
-- [ ] `/`, `/workout`, `/history` y `/profile` cargan y hacen deep link sin 404.
-- [ ] `/sw.js` responde con `Cache-Control: public, max-age=0, must-revalidate`.
+- [x] `npm run build` verde (es lo mismo que corre CI: lint → typecheck → test → build).
+- [x] Las variables cargadas en Vercel, para Production, Preview y Development.
+- [x] `/`, `/workout`, `/history` y `/profile` cargan y hacen deep link sin 404.
+- [x] `/sw.js` responde con `Cache-Control: public, max-age=0, must-revalidate`.
 - [ ] Login con un usuario real de la base (el **registro** depende del email, ver T2.5).
 - [ ] El prompt de instalación aparece (los iconos y el manifest son de T7.1; el prompt, de T7.3).
+- [ ] La **Site URL** y las **Redirect URLs** de Supabase con el dominio de producción (el paso 2).
+
+**El `X-Robots-Tag`**: el plan Hobby de Vercel le pone `noindex` a los despliegues
+de producción que no tienen dominio propio, y eso le costaba el SEO al
+Lighthouse. El `vercel.json` lo pisa con `index, follow`, que es lo que dice el
+`robots.txt` del proyecto: la raíz se permite porque de ahí sale la vista
+previa del enlace. Sin dominio propio, la alternativa documentada por Vercel es
+agregar el dominio y dejar que la plataforma decida.
+
+**Una trampa con la que hay que andarse con cuidado**: `supabase config push`
+**no** es la forma de cambiar la configuración del proyecto remoto. Empuja el
+`config.toml` **local** (el del stack local) sobre el hosted, y entre las doce
+diferencias que el propio `supabase config diff` muestra están
+`auth.email.enable_confirmations: false` y el MFA apagado: el alta volvería a
+entrar sin confirmar el email, que es exactamente lo que T2.5 vino a resolver.
+Para cambiar la configuración de autenticación del hosted, el dashboard.
 
 ## Convenciones
 
