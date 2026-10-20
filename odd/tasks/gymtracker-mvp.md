@@ -1362,3 +1362,19 @@ La causa era del test: **el custom de A nunca se había creado**, así que el FK
 **Lo que NO se pudo hacer y por qué** (importante para el que siga): la **configuración de autenticación del hosted** —la Site URL y las Redirect URLs con el dominio de producción— **no se puede tocar desde la línea de comandos**. La Management API pide un **PAT** y no acepta la `service_role`; y `supabase config push` es **destructivo**: `supabase config diff` muestra doce diferencias, y entre ellas `auth.email.enable_confirmations: false` y el MFA apagado — o sea, el alta volvería a entrar sin confirmar el email, que es justo lo que T2.5 vino a resolver. **Queda en el dashboard**, y es el paso 2 del README.
 
 **Lo que queda de la Fase 7**: la **E2E en un dispositivo real** (offline → online) y la **configuración de auth del hosted** — las dos, de la persona.
+
+### L59 · Un borrado que no avisaba a las lecturas cacheadas (2026-10-19)
+
+**El pedido, textual**: *"Continuemos existe un problema el cual al registrar un entrenamiento sin ejercicios queda siempre en el inicio aunque este sea borrado del historial"*.
+
+**Lo que pasaba**: se registraba un entrenamiento **sin ejercicios**, se lo borraba del historial y el **Inicio** seguía mostrándolo: *"Racha de 1 día"* y *"Último entrenamiento — 0 min / 0 ejercicios"*. El borrado funcionaba (la fila desaparecía del historial ✓); lo que mentía era el Inicio.
+
+**Reproducido primero, en la app contra el stack local** (`stats/repro-empty-workout.mjs`): con la **navegación de cliente** que usa la app (el link del nav ✓), el Inicio seguía con el entrenamiento borrado ✓. Con una recarga completa no se reproducía ✗ — y esa diferencia **era la pista**: el dato no estaba mal, estaba **cacheado**.
+
+**La causa**: el borrado era **la única escritura de un entrenamiento que no marcaba las lecturas que cambiaba**. Invalidaba `['history']` y nada más, y el resumen de la cuenta —la lectura que pinta el Inicio— está cacheado (`staleTime` 60 s ✓): seguía respondiendo con un entrenamiento que ya no estaba. La racha y los totales salían de la misma respuesta vieja ✓, que es por eso que el Inicio parecía no haber borrado nada ✓.
+
+**El arreglo**: las lecturas que una escritura de entrenamiento vuelve viejas viven ahora en **un módulo que nombra los dos eventos** (`src/lib/stale-after-write.ts` ✓), y el borrado marca **las mismas que el guardado, menos el catálogo** (borrar un entrenamiento no quita ningún ejercicio ✓). La lista del historial **sigue refrescando** antes de navegar de vuelta ✓ —la pantalla a la que se llega tiene que coincidir con lo que se acaba de hacer—; el resto queda marcado y se refresca cuando se vuelve a abrir ✓, que es cuando alguien lo está mirando ✓.
+
+**La lección, que es la que más sirve**: un borrado **es** una escritura ✓, y el módulo que enumeraba las lecturas de un guardado era el sitio donde esa verdad tenía que estar escrita ✓. El síntoma (el Inicio mintiendo) y la causa (una lista de invalidación a medias ✓) estaban a tres archivos de distancia ✓, y la reproducción con el consumidor real ✓ —con navegación de cliente y no con una recarga ✓— fue lo que los separó ✓.
+
+**Verificado**: la misma sonda, después del arreglo, dice *"Sin racha por ahora"* y *"Todavía no registraste ningún entrenamiento"* ✓. Un test fija el contrato sobre la lectura cacheada misma ✓. **547/547 tests**, typecheck, lint y prettier limpios ✓, y el commit `15904e8` desplegó solo ✓ (Vercel conectado al repo ✓).
