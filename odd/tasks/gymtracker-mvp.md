@@ -1672,9 +1672,35 @@ contra GitHub.
 motivo escrito al lado para que nadie lo vuelva a acotar a una rama que no existe.
 
 **La medición**: después del push, `GET /repos/.../actions/workflows` → **`total_count: 1`**,
-`path: .github/workflows/ci.yml`, `state: active` ✓. La corrida queEse mismo push dejó
-(`BuildFailed`) es la **última** de esa serie: se había encolado antes de que GitHub terminara de
-indexar el archivo, y ya no hay ninguna corrida nueva con ese nombre. La corrida real se mira en la
-corrida que dispara el push siguiente.
+`path: .github/workflows/ci.yml`, `state: active` ✓ — el workflow ya está registrado y GitHub lo
+lee.
+
+**Y entonces apareció el segundo defecto, que el archivo no era.** La corrida que dispara el push
+siguiente vuelve a nacer muerta (`BuildFailed` / `startup_failure`, 0 s, **cero jobs creados**). Se
+siguió el rastro con un experimento de control: un workflow **mínimo** de tres líneas
+(`echo ok`, un job, un runner) en `.github/workflows/smoke.yml` → **también** nace muerto. Un
+workflow mínimo que no arranca descarta el archivo, la sintaxis, los permisos del repo y las
+acciones referenciadas.
+
+**El defecto es de la cuenta, y es medible en la cuenta**:
+
+- Los **14** runs de este repo: los 14 `BuildFailed`.
+- `aurora` (privado, `main`): `BuildFailed`. `starken_dash` (`main`): `BuildFailed` ×6.
+- `Barberweb`: tiene **un** run exitoso — *"pages build and deployment"*, `path:
+  dynamic/pages/pages-build-deployment`, `event: dynamic` — que es el workflow **interno** de
+  GitHub Pages, no uno definido por el usuario: ese repo **no tiene** `.github/workflows/`.
+- **Ningún workflow definido por el usuario corrió nunca en esta cuenta.** Y
+  `GET /repos/.../actions/workflows` devolvía `total_count: 0` en un repo con el archivo commiteado
+  desde `33e684d`.
+
+**Lo que queda es de la persona**: en la cuenta, *Settings → Billing and licensing* → los **minutos
+de Actions** (o la forma de pago) de los repos privados. Es el único dato que la API no deja ver
+sin el alcance `user` (`GET /users/{u}/settings/billing/actions` → `404 needs the "user" scope`), y
+es una decisión de la cuenta, no del proyecto. Lo que **sí** queda arreglado y verificado es lo que
+era del proyecto: el trigger escuchaba a una rama inexistente y el archivo ni siquiera estaba
+registrado.
+
+**El artefacto del experimento se borró**: `smoke.yml` era una sonda de diagnóstico, no una
+pieza del proyecto, y quedarse sería dejar pegada al repo una prueba de que la CI no funciona.
 
 **Lo que sigue siendo de la persona** ✓: nada de este arreglo — el pipeline corre solo.
