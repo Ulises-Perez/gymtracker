@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # The repository has a single branch, `feat/gymtracker-mvp`, and it is the default one.
+  # The workflow used to listen to `main` only, a branch that does not exist here: every push
+  # produced a `startup_failure` run and the pipeline never ran once.
   push:
-    branches: [main]
   pull_request:
 
 concurrency:
