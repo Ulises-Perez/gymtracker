@@ -24,26 +24,29 @@ export function AppShell() {
       </main>
 
       {/*
-        The sync badge, in the band the content column already reserves for the fixed nav.
+        The sync badge and the nav share one fixed band, and the badge is anchored to the TOP of
+        that band.
 
-        It has to be anchored to the viewport and not to the flow. Rendered between `<main>` and the
-        nav it was laid out at the end of the column -- which is exactly where the nav paints -- so at
-        360×740 its box measured y 694→732 under a nav at y 678.5: completely behind it, and the three
-        screens with nothing else to say left a queued session with no visible sign at all. A write can
-        be queued at any moment and on any screen, so pinning it is also what keeps it visible with a
-        long history under it.
+        It used to be rendered between `<main>` and the nav, which is exactly where the nav paints:
+        at 360×740 its box measured y 694→732 under a nav at y 678.5, completely behind it, and the
+        three screens with nothing else to say left a queued session with no visible sign at all. A
+        write can be queued at any moment and on any screen.
 
-        The offset is a nav-height up (the nav measures 61.5px, plus whatever the system reserves at
-        the bottom), and the arithmetic is the reason it hides nothing: 4rem of offset plus the
-        badge's own ~2.5rem ends inside the 7rem (`pb-28`) every screen already leaves empty for the
-        nav. `pointer-events-none` because a status line is not a control: it must never eat a tap
-        meant for the page underneath.
+        Anchored to the band instead of to a fixed distance from the bottom of the viewport: the nav
+        is 61.5px tall at the default font size, and it grows when the person enlarges the text — so
+        an offset written in rems (4rem = 64px) leaves 2.5px of clearance today and covers the badge
+        tomorrow. Sitting on the band's top edge, the badge keeps its distance from the nav whatever
+        the nav measures.
       */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 mx-auto w-full max-w-lg px-4">
-        <SyncBadge />
-      </div>
+      <div className="fixed inset-x-0 bottom-0 z-40">
+        <div className="pointer-events-none absolute inset-x-0 bottom-full">
+          <div className="mx-auto w-full max-w-lg px-4">
+            <SyncBadge />
+          </div>
+        </div>
 
-      <BottomNav />
+        <BottomNav />
+      </div>
     </div>
   );
 }

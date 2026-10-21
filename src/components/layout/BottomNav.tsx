@@ -13,7 +13,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="bottom-nav border-rule bg-bg/85 fixed inset-x-0 bottom-0 z-40 border-t"
+      className="bottom-nav border-rule bg-bg/85 relative w-full border-t"
     >
       <ul className="mx-auto flex w-full max-w-lg items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
         {items.map(({ to, label, Icon, end }) => (

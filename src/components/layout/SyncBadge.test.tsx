@@ -187,12 +187,24 @@ describe('SyncBadge', () => {
     queueOfflineSave();
 
     const badge = await screen.findByRole('status');
-    const anchor = badge.parentElement;
+    const anchor = badge.parentElement?.parentElement;
 
-    expect(anchor?.className).toContain('fixed');
-    expect(anchor?.className).toContain('bottom-[calc(4rem+env(safe-area-inset-bottom))]');
-    // Not inside the nav, and not in the flow after the content either: the flow end is where the
-    // nav is painted.
+    /*
+     * The badge sits on the top edge of the band that carries the nav, and it is anchored to that
+     * edge rather than to a distance from the bottom of the viewport: the nav is 61.5px tall at the
+     * default font size and grows when the person enlarges the text, so an offset written in rems
+     * covers the badge the day the text is bigger. `bottom-full` is the band's own top edge, so the
+     * distance is the nav's whatever the nav measures.
+     */
+    expect(anchor?.className).toContain('absolute');
+    expect(anchor?.className).toContain('bottom-full');
+    expect(anchor?.parentElement?.className).toContain('fixed');
+    expect(anchor?.parentElement?.className).toContain('bottom-0');
+    // The band that holds the nav and the badge is the same one, so the badge cannot end up
+    // under the nav: it is the nav's own top edge.
+    expect(anchor?.parentElement?.querySelector('nav')).not.toBeNull();
+    // And it is not inside the navigation landmark: a live region belongs to the page, not to the
+    // menu.
     expect(badge.closest('nav')).toBeNull();
     expect(badge.closest('main')).toBeNull();
   });
