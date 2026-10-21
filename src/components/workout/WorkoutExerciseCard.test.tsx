@@ -5,8 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQueryClient } from '../../lib/queryClient.ts';
 import { getSupabase } from '../../lib/supabase.ts';
 import { createFakeSupabase } from '../../testing/fake-supabase.ts';
+import { writingGap } from '../../testing/ruled-field.ts';
 import type { WorkoutExerciseDraft } from '../../stores/workout-store.ts';
 import { WorkoutExerciseCard } from './WorkoutExerciseCard.tsx';
+
+/** The column template of a grid, which is what keeps the header and the rows lined up. */
+function columnsOf(element: HTMLElement): string | undefined {
+  return /grid-cols-\[[^\]]+\]/.exec(element.className)?.[0];
+}
 
 vi.mock('../../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 
@@ -340,5 +346,93 @@ describe('WorkoutExerciseCard', () => {
     const list = screen.getByRole('list', { name: 'Series de Press Banca' });
 
     expect(list.querySelector('s')).toBeNull();
+  });
+
+  /**
+   * The crossed value is the one the hand wrote, with the decimal comma that weights are written with
+   * here -- the rest of the app prints `67.5`, and this one number does not, because it is a record of
+   * what somebody typed. And it is announced, not only seen: whoever cannot look at the crossing is
+   * exactly who would lose the number.
+   */
+  it('announces what it crossed out, and keeps the comma it was written with', () => {
+    renderCard(cardWith([setWith({ weightKg: 67.5 })]));
+
+    const weight = screen.getByLabelText('Peso en kg serie 1');
+
+    fireEvent.focus(weight);
+    fireEvent.change(weight, { target: { value: '70' } });
+
+    expect(screen.getByText('Valor anterior:')).toHaveClass('sr-only');
+    expect(screen.getByText('67,5', { selector: 's' })).toBeInTheDocument();
+  });
+
+  /**
+   * Four series used to reprint `Reps` and `kg` on every row: eight labels saying the same two words,
+   * and around 290px of scroll in an app whose promise is to log a set in under ten seconds. The
+   * columns are printed once, like the head of a ruled page, and a series is one line of writing.
+   */
+  it('prints the column labels once per card, not once per set', () => {
+    renderCard(
+      cardWith(
+        [1, 2, 3, 4].map((position) => setWith({ id: `set-${position}`, reps: 8, weightKg: 70 })),
+      ),
+    );
+
+    expect(screen.getAllByText('Reps')).toHaveLength(1);
+    expect(screen.getAllByText('kg')).toHaveLength(1);
+  });
+
+  /**
+   * A card with no series has no columns to label. Two words printed over the "+ serie" button -- the
+   * only thing an empty card shows -- would be a header for nothing.
+   */
+  it('prints no column labels on a card that has no series yet', () => {
+    renderCard(cardWith([]));
+
+    expect(screen.queryByText('Reps')).not.toBeInTheDocument();
+    expect(screen.queryByText('kg')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ serie' })).toBeInTheDocument();
+  });
+
+  /**
+   * The labels are a header, not part of a row, and the header and the rows share one column
+   * template -- which is the only reason the values line up under the words that name them. The
+   * template is the design's own: the margin's number, the reps, the kilos and the delete, whose
+   * column is 44px because the button inherits its width from it.
+   */
+  it('lines the printed header up with the columns of the rows', () => {
+    renderCard(cardWith([setWith({ id: 'set-1' }), setWith({ id: 'set-2' })]));
+
+    const list = screen.getByRole('list', { name: 'Series de Press Banca' });
+    const header = screen.getByText('Reps').closest('[class*="grid-cols-"]') as HTMLElement | null;
+
+    // The label belongs to the card, not to a series, so it is not inside a row.
+    expect(within(list).queryByText('Reps')).not.toBeInTheDocument();
+
+    expect(header).not.toBeNull();
+    expect(columnsOf(header as HTMLElement)).toBe('grid-cols-[1.25rem_1fr_1fr_2.75rem]');
+
+    for (const row of within(list).getAllByRole('listitem')) {
+      expect(columnsOf(row)).toBe(columnsOf(header as HTMLElement));
+    }
+  });
+
+  /**
+   * A set is one ruled line: the number in the margin, the reps, the kilos and the delete, on the
+   * line that closes the row -- the same line the detail screen draws under "1ª · 8 × 70.0 kg". The
+   * field prints no second rule of its own, and the writing ends on the line instead of floating in
+   * the middle of the 48px touch target.
+   */
+  it('sits the value of a set on the rule that closes its row', () => {
+    renderCard(cardWith([setWith({ reps: 5, weightKg: 100 })]));
+
+    const row = screen.getByRole('listitem');
+    const reps = within(row).getByLabelText('Reps serie 1');
+
+    // One rule per row, drawn by the row: the field is that line and does not draw another one.
+    expect(row).toHaveClass('border-b');
+    expect(reps).not.toHaveClass('border-b');
+    expect(reps).toHaveClass('min-h-12');
+    expect(writingGap(reps)).toBeLessThanOrEqual(4);
   });
 });

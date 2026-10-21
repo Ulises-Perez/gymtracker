@@ -21,6 +21,16 @@ import type {
  * are the same question ("what does this set start from?") answered twice.
  */
 
+/**
+ * The four columns of a set: the number in the margin, the reps, the kilos and the delete.
+ *
+ * The printed header and the rows share this one template, so the words that name a column cannot
+ * drift away from the values that fill it. The last column is 2.75rem (44px) and it is not a style
+ * choice: the delete button inherits its width from it, and at the smaller 2.5rem it measured 40px,
+ * under the 44px floor the product asks of a control.
+ */
+const SET_COLUMNS = 'grid-cols-[1.25rem_1fr_1fr_2.75rem]';
+
 type WorkoutExerciseCardProps = {
   name: string;
   card: WorkoutExerciseDraft;
@@ -97,7 +107,31 @@ export function WorkoutExerciseCard({
        * made before the weights were on the bar, and the session is a record of what happened.
        */}
 
-      <ul aria-label={`Series de ${name}`} className="mt-3">
+      {/*
+       * The columns are printed once per card and not once per set. Four sets used to reprint `Reps`
+       * and `kg` eight times: the same two words, and around 290px of the scroll that taxes the
+       * product's promise of logging a set in under ten seconds. This is the head of a ruled page
+       * instead, and a series is one line of writing under it.
+       *
+       * It is hidden from assistive technology on purpose, and that is not the same as gone: every
+       * field already carries its own name (`Peso en kg serie 3`), so what a screen reader needs is
+       * the series a value belongs to, not two loose words read out before the rows. The per-row
+       * abbreviations it replaces were hidden for the same reason.
+       *
+       * A card with no series prints no head: the header labels columns, and there are none yet --
+       * it would be two words floating over the only thing an empty card shows, which is the button
+       * that starts the first series.
+       */}
+      {card.sets.length > 0 ? (
+        <div aria-hidden="true" className={`text-muted mt-3 grid gap-2 ${SET_COLUMNS}`}>
+          <span />
+          <span className="px-1 text-xs">Reps</span>
+          <span className="px-1 text-xs">kg</span>
+          <span />
+        </div>
+      ) : null}
+
+      <ul aria-label={`Series de ${name}`}>
         {card.sets.map((set, index) => (
           <SetRow
             key={set.id}
@@ -159,10 +193,21 @@ function SetRow({
   const weight = useCorrection(set.weightKg, (value) => onChange({ weightKg: value }));
 
   return (
-    <li className="border-rule grid grid-cols-[1.25rem_1fr_1fr_2.75rem] items-end gap-2 border-b pb-2">
+    /*
+     * One ruled line per set: the number, the two values and the delete, bottom-aligned so the
+     * writing rests on the rule that closes the row. That 1px rule is the field's rule too -- the
+     * fields inside print none of their own, because a second line a few pixels above this one would
+     * double it under the only place the eye is looking. What a field's own rule did for it before is
+     * done here: the row takes the accent while the row has the focus, which is the same promise the
+     * field's `focus:border-primary` makes everywhere else in the app.
+     */
+    <li
+      className={`border-rule focus-within:border-primary grid items-end gap-2 border-b ${SET_COLUMNS}`}
+    >
       {/* The margin's number, which is where a notebook writes it. The set is already named in
-          every label of the row, so this one is decoration for assistive technology. */}
-      <span aria-hidden="true" className="font-display text-muted pb-3 text-base leading-none">
+          every label of the row, so this one is decoration for assistive technology. Tabular, like
+          every figure that stands in a column. */}
+      <span aria-hidden="true" className="tabular font-display text-muted text-base leading-none">
         {position}ª
       </span>
 
@@ -180,7 +225,6 @@ function SetRow({
        */}
       <NumberCell
         label={`Reps serie ${position}`}
-        shortLabel="Reps"
         field="reps"
         value={set.reps}
         replaced={reps.replaced}
@@ -189,7 +233,6 @@ function SetRow({
       />
       <NumberCell
         label={`Peso en kg serie ${position}`}
-        shortLabel="kg"
         field="weightKg"
         value={set.weightKg}
         replaced={weight.replaced}
@@ -240,14 +283,13 @@ function useCorrection(committed: number | null, commit: (value: number | null) 
 }
 
 /**
- * The visible text is short and the accessible name is not: two different strings on purpose.
+ * The cell of one value in a row, with nothing but what the value needs.
  *
- * A screen reader hears "Peso en kg serie 1" — the unit and which set — while the eye reads just
- * "kg", because the full phrase wrapped onto a second line the moment the correction's crossed value
- * shared the row with it, on the row where the last value somebody typed is the whole point. The
- * visible span is `aria-hidden`, so what gets announced is the name and never the abbreviation. And
- * they cannot all be called "Peso": the names have to tell three sets apart for assistive
- * technology, even when the visible text repeats.
+ * The visible text used to be the abbreviation of the column (`Reps`, `kg`) and the accessible name
+ * the full phrase. The abbreviations are printed once above the rows now, so the cell holds the value
+ * and the correction's mark, and the name a screen reader hears is still `Peso en kg serie 3`: the
+ * column a value sits in is a fact about the page, and which series it belongs to is the fact a person
+ * who cannot see the rows is missing.
  *
  * The crossed value is announced as "Valor anterior" instead of being swept out of the tree: the
  * correction is information, and the users who cannot see the crossing are the ones who would lose
@@ -269,7 +311,6 @@ function useCorrection(committed: number | null, commit: (value: number | null) 
  */
 function NumberCell({
   label,
-  shortLabel,
   field,
   value,
   replaced = null,
@@ -277,7 +318,6 @@ function NumberCell({
   onChange,
 }: {
   label: string;
-  shortLabel: string;
   field: WorkoutNumberField;
   value: number | null;
   replaced?: number | null;
@@ -288,24 +328,27 @@ function NumberCell({
   const [refusal, setRefusal] = useState<string | null>(null);
   return (
     /*
-     * The gap between the label row and the field is two steps, not one: the focus
-     * outline reaches four pixels above the field (two of stroke, two of offset) and
-     * the crossed-out value sits on the label row's baseline, so with a single step
-     * the two marks of the same correction -- the one struck and the one being
-     * corrected -- touched each other on the row that matters most.
+     * Everything that is not the value stacks ABOVE the field, and the field is the last thing in the
+     * cell. The row is bottom-aligned on the rule it draws, so whatever comes last is what sits on it:
+     * with the crossed value or the refusal message underneath, the writing would be pushed up off its
+     * own line exactly while the person is looking at it.
+     *
+     * The refusal keeps the shape `Input`'s error has -- words in danger red, wired to the field with
+     * `aria-describedby` and `aria-invalid`, announced because it is a live region -- and only its side
+     * of the field changed.
      */
-    <div className="space-y-2">
-      <span className="flex items-baseline justify-between gap-1">
-        <span aria-hidden="true" className="text-muted text-xs">
-          {shortLabel}
+    <div>
+      {replaced !== null ? (
+        <span className="block text-xs whitespace-nowrap">
+          <span className="sr-only">Valor anterior: </span>
+          <s className="text-muted decoration-primary decoration-2">{formatNumber(replaced)}</s>
         </span>
-        {replaced !== null ? (
-          <span className="text-xs whitespace-nowrap">
-            <span className="sr-only">Valor anterior: </span>
-            <s className="text-muted decoration-primary decoration-2">{formatNumber(replaced)}</s>
-          </span>
-        ) : null}
-      </span>
+      ) : null}
+      {refusal ? (
+        <p id={refusalId} role="alert" className="text-danger text-sm">
+          {refusal}
+        </p>
+      ) : null}
       <input
         aria-label={label}
         aria-invalid={refusal ? true : undefined}
@@ -325,15 +368,14 @@ function NumberCell({
             onChange(typed);
           }
         }}
-        className="border-rule focus:border-primary tabular min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 text-base"
+        /*
+         * The writing sits on the row's rule instead of in the middle of the 48px touch target, which
+         * is the whole point of the row: in the notebook the number rests on the line. 20px above the
+         * line and nothing below puts one 24px line of writing at the bottom of the box, and the box
+         * stays 48px because that is what the thumb is aiming at.
+         */
+        className="tabular min-h-12 w-full rounded-none border-0 bg-transparent px-1 pt-5 text-base"
       />
-      {/* The same shape as `Input`'s error: words in danger red, wired to the field, announced when
-          it appears. It is a live region because it shows up after the person acted. */}
-      {refusal ? (
-        <p id={refusalId} role="alert" className="text-danger text-sm">
-          {refusal}
-        </p>
-      ) : null}
     </div>
   );
 }
