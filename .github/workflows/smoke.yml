@@ -1,0 +1,12 @@
+name: Smoke
+
+on:
+  push:
+
+jobs:
+  smoke:
+    name: does a runner start at all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say something
+        run: echo ok
