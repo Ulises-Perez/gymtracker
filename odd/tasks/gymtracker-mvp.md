@@ -116,7 +116,7 @@ después, y es lo que un subagente lee cuando se le despacha
 | T7.2 · SW: precache shell, nunca cachear auth ni escrituras | S10 | cliente | `3175845` |
 | T7.3 · prompt de instalación Android + instrucciones iOS + banner de versión | S10 | cliente | `0739b76` |
 | T7.4 · Lighthouse 90+ ×4 y medición de controles de formulario | S10, S11 | cliente | `13b6708` (medición + veredicto), `87f917d` (SEO 100), `7433705` (el 90 móvil) |
-| T7.5 · deploy Vercel + e2e en dispositivo real + README | S10, S5 | cliente | `dc7d819` (la configuración del deploy) — **el deploy y el repo, hechos**; la E2E en dispositivo real y la config de auth del hosted, pendientes de la persona |
+| T7.5 · deploy Vercel + e2e en dispositivo real + README | S10, S5 | cliente | `dc7d819` (la configuración del deploy) — **el deploy y el repo, hechos**; **la Site URL y las Redirect URLs, hechas** (`L64`); la E2E en dispositivo real, pendiente de la persona |
 | T7.6 · límite de errores propio y registro liviano, sin Sentry | S10 | cliente | `3557967` |
 
 ### Detalle por tarea
@@ -220,7 +220,7 @@ Convención: `[ ]` pendiente, `[x]` cerrada con evidencia. Cada tarea cierra con
 - [x] **T7.2** SW: precache del shell, **nunca** cachear auth ni escrituras. **Decidido acá, y resuelve una tensión del plan**: su tabla de rendimiento dice *"SW = assets estáticos; TQ = datos API"* y **prohíbe** que el SW duplique la caché de TanStack Query, mientras que la lista de la Fase 7 dice *"`StaleWhileRevalidate` catálogo"*. **Gana la tabla**, por dos razones: está escrita como regla con su verificación, y **`StaleWhileRevalidate` del catálogo sería una segunda copia de un dato que TQ ya persiste** (el persister tiene 7 días de `maxAge`), o sea dos cachés que pueden discrepar y ninguna que sea la verdad. El SW se queda con **los assets estáticos**, y **jamás** intercepta `/auth/*` ni una escritura: una respuesta de sesión cacheada es un agujero, y una escritura cacheada es una mentira.
 - [x] **T7.3** Prompt de instalación Android + instrucciones iOS + meta/OG. **Dos conversaciones distintas**: la instalación (Chromium deja un evento diferido y la página decide cuándo levantar el diálogo nativo; iOS no levanta nada y la única puerta es la hoja de compartir de Safari, que ningún código puede apretar) y la versión nueva (el worker corre en modo `prompt`, así que una actualización **espera** en vez de recargar, porque una recarga a mitad de una serie perdería el entrenamiento). La tira de Inicio es una tira de la página y **no un toast**: un mensaje que vive un segundo no puede cargar una decisión, y esta vale una decisión por dispositivo; "Ahora no" se recuerda en disco para que una recarga no vuelva a preguntar. El banner de versión vive **arriba del router**, porque el momento en que el navegador baja una actualización no es el momento en que la persona está en una pantalla cualquiera. Verificado en `0739b76`; el límite declarado: el diálogo nativo de Chromium no se puede disparar desde un test, así que lo que los tests cubren es el lado de la app del contrato.
 - [x] **T7.4** Lighthouse 90+ ×4, bundle dentro del presupuesto medido en T0.8. **Sumar acá** la medición de controles de formulario en el audit de UI (alto y contraste de botones e inputs), que hoy solo mide texto y nav. **La medición** (`13b6708`): el audit mide botones, campos y alertas —alto y contraste— y **responde** con un veredicto y un código de salida; con `AUDIT_EMAIL`/`AUDIT_PASSWORD` **se registra por la pantalla de la app** para medir las rutas con sesión, porque las formas del producto están detrás del login. Correrlo contra el stack local, en un navegador: **36 mediciones, 0 hallazgos**. **El Lighthouse**: accesibilidad **100**, buenas prácticas **100**, SEO **91 → 100** (`87f917d`) y rendimiento **99 escritorio / 87 móvil**. **El 90 móvil**, cerrado en `7433705`: la causa que `L56` había anotado era **una de tres**, y la medición lo dijo —el LCP esperaba al SDK (54 kB), a los trozos de las pantallas de atrás (8 peticiones) y a las fuentes (84 kB pedidas después del CSS)—. El primer pintado ahora no espera a nada que la pantalla de acceso no use: la sesión se lee del `localStorage` sin preguntar al SDK, el SDK se pide después del primer pintado, las pantallas de atrás se bajan cuando van a verse y las dos caras latinas se precargan desde el documento. **Medido** (build local, Lighthouse 13.5.0, `simulate`, móvil, tres corridas seguidas): **92 / 92 / 92** en rendimiento con **100** en las otras tres categorías, y **100 / 100 / 100 / 100** en escritorio. FCP 2.7s → **2.1s**, LCP 3.5s → **3.0s**, bundle inicial **120.92 kB gzip de 180**. **Lo que queda fuera de esta tarea**: el **deploy**, que es la medición que cuenta y depende de credenciales del usuario (T7.5).
-- [x] **T7.5** Deploy Vercel + test e2e en dispositivo real (offline → online) + README. **El deploy y el repo, hechos** (`dc7d819` y lo que vino después): la app vive en **https://gymtracker-devkiings-projects.vercel.app**, el repo en **https://github.com/Ulises-Perez/gymtracker** (privado) y Vercel está **conectado al repo**, así que cada push despliega solo. El `vercel.json` que el README describía y que **no estaba en el repo** existe ahora, con el rewrite del SPA y las cabeceras de revalidación. **Medido contra la URL pública** (Lighthouse 13.5.0, `simulate`): **96 / 100 / 100 / 100** en móvil y **100 / 100 / 100 / 100** en escritorio — mejor que el build local (92), porque Vercel sirve con Brotli y HTTP/2. **Lo que queda, y es de la persona**: la **E2E en un dispositivo real** (offline → online) y la **Site URL y las Redirect URLs** de Supabase con el dominio de producción (el paso 2 del README: sin eso, el registro y la recuperación no vuelven). Se intentó hacerlo por API y **no se puede**: la Management API pide un PAT (no acepta la `service_role`) y `supabase config push` es **destructivo** — `supabase config diff` muestra que entre las doce diferencias hay `auth.email.enable_confirmations: false` y el MFA apagado (`L58`).
+- [x] **T7.5** Deploy Vercel + test e2e en dispositivo real (offline → online) + README. **El deploy y el repo, hechos** (`dc7d819` y lo que vino después): la app vive en **https://gymtracker-devkiings-projects.vercel.app**, el repo en **https://github.com/Ulises-Perez/gymtracker** (privado) y Vercel está **conectado al repo**, así que cada push despliega solo. El `vercel.json` que el README describía y que **no estaba en el repo** existe ahora, con el rewrite del SPA y las cabeceras de revalidación. **Medido contra la URL pública** (Lighthouse 13.5.0, `simulate`): **96 / 100 / 100 / 100** en móvil y **100 / 100 / 100 / 100** en escritorio — mejor que el build local (92), porque Vercel sirve con Brotli y HTTP/2. **Lo que queda, y es de la persona**: la **E2E en un dispositivo real** (offline → online) — la suite de Playwright lo prueba en Chromium, no en un teléfono. La **Site URL y las Redirect URLs** del proyecto hosted: **resueltas en `L64`** (el `site_url` apuntaba a `localhost:3000` y la lista de redirects estaba vacía; ya apuntan al dominio de producción ✓). La E2E sigue siendo de la persona porque necesita un teléfono de verdad.
 - [x] **T7.6** **El DoD de `S10` nombra Sentry y Sentry NO se instala** (decisión del usuario, 2026-10-15): en su lugar va **un límite de errores propio** que atrapa lo que rompe el render, más **un registro liviano**, y la verificación de que **la consola queda limpia en las cuatro pantallas**. El motivo: no sumar una dependencia ni peso al bundle inicial por una función que este producto puede cubrir con lo que ya tiene. Queda escrito para que la desviación del DoD sea **una decisión registrada y no un olvido**. **Cerrada en `3557967`**: el límite (`ErrorBoundary`) **remonta** el árbol en vez de recargar la página —una recarga tiraría el entrenamiento en curso—, el control de copiar sólo existe si el navegador tiene portapapeles, y el registro guarda **cuatro hechos y nada más**: sin objeto de metadatos, sin contexto libre, y un valor lanzado que no es `Error` se describe en vez de serializarse. En memoria, sin consola, sin disco y sin red. Y **Sentry sale del proyecto de verdad**: la dependencia, el módulo, la variable `VITE_SENTRY_DSN` y las dos filas del README (`392276d` también saca `@radix-ui/react-toast`, instalada y sin un solo import).
 
 ---
@@ -1566,3 +1566,69 @@ y contra la **URL pública**: **97 / 100 / 100 / 100** en tres corridas seguidas
 tres sondas de CSP limpias ✓. **La primera corrida dio 96**: fue durante la propagación
 del deploy en el edge y **la causa no está probada**; lo que sí está probado es que las
 corridas siguientes y las sondas dan limpio ✓.
+
+### L64 · El `site_url` del hosted apuntaba a `localhost:3000`, y el link de confirmación volvía a un lugar que no existe (2026-10-21)
+
+**El pedido**: *"Continuemos, que falta"* — y la lista de lo que quedaba de la Fase 7 tenía dos
+ítems "de la persona": la **E2E en un dispositivo real** y la **Site URL + las Redirect URLs**
+de Supabase con el dominio de producción. El segundo estaba anotado como **imposible por API**
+(`L58`): *"la Management API pide un PAT (no acepta la `service_role`) y `supabase config push` es
+destructivo"*.
+
+**Lo que cambia el diagnóstico**: el PAT no era inalcanzable. El CLI de Supabase lo guarda en el
+**Administrador de credenciales de Windows** (destino `Supabase CLI:supabase`, usuario
+`supabase`), y ese PAT **sí** sirve para la Management API. Lo que `L58` probó fue la Management
+API **con la `service_role`**, que no es un PAT: son dos credenciales distintas, y la conclusión
+de `L58` era cierta para la clave que se probó y falsa para la que la máquina ya tenía.
+
+**El defecto, medido antes del arreglo** (`GET /v1/projects/{ref}/config/auth`):
+
+- `site_url` = **`http://localhost:3000`** — el proyecto de producción apuntaba a la máquina de
+  desarrollo.
+- `uri_allow_list` = **vacío**.
+
+La consecuencia: el correo de confirmación de un registro nuevo llevaba el link a
+`http://localhost:3000`, y el de recuperación a `localhost` también. En producción **ninguno de
+los dos llegaba a la app**. Y la app lo dice en su propio código (`src/providers/AuthProvider.tsx`):
+*"That URL must also be in the project's redirect allow-list, which is a dashboard setting, not
+something this code can grant itself."* — el circuito estaba abierto, y bien escrito: el código
+sabía que el permiso era de la plataforma.
+
+**Lo que se aplicó** (dos campos, y nada más):
+
+- `site_url` = `https://gymtracker-devkiings-projects.vercel.app`
+- `uri_allow_list` = `https://gymtracker-devkiings-projects.vercel.app/**`
+
+El comodín cubre la raíz y la pantalla `/reset-password` que la app pide
+(`redirectTo: ${window.location.origin}/reset-password`).
+
+**Dos detalles que costaron un intento cada uno, y que conviene no volver a descubrir**:
+
+1. El campo **no** se llama `uri_allow_redirect_list` en la Management API: el nombre real es
+   `uri_allow_list`, y es un **string**, no un arreglo (un arreglo devuelve `400 expected string,
+   received array`). El `PATCH` con el nombre equivocado **no falla**: responde `200` y no cambia
+   nada, que es la forma más silenciosa de no hacer un arreglo — y por eso la verificación es una
+   **lectura de vuelta**, no el código de respuesta.
+2. La credencial del CLI guarda el token como **bytes ASCII**, no como UTF-16: leído como Unicode
+   devuelve 22 caracteres chinos y un `JWT could not be decoded` que parece de permisos y es de
+   codificación.
+
+**La medición**: lectura de vuelta de `GET /v1/projects/{ref}/config/auth` → los dos campos con
+lo que se pidió ✓ · `mailer_autoconfirm` sigue en `false` ✓ (la pantalla "Revisá tu correo" es el
+camino real) · `disable_signup` en `false` ✓. Lo que **no** se puede medir desde acá es el link
+que llega al buzón — eso lo prueba la persona—, pero el circuito queda cerrado por construcción:
+el `site_url` es el dominio de la app y el `redirect_to` que la app manda tiene **el mismo host**,
+que es la regla que GoTrue aplica para admitirlo.
+
+**Lo que esto destapa**: **T2.5 vuelve a ser posible de punta a punta**. El alta desde la app ya
+funcionaba (la cuenta del usuario en el hosted está creada y confirmada desde el 2026-10-20), pero
+el **paso del clic en el correo** no se podía hacer: el link llevaba a `localhost`. Con el
+`site_url` en el dominio de producción, el registro completo —alta, correo, confirmación y
+entrada— se puede hacer contra el hosted. Lo que sigue siendo de la persona es ese clic.
+
+**Lo que sigue siendo de la persona** ✓: la **E2E en un dispositivo real** (offline → online en un
+teléfono de verdad: la suite de Playwright lo prueba en Chromium, no en un teléfono) ✓ · el **clic
+en el correo de confirmación** contra el hosted ✓ · y la decisión de **R2** (el Inicio cuenta los
+**ejercicios distintos** de la sesión y su detalle lista las **tarjetas**; con el mismo ejercicio en
+dos tarjetas los dos números difieren, y cuál es el correcto es de la persona ✓ — su arreglo, además,
+es una migración nueva contra el hosted ✓).
