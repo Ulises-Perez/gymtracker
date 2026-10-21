@@ -246,15 +246,25 @@ vuelven a una URL que Supabase no autoriza. En el dashboard del proyecto, en
 
 Es un cambio del lado del servidor: no hace falta redeployar.
 
+**En este proyecto ya está hecho** (2026-10-21, `odd/tasks/gymtracker-mvp.md`
+`L64`): el `site_url` del proyecto hosted es
+`https://gymtracker-devkiings-projects.vercel.app` y la lista de redirects es
+`https://gymtracker-devkiings-projects.vercel.app/**`. Se aplicó por la
+Management API cambiando **sólo esos dos campos**, y **no** con
+`supabase config push`, que empuja el `config.toml` local sobre el hosted.
+**Los previews de Vercel siguen afuera**: si un preview tiene que poder iniciar
+sesión, hay que sumar `https://*-<scope>.vercel.app/**` a la lista.
+
 ### 3 · Checklist antes de dar una URL por buena
 
 - [x] `npm run build` verde (es lo mismo que corre CI: lint → typecheck → test → build).
 - [x] Las variables cargadas en Vercel, para Production, Preview y Development.
 - [x] `/`, `/workout`, `/history` y `/profile` cargan y hacen deep link sin 404.
 - [x] `/sw.js` responde con `Cache-Control: public, max-age=0, must-revalidate`.
-- [ ] Login con un usuario real de la base (el **registro** depende del email, ver T2.5).
+- [x] Login con un usuario real de la base (una cuenta del hosted, creada desde la app, entra y ve su historial).
 - [ ] El prompt de instalación aparece (los iconos y el manifest son de T7.1; el prompt, de T7.3).
-- [ ] La **Site URL** y las **Redirect URLs** de Supabase con el dominio de producción (el paso 2).
+- [x] La **Site URL** y las **Redirect URLs** de Supabase con el dominio de producción (el paso 2, aplicado en `L64`).
+- [ ] El **registro completo** contra el hosted: alta, correo de confirmación, clic y entrada (el link ya vuelve a la app; falta el clic).
 
 **El `X-Robots-Tag`**: el plan Hobby de Vercel le pone `noindex` a los despliegues
 de producción que no tienen dominio propio, y eso le costaba el SEO al
