@@ -40,6 +40,11 @@ typography:
     fontSize: '0.75rem'
     fontWeight: 500
     lineHeight: 1.33
+  nav-label:
+    fontFamily: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontSize: '0.6875rem'
+    fontWeight: 500
+    lineHeight: 1.33
 rounded:
   sm: '3px'
   md: '6px'
@@ -65,7 +70,7 @@ components:
     textColor: '{colors.text}'
     rounded: '0'
     height: '48px'
-    padding: '0 4px'
+    padding: '20px 4px 0'
   chip:
     backgroundColor: 'transparent'
     textColor: '{colors.muted}'
@@ -192,7 +197,7 @@ No hay **Shadow Vocabulary** que documentar, y por eso esa subsección no existe
 
 ## Shapes
 
-**La página es cuadrada.** El radio de un contenedor es 0: la hoja del selector, el bloque de autenticación y las secciones del historial tienen esquinas rectas y se separan con un filete, no con una curva. El sistema declara tres radios —**3 px** (`sm`), **6 px** (`md`) y **10 px** (`lg`)—, y **en uso hay uno solo**: `rounded-sm` con **39 apariciones**, todas en controles. `md` y `lg` existen en la escala y hoy no los usa nadie; la aparición de `rounded-none` (4 veces) son los campos, porque un campo es un renglón y no una caja. Y hay **dos** `rounded-full` en la app, y los dos son excepciones con motivo: la barrita de 2 px (`h-0.5`) de la pestaña activa del nav, que es una línea y no un control, y **el avatar del perfil, que es una foto y no un contenedor** (decisión de la persona, 2026-10-19): en el cuaderno, una foto pegada es un sello.
+**La página es cuadrada.** El radio de un contenedor es 0: la hoja del selector, el bloque de autenticación y las secciones del historial tienen esquinas rectas y se separan con un filete, no con una curva. El sistema declara tres radios —**3 px** (`sm`), **6 px** (`md`) y **10 px** (`lg`)—, y **en uso hay uno solo**: `rounded-sm` con **42 apariciones**, todas en controles. `md` y `lg` existen en la escala y hoy no los usa nadie; la aparición de `rounded-none` (5 veces) son los campos, porque un campo es un renglón y no una caja. Y hay **tres** `rounded-full` en la app, y los tres son excepciones con motivo: la barrita de 2 px (`h-0.5`) de la pestaña activa del nav, que es una línea y no un control, y **el avatar del perfil, que es una foto y no un contenedor** (decisión de la persona, 2026-10-19): en el cuaderno, una foto pegada es un sello.
 
 Los bordes son parte de la forma: 1 px de regla para filas y controles, 2 px de tinta para abrir, 4 px de acento al margen para lo reemplazado. No hay recortes (`clip-path`), ni píldoras, ni geometría decorativa, ni ilustración.
 
@@ -228,6 +233,7 @@ El lenguaje es de **filas regladas** y **controles reglados**: nada tiene rellen
 ### Inputs / Fields
 
 - **Style:** **el campo es un renglón, no una caja**. Fondo transparente, ningún borde salvo el filete inferior de 1 px (`border-rule`), radio 0 (`rounded-none`), 48 px de alto y 4 px de margen lateral. El `placeholder` va en tinta apagada.
+- **La escritura va EN el renglón.** La caja de 48 px es el objetivo táctil y no se encoge para acomodar la línea: la línea de tipo se empuja abajo (`padding: 20px 4px 0`) y termina donde empieza el filete. Un valor flotando 24 px arriba de su propia línea es lo único que una hoja rayada nunca hace.
 - **Focus:** el filete pasa al acento (`focus:border-primary`) y además corre el outline global; la declaración del anillo es una sola para toda la app.
 - **Error / Disabled:** el error es **la única cosa que usa el rojo en un formulario**, y no viaja sólo por color: lleva palabras en `text-danger`, `aria-invalid`, `aria-describedby` apuntando al mensaje y `role="alert"`, porque aparece después de que la persona actuó. La etiqueta va arriba, en 0.875rem/500. El `select` vuelve a ser un renglón, igual que el resto de los campos.
 
@@ -274,7 +280,7 @@ El panel de récords nuevos —lo que el servidor encontró dentro de la misma t
 
 - **Don't** pintar un `ring` propio en un control, ni usar `primary-soft` como anillo de foco (2.4:1 contra el mínimo de 3:1).
 - **Don't** usar una sombra, un degradado, un `backdrop-filter` fuera de las dos superficies fijas, ni una tarjeta dentro de otra: la elevación es el borde y se declara una sola vez.
-- **Don't** usar el acento para un estado —la pestaña actual, el chip seleccionado, el día entrenado— ni para un enlace que sólo navega: un enlace que navega es tinta con el filete impreso de subrayado.
+- **Don't** usar el acento para un estado —la pestaña actual, el chip seleccionado, el día entrenado— ni para un enlace que sólo navega: un enlace que navega es tinta con el subrayado de la tinta apagada (`.link-ruled`), nunca con el acento. El subrayado mide **4.83:1** sobre el papel —el filete claro mide 1.30:1, y WCAG 1.4.11 pide 3:1 de un gráfico que significa algo— y está declarado **una sola vez** en `src/index.css`, porque un color copiado diez veces son diez chances de que una sola copia sea la correcta.
 - **Don't** poner un radio de contenedor: nada de curvas en bloques, hojas o secciones, y ningún radio fuera de `rounded-sm` (3px) en un control.
 - **Don't** poner texto blanco sobre `primary-soft` (2.4:1) ni aclarar el botón de acento con el _hover_: pasar por encima oscurece.
 - **Don't** usar un carácter o un emoji como icono, y no volver a introducir el asa braille ni el festejo.

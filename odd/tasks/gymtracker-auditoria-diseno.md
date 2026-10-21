@@ -254,6 +254,6 @@ midió la app vieja. La medición válida es la que acepta la versión nueva.
    `DESIGN.md`, no una regresión de este tramo, y es la **pregunta 1** de la auditoría: si el rojo
    significa "esto fue reemplazado" o "esto confirma", ¿qué significa un anillo de foco rojo? La
    decisión es de la persona.
-2. **El valor tachado y el rótulo de la columna se competitionan**: con los rótulos una vez por
+2. **El valor tachado y el rótulo de la columna compiten**: con los rótulos una vez por
    tarjeta, el tachado (que vive arriba del campo) queda justo debajo del rótulo de la columna. No
    se pisan —el renglón mide más que eso— pero conviven en el mismo aire.
