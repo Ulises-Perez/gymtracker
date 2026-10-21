@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import Fuse from 'fuse.js';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useCatalog } from '../../hooks/useCatalog.ts';
@@ -60,6 +60,7 @@ export function ExercisePickerDialog({
   localExercises,
 }: ExercisePickerDialogProps) {
   const catalog = useCatalog(userId);
+  const sheet = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [groupId, setGroupId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -196,7 +197,7 @@ export function ExercisePickerDialog({
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="overlay bg-text/60 fixed inset-0" />
+        <Dialog.Overlay className="overlay bg-text/60 fixed inset-0 z-50" />
         <Dialog.Content
           // No description: the title and the controls say everything, and Radix
           // wants the decision made explicitly rather than guessed.
@@ -208,15 +209,55 @@ export function ExercisePickerDialog({
            *
            * As a container it is square and separated by a rule, not rounded: in this world radii
            * belong to controls.
+           *
+           * On the phone it owns the whole screen, which is what the design contract records for it,
+           * and it is the fix for a measured defect: as `bottom-0` with `max-h-[85vh]` its last 61px
+           * sat under the fixed nav, so `Cancelar` (y 676→724) was covered by the nav (678.5→740) and
+           * a tap on a result at y=685 landed on the nav. Full height, plus `z-50` so it paints above
+           * the nav's `z-40` instead of under it, leaves neither the dismiss control nor the list
+           * anywhere the nav can reach. From 640px it is the centred 32rem panel again.
+           *
+           * The bottom padding carries the system's own inset: full screen means the sheet's edge is
+           * the phone's edge, and the home indicator would sit across `Cancelar`.
            */
-          className="border-rule bg-bg fixed inset-x-0 bottom-0 flex max-h-[85vh] flex-col border-t-2 p-4 sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[80vh] sm:w-[32rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:border-2"
+          className="border-rule bg-bg fixed inset-0 z-50 flex flex-col border-t-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[80vh] sm:w-[32rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:border-2 sm:pb-4"
+          ref={sheet}
+          /*
+           * Search first, and now something to hold rather than an accident of the DOM order. The
+           * header's cross is the sheet's first tabbable control, so Radix's default -- focus the
+           * first one -- would open with the caret on the cross: one tap before anyone can type, on
+           * the one screen that exists to be typed into.
+           */
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            sheet.current?.querySelector('input')?.focus();
+          }}
           // The decision Radix asks for explicitly instead of guessing: the title and the controls
           // say everything, so there is no description to point at.
           aria-describedby={undefined}
         >
-          <Dialog.Title className="font-display text-xl font-black tracking-tight">
-            Agregar ejercicio
-          </Dialog.Title>
+          {/*
+            The header carries the sheet's own way out. It is an addition to `Cancelar` at the foot and
+            not a replacement: on a long catalogue the foot is a scroll away, and the first thing a
+            hand reaches for when a sheet opened by accident is the corner it came from. The cross is
+            drawn and not typed -- the project forbids a glyph as an icon -- and it is named in
+            Spanish so it is not just a shape to a screen reader.
+          */}
+          <div className="flex items-start justify-between gap-2">
+            <Dialog.Title className="font-display text-xl font-black tracking-tight">
+              Agregar ejercicio
+            </Dialog.Title>
+
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                aria-label="Cerrar"
+                className="text-muted hover:text-text -mt-1 -mr-1 flex size-12 shrink-0 items-center justify-center rounded-sm"
+              >
+                <CloseGlyph className="size-5" />
+              </button>
+            </Dialog.Close>
+          </div>
 
           <div className="mt-3">
             <Input
@@ -417,5 +458,30 @@ function GroupChip({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * The cross, drawn in the house style `src/components/icons.tsx` sets: a 24-unit box, a 1.75 stroke
+ * with round joins, and `aria-hidden` because the button around it already carries the name.
+ *
+ * It is local instead of in that file because it is the only cross in the app: a shared icon module
+ * gains nothing from one caller, and the file would then hold an icon no screen but this one uses.
+ */
+function CloseGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+    >
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
   );
 }

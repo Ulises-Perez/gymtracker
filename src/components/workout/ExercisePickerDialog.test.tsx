@@ -434,6 +434,102 @@ describe('inventing an exercise the catalogue does not have', () => {
   });
 });
 
+/**
+ * S5: the sheet has to be closable.
+ *
+ * Measured at 360x740: the sheet was `fixed inset-x-0 bottom-0 max-h-[85vh]` and the nav is
+ * `fixed bottom-0`, 61px tall — `Cancelar` occupied y 676→724 under a nav covering 678.5→740, and a
+ * result measured at y=685 sent the tap into the nav. The header had no cross either.
+ *
+ * A layout is not measurable in jsdom — every rectangle is zero — so what is asserted here is the
+ * composition the measurement was about: the sheet owns the whole screen (the design contract's own
+ * words: on the phone it enters full screen and from 640px it becomes a centred 32rem panel), it sits
+ * above the nav in the stacking order, the list scrolls inside it, and the controls that dismiss it
+ * live outside that scroll region.
+ */
+describe('the sheet on a phone', () => {
+  it('fills the screen instead of ending under the fixed nav', async () => {
+    renderPicker();
+    await offeredNames();
+
+    const sheet = screen.getByRole('dialog');
+
+    // Full height. `bottom-0` plus `max-h-[85vh]` was the shape that put the last 61px of the sheet,
+    // Cancelar included, underneath the nav.
+    expect(sheet).toHaveClass('inset-0');
+    expect(sheet).not.toHaveClass('bottom-0');
+    expect(sheet).not.toHaveClass('max-h-[85vh]');
+    // And above the nav in the stacking order, or a full-height sheet would still be painted under it.
+    expect(sheet).toHaveClass('z-50');
+  });
+
+  it('closes from a cross in the header, named in Spanish', async () => {
+    const { onOpenChange } = renderPicker();
+    await offeredNames();
+
+    const close = screen.getByRole('button', { name: 'Cerrar' });
+
+    // Drawn, never typed: the project forbids a character as an icon, because a glyph is drawn
+    // differently on every platform and does not inherit the ink.
+    expect(close.querySelector('svg')).not.toBeNull();
+    expect(close.textContent).toBe('');
+
+    fireEvent.click(close);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Search first, and it is now something to hold rather than a happy accident: the cross is the
+   * sheet's first tabbable control, so Radix's default — focus the first one — would open with the
+   * caret on the cross, one tap before anyone can type on a screen that exists to be typed into.
+   */
+  it('opens with the caret in the search field and not on the cross', async () => {
+    renderPicker();
+    await offeredNames();
+
+    expect(search()).toHaveFocus();
+  });
+
+  it('keeps Cancelar and the last result out of the nav, with the list scrolling above it', async () => {
+    renderPicker();
+    await offeredNames();
+
+    const cancel = screen.getByRole('button', { name: 'Cancelar' });
+    const last = screen.getByRole('button', { name: 'Extensión en Polea' });
+
+    // The results scroll inside the sheet, so a long list cannot lengthen it past the screen.
+    const scroller = last.closest('.overflow-y-auto');
+
+    expect(scroller).not.toBeNull();
+    expect(scroller).toHaveClass('min-h-0', 'flex-1');
+    // Cancelar is outside that scroll region and after it, so it always sits at the sheet's own end
+    // rather than under a row that scrolled over it.
+    expect(scroller).not.toContainElement(cancel);
+    expect(scroller?.nextElementSibling).toContainElement(cancel);
+  });
+
+  /**
+   * The close control is an addition, never a replacement: the sheet stays a Radix dialog with
+   * protected focus and a deliberate dismissal, which is why the last of these is the keyboard's own
+   * Escape and not a plain overlay that happens to disappear.
+   */
+  it('still dismisses on Escape, because it is still a dialog', async () => {
+    const { onOpenChange } = renderPicker();
+    await offeredNames();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+});
+
 describe('exercises invented earlier in this session', () => {
   const BANDA: CatalogExercise = {
     id: 'local-1',
