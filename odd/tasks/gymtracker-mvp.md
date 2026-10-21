@@ -1633,3 +1633,48 @@ en el correo de confirmación** contra el hosted ✓ · y la decisión de **R2**
 **ejercicios distintos** de la sesión y su detalle lista las **tarjetas**; con el mismo ejercicio en
 dos tarjetas los dos números difieren, y cuál es el correcto es de la persona ✓ — su arreglo, además,
 es una migración nueva contra el hosted ✓).
+
+### L65 · La CI nunca corrió: el workflow escuchaba a un branch que no existe (2026-10-21)
+
+**El pedido**: *"Continuemos, que falta"*. La lista de lo que faltaba se armó leyendo el plan y los
+logs, y ahí apareció algo que ninguna tarea había mirado: **las corridas de CI del repo no existen
+como tales**.
+
+**El hallazgo, medido**: `gh run list` devuelve **once** corridas, todas con `conclusion:
+startup_failure`, `duration 0s` y `path: "BuildFailed"` — que es el nombre que GitHub le pone a
+una corrida que **narró arrancar**. Y `GET /repos/.../actions/workflows` devolvía
+`total_count: 0`: **GitHub no tenía registrado ningún workflow**, con `.github/workflows/ci.yml`
+commiteado desde `33e684d`.
+
+**La causa, y era de una línea**:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+```
+
+El repositorio tiene **un solo branch**, `feat/gymtracker-mvp`, que además es el default
+(`gh api repos/... --jq .default_branch`). **`main` no existe.** El workflow escuchaba a una rama
+que nunca iba a recibir un push, así que la CI no corría: ni el `verify` (lint → typecheck → test
+→ build) ni la E2E.
+
+**Lo que la validación de `T0.7` no cubrió**: la tarea decía *"pipeline validado ejecutando
+`HUSKY=0 npm ci` real: 625 paquetes desde el lockfile sin drift"* — y eso es cierto: los comandos
+se corrieron y el lockfile estaba íntegro. Lo que **no** se verificó es que GitHub lo **leyera**,
+y esa es la diferencia entre "el pipeline funciona" y "el pipeline está escrito". Es la misma
+lección de `L63`, con otro disfraz: **una medición contra un entorno que no tiene la restricción
+no mide la restricción**; acá, una medición de los comandos contra la máquina no mide el workflow
+contra GitHub.
+
+**El arreglo** (`d4890bb`): el trigger pasa a escuchar **todo push** y todo pull request, con el
+motivo escrito al lado para que nadie lo vuelva a acotar a una rama que no existe.
+
+**La medición**: después del push, `GET /repos/.../actions/workflows` → **`total_count: 1`**,
+`path: .github/workflows/ci.yml`, `state: active` ✓. La corrida queEse mismo push dejó
+(`BuildFailed`) es la **última** de esa serie: se había encolado antes de que GitHub terminara de
+indexar el archivo, y ya no hay ninguna corrida nueva con ese nombre. La corrida real se mira en la
+corrida que dispara el push siguiente.
+
+**Lo que sigue siendo de la persona** ✓: nada de este arreglo — el pipeline corre solo.
