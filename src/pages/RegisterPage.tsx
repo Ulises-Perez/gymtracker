@@ -59,7 +59,10 @@ export function RegisterPage() {
         title="Revisá tu correo"
         subtitle={`Te mandamos un link a ${askedToConfirm} para confirmar la cuenta.`}
         footer={
-          <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
+          // The only way out of the confirmation screen, so it has to read as one: `link-ruled` is the
+          // shared underline declared in `src/index.css`, because the pale separator rule under it
+          // measured 1.30:1 where WCAG asks 3:1.
+          <Link to="/login" className="text-text link-ruled">
             Volver a entrar
           </Link>
         }
@@ -77,8 +80,9 @@ export function RegisterPage() {
         <>
           ¿Ya tenés cuenta?{' '}
           {/* Ink and the printed rule, like every link that only navigates: the soft red is a ground
-              tint, and a tint used as a text colour is wrong on paper. */}
-          <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
+              tint, and a tint used as a text colour is wrong on paper. The rule is `link-ruled`,
+              declared once in `src/index.css` and not copied from screen to screen. */}
+          <Link to="/login" className="text-text link-ruled">
             Entrá
           </Link>
         </>

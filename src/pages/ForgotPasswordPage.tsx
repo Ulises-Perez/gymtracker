@@ -44,7 +44,10 @@ export function ForgotPasswordPage() {
         title="Revisá tu correo"
         subtitle={`Si ${sentTo} tiene cuenta, le mandamos un link para elegir una contraseña nueva.`}
         footer={
-          <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
+          // The only way out of the confirmation, so it has to read as one: `link-ruled` is the shared
+          // underline declared in `src/index.css`, at 4.83:1 where the pale separator rule it replaced
+          // measured 1.30:1.
+          <Link to="/login" className="text-text link-ruled">
             Volver a entrar
           </Link>
         }
@@ -61,7 +64,7 @@ export function ForgotPasswordPage() {
       title="Recuperar contraseña"
       subtitle="Te mandamos un link para elegir una contraseña nueva."
       footer={
-        <Link to="/login" className="text-text decoration-rule hover:decoration-text underline">
+        <Link to="/login" className="text-text link-ruled">
           Volver a entrar
         </Link>
       }

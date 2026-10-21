@@ -8,6 +8,40 @@ import { getSupabase } from '../lib/supabase.ts';
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
 import { DashboardPage } from './DashboardPage.tsx';
 
+/*
+ * The stylesheet as text, and read by Node rather than imported with `?raw`: Vitest stubs every `.css`
+ * request to an empty module, which is the right default for a unit test and is why a raw import comes
+ * back blank here. The directive is this app's own tsconfig and not a shortcut around a missing type
+ * package: `src` is typed for the browser (`types: ["vite/client"]`), so a Node builtin has no types
+ * in it.
+ */
+// @ts-expect-error -- Node builtins are not typed in the browser tsconfig that covers `src`
+import { existsSync, readFileSync } from 'node:fs';
+// @ts-expect-error -- Node builtins are not typed in the browser tsconfig that covers `src`
+import { cwd } from 'node:process';
+// @ts-expect-error -- Node builtins are not typed in the browser tsconfig that covers `src`
+import { dirname, join, resolve } from 'node:path';
+
+/**
+ * The root of the repository, found by walking up from wherever the suite was started.
+ *
+ * The stylesheet is read from disk to measure the real token instead of naming it, and a test that
+ * only passes from the repository root is a test that will fail on someone else's machine.
+ */
+function repoRoot(): string {
+  let dir = resolve(cwd());
+
+  while (dirname(dir) !== dir) {
+    if (existsSync(join(dir, 'package.json'))) {
+      return dir;
+    }
+
+    dir = dirname(dir);
+  }
+
+  return cwd();
+}
+
 vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 
 vi.mock('../hooks/useAuth.ts', () => ({
@@ -243,6 +277,77 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * S3: a link has to look like a link.
+ *
+ * The resting underline used to be the separator rule (`rule`, #d8d6cf) over the paper: measured
+ * **1.30:1**, and WCAG 1.4.11 asks **3:1** for a graphic that carries meaning. The stated scene is a
+ * hard tube light and a phone in one hand, so a 1.3:1 underline does not survive it and the link
+ * stops reading as a link.
+ *
+ * One rule for all ten links, declared once in `src/index.css` next to the tokens, and each page test
+ * asserting that its own links opted into it. The arithmetic is asserted against the stylesheet
+ * itself: jsdom applies no stylesheet, so there is no computed decoration colour to read here.
+ */
+describe('the ruler under a link', () => {
+  it('underlines the last-workout link with the shared link class, not the separator rule', async () => {
+    renderPage();
+
+    // The one way into the workout that was just recorded.
+    const link = await screen.findByRole('link', { name: /Empuje/ });
+
+    expect(link).toHaveClass('link-ruled');
+    expect(link).not.toHaveClass('decoration-rule');
+  });
+
+  it('takes that underline from a token that clears 3:1 against the paper', () => {
+    const css = readFileSync(join(repoRoot(), 'src', 'index.css'), 'utf8');
+    const block = /\.link-ruled\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+
+    // Not a hex: the underline has to come from the token set, or it drifts the day the paper moves.
+    expect(block).toContain('text-decoration-color: var(--color-muted)');
+    expect(block).not.toMatch(/#[0-9a-f]{3,8}/i);
+
+    // 4.83:1, computed from the two tokens as they are written in the stylesheet and not from a
+    // comment: the muted ink is the value this project already uses for secondary text.
+    expect(contrastRatio(token(css, 'color-muted'), token(css, 'color-bg'))).toBeGreaterThanOrEqual(
+      3,
+    );
+
+    // And the separator rule is still there for the things that are not links: rows, control
+    // borders, the scrollbar. The pale rule was never the problem; the problem was using it for a link.
+    expect(token(css, 'color-rule')).toBe('#d8d6cf');
+  });
+});
+
+/** The value of one declaration in `index.css`, lowercased and without its semicolon. */
+function token(css: string, name: string): string {
+  return new RegExp(`--${name}:\\s*([^;]+);`).exec(css)?.[1]?.trim().toLowerCase() ?? '';
+}
+
+/**
+ * WCAG relative luminance and contrast, written out here rather than imported: the point of the number
+ * is that this file measures it from the stylesheet instead of trusting a sentence in it.
+ */
+function relativeLuminance(hex: string): number {
+  const linear = [1, 3, 5].map((at) => {
+    const channel = parseInt(hex.slice(at, at + 2), 16) / 255;
+
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+
+  const [red = 0, green = 0, blue = 0] = linear;
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(first: string, second: string): number {
+  const a = relativeLuminance(first);
+  const b = relativeLuminance(second);
+
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
 
 /**
  * S10: "instalable Android". The install lands on the first screen of the app, and only there.

@@ -176,3 +176,21 @@ describe('ExerciseDetailPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar el progreso');
   });
 });
+
+/**
+ * S3: the way back to the history has to look like a link.
+ *
+ * Its resting underline was the separator rule (`rule`, #d8d6cf): 1.30:1 over the paper, where WCAG
+ * 1.4.11 asks 3:1. The shared pointer is `link-ruled`, declared once in `src/index.css`, and this test
+ * holds that this screen opted into it instead of painting its own colour.
+ */
+describe('the way back to the history', () => {
+  it('is underlined with the shared link class, not the separator rule', () => {
+    renderPage();
+
+    const back = screen.getByRole('link', { name: '← Historial' });
+
+    expect(back).toHaveClass('link-ruled');
+    expect(back).not.toHaveClass('decoration-rule');
+  });
+});

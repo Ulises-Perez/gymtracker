@@ -160,6 +160,37 @@ a {
   text-underline-offset: 3px;
 }
 
+/*
+ * A link that only navigates: ink with the printed rule under it.
+ *
+ * The underline used to be the separator rule (--color-rule, #d8d6cf) over the paper, which measures
+ * 1.30:1 -- and WCAG 1.4.11 asks 3:1 of a graphic that carries meaning. The scene decides it: a hard
+ * tube light, a phone in one hand, and an underline that pale is simply not there, so the link stops
+ * reading as a link. The muted ink carries it at 4.83:1 and costs no new colour: it is the token the
+ * rest of the page's secondary ink already uses. The pale rule stays where it belongs, on separators
+ * that are not interactive -- rows, control borders, the scrollbar.
+ *
+ * It lives here, once, because the same class string was in ten files. A colour copied ten times is
+ * ten chances for one copy to be the only one that is right.
+ *
+ * Declared in the components layer and not loose, so a utility on a particular link can still
+ * override it -- an override that loses to whatever happened to be written last is a trap.
+ */
+@layer components {
+  .link-ruled {
+    text-decoration-line: underline;
+    text-decoration-color: var(--color-muted);
+    text-decoration-thickness: 1px;
+  }
+
+  /*
+   * Passing over it darkens to ink. The accent stays out: a link that only navigates does not commit.
+   */
+  .link-ruled:hover {
+    text-decoration-color: var(--color-text);
+  }
+}
+
 /* For a number that is read as data and not as prose: it must not shift while it is being written. */
 .tabular {
   font-variant-numeric: tabular-nums;

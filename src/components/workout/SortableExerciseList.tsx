@@ -146,13 +146,19 @@ function SortableExercise({
          * The handle is a sibling of the swiping surface and never inside it. Both gestures listen
          * for pointer events, so a handle within that surface would start a reorder and a swipe at
          * once, and the user would get whichever sensor won the race.
+         *
+         * It is the only way to reorder a card, so it is drawn in the muted ink and not in the
+         * separator rule: `text-rule` on the paper is six dots at 1.30:1, and the muted ink is the
+         * same 4.83:1 the rest of the screen's secondary ink already uses. The target is 44 wide by
+         * 48 tall -- never narrower than the 32 it had, on the floor the row's own delete control
+         * sits on -- because this is a control used mid-set, with a thumb.
          */}
         <button
           type="button"
           {...attributes}
           {...listeners}
           aria-label={`Mover ${name}`}
-          className="text-rule hover:text-text flex min-h-12 w-8 shrink-0 cursor-grab touch-none items-center justify-center"
+          className="text-muted hover:text-text flex min-h-12 w-11 shrink-0 cursor-grab touch-none items-center justify-center"
         >
           {/* Drawn, not typed: the project already decided against glyphs as icons, and the braille
               character that used to sit here renders differently on every platform. */}

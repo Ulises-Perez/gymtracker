@@ -62,10 +62,9 @@ export function ExerciseDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <Link
-        to="/history"
-        className="text-text decoration-rule hover:decoration-text text-sm underline"
-      >
+      {/* A printed rule under the words, from the shared `link-ruled` class in `src/index.css`: the
+          pale separator rule under it measured 1.30:1, and a link that faint is not a link. */}
+      <Link to="/history" className="text-text link-ruled text-sm">
         ← Historial
       </Link>
 

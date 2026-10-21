@@ -51,12 +51,10 @@ export function LoginPage() {
         <>
           ¿No tenés cuenta?{' '}
           {/* A link that only navigates: ink with the printed rule under it. The soft red is a ground
-              tint used as a text colour, which on paper reads as an error rather than a link. */}
-          <Link
-            to="/register"
-            state={{ from }}
-            className="text-text decoration-rule hover:decoration-text underline"
-          >
+              tint used as a text colour, which on paper reads as an error rather than a link. The rule
+              is `link-ruled`, declared once in `src/index.css`: the pale separator rule under it
+              measured 1.30:1, and WCAG asks 3:1 of a graphic that means something. */}
+          <Link to="/register" state={{ from }} className="text-text link-ruled">
             Creá una
           </Link>
         </>
@@ -86,10 +84,7 @@ export function LoginPage() {
           {formState.isSubmitting ? 'Entrando…' : 'Entrar'}
         </Button>
         <p className="text-center text-sm">
-          <Link
-            to="/forgot-password"
-            className="text-text decoration-rule hover:decoration-text underline"
-          >
+          <Link to="/forgot-password" className="text-text link-ruled">
             Olvidé mi contraseña
           </Link>
         </p>

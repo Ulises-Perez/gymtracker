@@ -58,3 +58,23 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/ubicación:/)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * S3: both ways out of this screen have to look like links.
+ *
+ * They were underlined with the separator rule (`rule`, #d8d6cf): 1.30:1 over the paper, where WCAG
+ * 1.4.11 asks 3:1. The shared pointer is `link-ruled`, declared once in `src/index.css`.
+ */
+describe('the links on this screen', () => {
+  it('underlines both of them with the shared link class, not the separator rule', () => {
+    renderAuthScreen(<LoginPage />, '/login');
+
+    const register = screen.getByRole('link', { name: 'Creá una' });
+    const forgot = screen.getByRole('link', { name: 'Olvidé mi contraseña' });
+
+    for (const link of [register, forgot]) {
+      expect(link).toHaveClass('link-ruled');
+      expect(link).not.toHaveClass('decoration-rule');
+    }
+  });
+});

@@ -50,3 +50,34 @@ describe('ForgotPasswordPage', () => {
     ).toBeInTheDocument();
   });
 });
+
+/**
+ * S3: the way back to the login has to look like a link, on the form and on the confirmation that
+ * replaces it.
+ *
+ * Both were underlined with the separator rule (`rule`, #d8d6cf): 1.30:1 over the paper, where WCAG
+ * 1.4.11 asks 3:1. The shared pointer is `link-ruled`, declared once in `src/index.css`.
+ */
+describe('the link back to the login', () => {
+  it('underlines the one on the form with the shared link class', () => {
+    renderAuthScreen(<ForgotPasswordPage />, '/forgot-password');
+
+    const login = screen.getByRole('link', { name: 'Volver a entrar' });
+
+    expect(login).toHaveClass('link-ruled');
+    expect(login).not.toHaveClass('decoration-rule');
+  });
+
+  it('underlines the one on the confirmation with the shared link class', async () => {
+    renderAuthScreen(<ForgotPasswordPage />, '/forgot-password');
+
+    ask();
+
+    await screen.findByRole('heading', { name: 'Revisá tu correo' });
+
+    const login = screen.getByRole('link', { name: 'Volver a entrar' });
+
+    expect(login).toHaveClass('link-ruled');
+    expect(login).not.toHaveClass('decoration-rule');
+  });
+});

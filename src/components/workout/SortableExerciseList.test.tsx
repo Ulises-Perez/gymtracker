@@ -116,3 +116,57 @@ describe('SortableExerciseList', () => {
     expect(handlers.onRemoveExercise).toHaveBeenCalledWith('card-2');
   });
 });
+
+/**
+ * S4: the drag handle has to be visible and named.
+ *
+ * It was `text-rule` on the paper — six grey dots at **1.30:1**, in a 32px-wide target — and it is the
+ * only way to reorder a card. The muted ink token measures **4.83:1** against the paper (measured from
+ * the two declarations in `src/index.css` by the link test in `src/pages/DashboardPage.test.tsx`; it is
+ * the same token, so there is one arithmetic and not two).
+ */
+describe('the handle that reorders a card', () => {
+  it('draws its dots in the muted ink, not in the separator rule', () => {
+    renderList();
+
+    const handle = screen.getByRole('button', { name: 'Mover Press Banca' });
+
+    expect(handle).toHaveClass('text-muted');
+    expect(handle).not.toHaveClass('text-rule');
+  });
+
+  it('is named for what it does, and not by the picture it draws', () => {
+    renderList();
+
+    const handle = screen.getByRole('button', { name: 'Mover Sentadilla' });
+
+    // The dots are a picture of a grip: hidden from the reader, because six circles are not a name.
+    expect(handle.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(handle.textContent).toBe('');
+  });
+
+  it('keeps a target one hand can reach: 48px tall and no narrower than the 44px floor', () => {
+    renderList();
+
+    const handle = screen.getByRole('button', { name: 'Mover Press Banca' });
+
+    // 48px from `min-h-12`, and 44px wide — up from the 32px it had, never down: it is a control used
+    // mid-set, with a thumb, and the row's own delete control already sits on the 44px floor.
+    expect(handle).toHaveClass('min-h-12', 'w-11');
+  });
+
+  /**
+   * Both gestures listen for pointer events, so a handle inside the swiping surface would start a
+   * reorder and a swipe at once and hand the user whichever sensor won the race. The rule is unchanged
+   * by S4 and is asserted here so a later restyle cannot quietly move the button inward.
+   */
+  it('stays a sibling of the surface it moves, never inside it', () => {
+    renderList();
+
+    const handle = screen.getByRole('button', { name: 'Mover Press Banca' });
+    const heading = screen.getByRole('heading', { level: 2, name: 'Press Banca' });
+
+    expect(handle).not.toContainElement(heading);
+    expect(handle.parentElement).toContainElement(heading);
+  });
+});

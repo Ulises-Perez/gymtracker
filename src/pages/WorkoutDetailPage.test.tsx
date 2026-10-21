@@ -423,3 +423,26 @@ describe('WorkoutDetailPage', () => {
     });
   });
 });
+
+/**
+ * S3: both links on this screen have to look like links.
+ *
+ * The exercise name is the **only** route into the progress chart, so its underline is the only thing
+ * that says the name is a destination. It and the way back were drawn in the separator rule
+ * (`rule`, #d8d6cf) over the paper -- 1.30:1, against the 3:1 WCAG 1.4.11 asks -- and both now opt
+ * into the shared `link-ruled` class declared once in `src/index.css`.
+ */
+describe('the links on this page', () => {
+  it('underlines the way back and the exercise name with the shared link class', async () => {
+    renderPage();
+
+    const back = screen.getByRole('link', { name: '← Historial' });
+    // Rendered once the catalogue answers with the name of the exercise.
+    const toProgress = await screen.findByRole('link', { name: 'Press Banca' });
+
+    for (const link of [back, toProgress]) {
+      expect(link).toHaveClass('link-ruled');
+      expect(link).not.toHaveClass('decoration-rule');
+    }
+  });
+});

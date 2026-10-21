@@ -112,10 +112,7 @@ export function WorkoutDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <Link
-        to="/history"
-        className="text-text decoration-rule hover:decoration-text text-sm underline"
-      >
+      <Link to="/history" className="text-text link-ruled text-sm">
         ← Historial
       </Link>
 
@@ -149,11 +146,10 @@ export function WorkoutDetailPage() {
         <section key={card.id} className="border-text mt-6 border-t-2 pt-4">
           <h2 className="font-display text-lg font-extrabold tracking-tight uppercase">
             {/* The way into the exercise's own screen, where its progress is graphed. It navigates
-                and does nothing else, so it stays ink and the printed rule underlines it. */}
-            <Link
-              to={`/history/exercise/${card.exerciseId}`}
-              className="decoration-rule hover:decoration-text underline"
-            >
+                and does nothing else, so it stays ink and the printed rule underlines it. That rule
+                is `link-ruled` (see `src/index.css`) and not the pale separator rule it used to be:
+                this name is the only route to the chart, and at 1.30:1 the underline did not say so. */}
+            <Link to={`/history/exercise/${card.exerciseId}`} className="link-ruled">
               {names.get(card.exerciseId) ?? 'Ejercicio'}
             </Link>
           </h2>

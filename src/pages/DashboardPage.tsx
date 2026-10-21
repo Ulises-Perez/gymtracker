@@ -82,10 +82,12 @@ export function DashboardPage() {
                 Último entrenamiento
               </h2>
               {/* It navigates and does nothing else, so it stays ink with the printed rule
-                  underlining it -- the accent belongs to what was replaced and what commits. */}
+                  underlining it -- the accent belongs to what was replaced and what commits. The
+                  underline itself is `link-ruled`, declared once in `src/index.css`: at 1.30:1 the
+                  separator rule was too faint to survive the room this app is used in. */}
               <Link
                 to={`/history/${summary.last_workout.id}`}
-                className="decoration-rule hover:decoration-text tabular mt-1 block text-sm underline"
+                className="link-ruled tabular mt-1 block text-sm"
               >
                 {formatIsoDate(summary.last_workout.date)}
                 {summary.last_workout.title ? ` · ${summary.last_workout.title}` : ''}
