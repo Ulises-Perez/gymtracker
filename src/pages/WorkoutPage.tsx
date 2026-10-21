@@ -1,4 +1,6 @@
+import { useMutationState } from '@tanstack/react-query';
 import { Suspense, lazy, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 
 import { ExercisePickerDialog } from '../components/workout/ExercisePickerDialog.tsx';
 import { PersonalRecords } from '../components/workout/PersonalRecords.tsx';
@@ -13,8 +15,11 @@ import { useSaveSync } from '../hooks/useSaveSync.ts';
 import { useSaveWorkout } from '../hooks/useSaveWorkout.ts';
 import { useWakeLock } from '../hooks/useWakeLock.ts';
 import type { CatalogExercise } from '../lib/catalog-api.ts';
-import { formatLongDate } from '../lib/utils.ts';
+import { SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
+import type { QueuedMutationVariables } from '../lib/queued-mutations.ts';
+import { formatIsoDate, formatLongDate } from '../lib/utils.ts';
 import { toSaveWorkoutPayload } from '../lib/workout-payload.ts';
+import type { SaveWorkoutPayload } from '../schemas/workout.ts';
 import { findWorkoutNumberProblem, useWorkoutStore } from '../stores/workout-store.ts';
 import type { WorkoutNumberProblem } from '../stores/workout-store.ts';
 
@@ -115,6 +120,33 @@ export function WorkoutPage() {
   const savedWorkoutId = save.data?.workout_id ?? null;
   const records =
     savedWorkoutId && savedWorkoutId !== dismissedSave ? (save.data?.new_prs ?? []) : [];
+
+  /**
+   * The payload of the write that landed, and only that one.
+   *
+   * Read from the queue's own record of what was sent, because the screen can no longer read the
+   * draft: a successful write clears it (`installSaveSync`), and the confirmation has to keep saying
+   * which session it was -- the date it belongs to and the cards it had. Matched by the workout id
+   * the server returned, so a save from earlier in the session cannot answer for this one.
+   */
+  const savedPayload =
+    useMutationState({
+      filters: { mutationKey: SAVE_WORKOUT_MUTATION_KEY, status: 'success' },
+      // The cache holds mutations whose variables it cannot type, because the mutation key is the
+      // only thing it shares with the code that wrote them. Every `save-workout` entry in it is a
+      // `QueuedMutationVariables` -- there is one kind -- and the id match below is what keeps the
+      // claim honest.
+      select: (mutation) => mutation.state.variables as QueuedMutationVariables | undefined,
+    }).find((variables) => variables?.payload.id === savedWorkoutId)?.payload ?? null;
+
+  /**
+   * The confirmation of the saved session, or nothing.
+   *
+   * Read from the result and not from `records` above: putting the celebration down is not news that
+   * the session was not saved, so dismissing the panel must not edit the receipt.
+   */
+  const savedLine =
+    savedPayload === null ? null : savedSessionLine(savedPayload, save.data?.new_prs.length ?? 0);
 
   // Held while a workout is open: the phone locking mid-set is the thing this exists for.
   useWakeLock(isOpen === true);
@@ -243,6 +275,32 @@ export function WorkoutPage() {
             onDismiss={() => setDismissedSave(savedWorkoutId)}
           />
         ) : null}
+
+        {/*
+          The answer to "did it save?", standing where it stays.
+
+          Without it the settled screen held a date and a red button that starts a NEW session, so the
+          one question the person has -- whether the session reached the server -- was answered with
+          silence, and the loudest thing on screen pointed away from the work they had just done. It is
+          a line of the page and not a toast, it does not depend on a record being beaten, and it is a
+          live region because the write can land while the person is looking at something else.
+        */}
+        {savedLine === null ? null : (
+          <div className="border-text mt-6 border-t-2 pt-4">
+            {/* Tabular: the date and the two counts are read as data, and they must not dance. The
+                live region is the sentence and not the block, so the way out of it is not announced
+                as part of the news. */}
+            <p role="status" className="tabular">
+              {savedLine}
+            </p>
+            <Link
+              to="/history"
+              className="text-text link-ruled mt-2 inline-flex min-h-12 items-center"
+            >
+              Ver el historial
+            </Link>
+          </div>
+        )}
 
         {/*
           "Waiting" and "failed" are told apart by the queue, and that is the whole reason
@@ -406,6 +464,48 @@ export function WorkoutPage() {
       />
     </div>
   );
+}
+
+/**
+ * "Guardado · 21/10/2026 · 3 ejercicios · 1 récord nuevo".
+ *
+ * The date is the payload's and not the clock's: an offline session written down last night and landed
+ * this morning belongs to the night before, and that is the day `save_workout` files it under. The
+ * count is the cards the payload carried -- every card is sent, even one with no set written on it. The
+ * records are the ones the server found in the same transaction, and when it found none the third part
+ * is not written at all: "0 récords nuevos" would be a claim about a celebration that did not happen.
+ */
+function savedSessionLine(payload: SaveWorkoutPayload, records: number): string {
+  const parts = [
+    'Guardado',
+    formatIsoDate(payload.date),
+    counted(exercisesIn(payload), 'ejercicio', 'ejercicios'),
+  ];
+
+  if (records > 0) {
+    parts.push(counted(records, 'récord nuevo', 'récords nuevos'));
+  }
+
+  return parts.join(' · ');
+}
+
+/** One of a thing in Spanish: "1 ejercicio" is not "1 ejercicios". */
+function counted(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/**
+ * The cards the payload carried.
+ *
+ * The modern shape holds them in order; a write queued by a build before migration 0012 counted its
+ * exercises by the sets that named them, and a write restored from the queue can still be that one.
+ */
+function exercisesIn(payload: SaveWorkoutPayload): number {
+  if ('exercises' in payload) {
+    return payload.exercises.length;
+  }
+
+  return new Set(payload.sets.map((set) => set.exercise_id)).size;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { MutationObserver, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../../lib/queryClient.ts';
@@ -9,6 +10,7 @@ import type { QueuedMutationVariables } from '../../lib/queued-mutations.ts';
 import { getSupabase } from '../../lib/supabase.ts';
 import { createFakeSupabase } from '../../testing/fake-supabase.ts';
 import { queuedSaveWorkout } from '../../testing/workout-fixtures.ts';
+import { AppShell } from './AppShell.tsx';
 import { SyncBadge } from './SyncBadge.tsx';
 
 vi.mock('../../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -37,6 +39,33 @@ function queueOfflineSave() {
   });
 
   void observer.mutate(queuedSaveWorkout())?.catch(() => undefined);
+}
+
+/*
+ * The three tokens this badge's contrast is about, as `src/index.css` declares them, and the ratio
+ * computed the way WCAG says. Read by hand because jsdom has no stylesheet here: what is under test
+ * is *which* token the sentence is written in, and the number each one measures is the whole reason
+ * the choice is not free.
+ */
+const INK = '#16171b';
+const SURFACE = '#e9e7e1';
+const MUTED = '#6b6a66';
+
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map((start) => {
+    const value = Number.parseInt(hex.slice(start, start + 2), 16) / 255;
+
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+
+  return 0.2126 * (channels[0] ?? 0) + 0.7152 * (channels[1] ?? 0) + 0.0722 * (channels[2] ?? 0);
+}
+
+function contrastRatio(a: string, b: string): number {
+  const lighter = Math.max(luminance(a), luminance(b));
+  const darker = Math.min(luminance(a), luminance(b));
+
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 beforeEach(() => {
@@ -84,6 +113,28 @@ describe('SyncBadge', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * S1: the sentence is the only sign in the whole app that a session is still on its way, so it has
+   * to be readable. On the surface it sits on, `muted` measures 4.38:1 -- under the 4.5:1 AA asks of
+   * normal text -- and ink measures 14.48:1.
+   */
+  it('writes in ink, which clears AA on its own surface, and not in muted, which does not', async () => {
+    render(<SyncBadge />, { wrapper });
+
+    queueOfflineSave();
+
+    const badge = await screen.findByRole('status');
+
+    expect(contrastRatio(INK, SURFACE)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(MUTED, SURFACE)).toBeLessThan(4.5);
+
+    expect(badge).toHaveClass('text-text', 'bg-surface', 'border-rule', 'rounded-sm');
+    expect(badge).not.toHaveClass('text-muted');
+    // The world has no shadow and no gradient, the blur belongs to the nav and the overlay, and the
+    // only radius a control may carry is `rounded-sm`.
+    expect(badge.className).not.toMatch(/shadow|gradient|backdrop|rounded-(?:md|lg|full|none)/);
+  });
+
   it('goes quiet again once the write lands', async () => {
     fake.rpc.mockResolvedValue({
       data: { workout_id: queuedSaveWorkout().payload.id, new_prs: [] },
@@ -109,6 +160,41 @@ describe('SyncBadge', () => {
     });
 
     client.unmount();
+  });
+
+  /**
+   * S1, and the defect in the shape it was measured in: rendered between `<main>` and the fixed nav,
+   * the badge was laid out at the bottom of the column, where the nav paints -- it measured y 694→732
+   * against a nav at y 678.5 at 360×740, so it was behind it on every screen.
+   *
+   * jsdom has no layout, so the box cannot be measured again here; what is asserted is the rule that
+   * decided it. Anchored to the viewport one nav-height up, the badge is visible with any amount of
+   * content under it, and the 7rem the content column reserves below its last line (4rem of offset
+   * plus the badge's own height) is what keeps it off the content.
+   */
+  it('is pinned above the fixed nav instead of being laid out at the end of the page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route index element={<p>Contenido</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    queueOfflineSave();
+
+    const badge = await screen.findByRole('status');
+    const anchor = badge.parentElement;
+
+    expect(anchor?.className).toContain('fixed');
+    expect(anchor?.className).toContain('bottom-[calc(4rem+env(safe-area-inset-bottom))]');
+    // Not inside the nav, and not in the flow after the content either: the flow end is where the
+    // nav is painted.
+    expect(badge.closest('nav')).toBeNull();
+    expect(badge.closest('main')).toBeNull();
   });
 
   /**

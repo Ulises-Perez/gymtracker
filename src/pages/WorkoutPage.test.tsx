@@ -1,10 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClient } from '../lib/queryClient.ts';
 import { installSaveSync } from '../lib/save-sync.ts';
 import { getSupabase } from '../lib/supabase.ts';
+import { formatIsoDate } from '../lib/utils.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
 import { createFakeSupabase } from '../testing/fake-supabase.ts';
 import { WorkoutPage } from './WorkoutPage.tsx';
@@ -35,9 +37,11 @@ let uninstallSaveSync: () => void;
 
 function renderPage() {
   return render(
-    <QueryClientProvider client={client}>
-      <WorkoutPage />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={['/workout']}>
+      <QueryClientProvider client={client}>
+        <WorkoutPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -303,6 +307,107 @@ describe('WorkoutPage', () => {
     // A session that beat nothing gets no celebration: a card that says "0 récords" is
     // worse than no card at all.
     expect(screen.queryByRole('status', { name: 'Récords nuevos' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * S2: the answer to "did it save?".
+   *
+   * The date is the one the payload carries and not the clock's -- a session written down on the
+   * phone at night and landed the next morning belongs to the night before, which is the day
+   * `save_workout` files it under -- and the count is the cards the payload sent, of which there are
+   * two here because the same exercise in two blocks is two cards.
+   */
+  it('says the session was saved, with the date it belongs to and its exercises', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+    // The second card goes in through the store, which is the same write the picker makes, and keeps
+    // the test about what the confirmation counts instead of about finding a name twice in the sheet.
+    useWorkoutStore.getState().addExercise(PRESS_BANCA.id);
+
+    const current = useWorkoutStore.getState().draft;
+
+    if (current) {
+      useWorkoutStore.setState({ draft: { ...current, date: '2026-03-09' } });
+    }
+
+    expect(draft()?.date).toBe('2026-03-09');
+
+    fake.rpc.mockResolvedValue({
+      data: { workout_id: draft()?.workoutId, new_prs: [] },
+      error: null,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    expect(await screen.findByText('Guardado · 09/03/2026 · 2 ejercicios')).toBeInTheDocument();
+    // The way out of the settled screen is the history, not only another session.
+    expect(screen.getByRole('link', { name: 'Ver el historial' })).toHaveAttribute(
+      'href',
+      '/history',
+    );
+  });
+
+  /**
+   * The two halves of the same promise: the confirmation does not depend on there being a record to
+   * celebrate, and dismissing the celebration does not take it away -- the panel is the news, the line
+   * is the receipt, and only the news can be put down.
+   */
+  it('keeps the confirmation after the records are dismissed, and counts them', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+
+    const savedDate = formatIsoDate(draft()?.date ?? '');
+
+    fake.rpc.mockResolvedValue({
+      data: {
+        workout_id: draft()?.workoutId,
+        new_prs: [
+          { exercise_id: PRESS_BANCA.id, old_1rm: 110, new_1rm: 116.7, weight: 100, reps: 5 },
+        ],
+      },
+      error: null,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    expect(
+      await screen.findByText(`Guardado · ${savedDate} · 1 ejercicio · 1 récord nuevo`),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Listo' }));
+
+    expect(screen.queryByRole('status', { name: 'Récords nuevos' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(`Guardado · ${savedDate} · 1 ejercicio · 1 récord nuevo`),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The other side of S2, and the reason it is written as a state and not as a cheer: a write that is
+   * still on its way has not saved anything, and a screen claiming otherwise would be the one lie the
+   * whole offline queue exists to avoid.
+   */
+  it('does not claim a saved session while the write is still queued', async () => {
+    const store = useWorkoutStore.getState();
+
+    store.start();
+    store.addExercise(PRESS_BANCA.id);
+    store.finish();
+
+    // Never settles, so the write waits in the queue the way it does for as long as the device is
+    // offline.
+    fake.rpc.mockImplementation(() => new Promise(() => {}));
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByText(/Guardando el entrenamiento/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/^Guardado · /)).not.toBeInTheDocument();
   });
 
   /**
