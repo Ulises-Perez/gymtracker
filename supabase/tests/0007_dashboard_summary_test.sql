@@ -9,6 +9,11 @@
 -- Inicio mientras su propio detalle listaba la tarjeta: dos pantallas de la misma app
 -- contradiciéndose sobre la misma sesión.
 --
+-- Y el mismo defecto con otra cara: contaba ejercicios DISTINTOS, así que una sesión con el mismo
+-- ejercicio en dos tarjetas decía "1 ejercicio" en el Inicio mientras su detalle listaba dos. Desde
+-- 0012 la tarjeta se identifica por su lugar y no por su ejercicio, y el selector no prohíbe
+-- repetirlo: el Inicio cuenta tarjetas, y las dos pantallas dicen el mismo número (0015).
+--
 -- Impersonación con el patrón del resto de la suite: `set local role authenticated` +
 -- `request.jwt.claims`, el resultado guardado en un GUC de transacción y las aserciones de vuelta
 -- como `postgres` (que es el único rol que puede leer las tablas para testear). Todo termina en
@@ -22,7 +27,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(5);
+select plan(6);
 
 -- ---------- fixtures ----------
 insert into auth.users (id, email) values
@@ -34,6 +39,7 @@ select
   '77777777-7777-4777-8777-777777777777'::uuid as workout_con_series,
   '88888888-8888-4888-8888-888888888888'::uuid as workout_sin_series,
   '99999999-9999-4999-8999-999999999999'::uuid as workout_borrado,
+  '66666666-6666-4666-8666-666666666666'::uuid as workout_dos_tarjetas,
   (select id from public.exercises where name = 'Press Banca' and is_custom = false) as press_banca;
 
 -- Una sesión con una tarjeta y una serie.
@@ -134,6 +140,42 @@ select is(
   (current_setting('gt.r2')::jsonb -> 'last_workout' ->> 'exercise_count')::int,
   1,
   'una sesión con una tarjeta y una serie cuenta un ejercicio'
+);
+
+-- =============================================
+-- El mismo ejercicio en DOS tarjetas son dos
+-- =============================================
+-- Va recién acá a propósito: esta sesión es la más reciente y cambia cuál es la última, así que no
+-- puede existir cuando se evalúan los casos de arriba.
+insert into public.workouts (id, user_id, date, title)
+values ('66666666-6666-4666-8666-666666666666', '00000000-0000-4000-c000-000000000001', '2026-10-04', 'Press dos veces');
+
+insert into public.workout_exercises (id, workout_id, user_id, exercise_id, position)
+values
+  ('b0000000-0000-4000-8000-000000000003', '66666666-6666-4666-8666-666666666666', '00000000-0000-4000-c000-000000000001', (select press_banca from t_ctx), 1),
+  ('b0000000-0000-4000-8000-000000000004', '66666666-6666-4666-8666-666666666666', '00000000-0000-4000-c000-000000000001', (select press_banca from t_ctx), 2);
+
+do $case3$
+declare
+  c record;
+  v jsonb;
+begin
+  select * into c from t_ctx;
+  perform set_config('request.jwt.claims', json_build_object('sub', c.user_a)::text, true);
+  set local role authenticated;
+
+  v := public.dashboard_summary();
+
+  perform set_config('gt.r3', v::text, true);
+  set local role postgres;
+end
+$case3$;
+
+-- Contar ejercicios distintos diría uno, y el detalle de la misma sesión lista dos tarjetas.
+select is(
+  (current_setting('gt.r3')::jsonb -> 'last_workout' ->> 'exercise_count')::int,
+  2,
+  'el mismo ejercicio en dos tarjetas cuenta dos'
 );
 
 rollback;
