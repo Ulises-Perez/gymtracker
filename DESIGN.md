@@ -120,7 +120,7 @@ Paleta contenida: el papel manda, la tinta escribe, y un solo rojo significa **"
 
 ### Primary
 
-- **Rojo de corrección** (`primary`, #c7342a): el acento único. Rellena el botón que avanza o confirma el entrenamiento, dibuja el filete al margen de un récord nuevo, el trazo del tachado (`decoration-primary`), la selección de texto, el caret y el outline de foco. Blanco sobre él mide **5.3:1**.
+- **Rojo de corrección** (`primary`, #c7342a): el acento único. Rellena el botón que avanza o confirma el entrenamiento, dibuja el filete al margen de un récord nuevo, el trazo del tachado (`decoration-primary`), la selección de texto y el caret. Blanco sobre él mide **5.3:1**. **El foco no es acento**: es tinta, porque un anillo rojo alrededor de un campo sin caja se lee como error.
 - **Rojo apretado** (`primary-strong`, #a4291f): el mismo rojo bajado hasta que el blanco pasa AA (**7.2:1**). Es el estado _hover_ del botón de acento: pasar por encima **oscurece, no aclara**, porque el tinte claro es para fondo y no lleva etiqueta blanca.
 - **Rojo de error** (`danger`, #a4291f): coincide en valor con `primary-strong` por aritmética, y se mantiene como **nombre separado** porque es otro significado —una acción destructiva o un error, no un botón bajo el dedo.
 - **Tinte de acento** (`primary-soft`, #e0847c): tinte **para fondo**, nunca para un relleno detrás de texto blanco. Contra el papel mide **2.4:1**: no lleva etiqueta y no puede ser el anillo de foco, que necesita 3:1 como mínimo de contraste no textual.
@@ -234,7 +234,7 @@ El lenguaje es de **filas regladas** y **controles reglados**: nada tiene rellen
 
 - **Style:** **el campo es un renglón, no una caja**. Fondo transparente, ningún borde salvo el filete inferior de 1 px (`border-rule`), radio 0 (`rounded-none`), 48 px de alto y 4 px de margen lateral. El `placeholder` va en tinta apagada.
 - **La escritura va EN el renglón.** La caja de 48 px es el objetivo táctil y no se encoge para acomodar la línea: la línea de tipo se empuja abajo (`padding: 20px 4px 0`) y termina donde empieza el filete. Un valor flotando 24 px arriba de su propia línea es lo único que una hoja rayada nunca hace.
-- **Focus:** el filete pasa al acento (`focus:border-primary`) y además corre el outline global; la declaración del anillo es una sola para toda la app.
+- **Focus:** el filete pasa a tinta (`focus:border-text`) y además corre el outline global de tinta; la declaración del anillo es una sola para toda la app.
 - **Error / Disabled:** el error es **la única cosa que usa el rojo en un formulario**, y no viaja sólo por color: lleva palabras en `text-danger`, `aria-invalid`, `aria-describedby` apuntando al mensaje y `role="alert"`, porque aparece después de que la persona actuó. La etiqueta va arriba, en 0.875rem/500. El `select` vuelve a ser un renglón, igual que el resto de los campos.
 
 ### Navigation
@@ -269,9 +269,9 @@ El panel de récords nuevos —lo que el servidor encontró dentro de la misma t
 ### Do:
 
 - **Do** abrir un bloque con el filete de tinta de 2 px (`border-t-2` en `border-text`) y separar filas con el filete de regla de 1 px (`border-b` en `border-rule`).
-- **Do** reservar el acento (#c7342a) para el relleno de un botón que avanza o confirma, el margen de los récords nuevos, el trazo del tachado (`decoration-primary`), la selección de texto, el caret y el outline de foco.
+- **Do** reservar el acento (#c7342a) para el relleno de un botón que avanza o confirma, el margen de los récords nuevos, el trazo del tachado (`decoration-primary`), la selección de texto y el caret.
 - **Do** llevar los títulos a la cara de despliegue en su propio peso (`font-display` con `font-black` o `font-extrabold`).
-- **Do** dejar el foco en la declaración única de `src/index.css` (`:focus-visible` con outline de acento de 2 px y 2 px de offset): ningún componente pinta su anillo.
+- **Do** dejar el foco en la declaración única de `src/index.css` (`:focus-visible` con outline de tinta de 2 px y 2 px de offset): ningún componente pinta su anillo.
 - **Do** dar 48 px (`min-h-12`) a todo control que se toca con el dedo y `.tabular` a toda cifra que se alinea en columna o se escribe.
 - **Do** reforzar cada estado con algo además del color: la barrita del nav, `aria-pressed` en el chip, palabras de error más `role="alert"`, y el `Valor anterior:` del tachado.
 - **Do** nombrar la pantalla con un landmark estable (`role="region"` + `aria-label`) cuando el encabezado es la fecha de hoy.

@@ -38,7 +38,7 @@ describe('converting between kilos and pounds', () => {
 
   it('says which unit the number is in, always', () => {
     // A bare "160" on a screen is a number the user has to guess about.
-    expect(formatWeight(72.5, 'kg')).toBe('72.5 kg');
-    expect(formatWeight(72.5, 'lb')).toBe('159.8 lb');
+    expect(formatWeight(72.5, 'kg')).toBe('72,5 kg');
+    expect(formatWeight(72.5, 'lb')).toBe('159,8 lb');
   });
 });

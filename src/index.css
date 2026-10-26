@@ -150,8 +150,16 @@
   color: var(--color-bg);
 }
 
+/*
+ * Focus is ink, not the accent.
+ *
+ * The ring used to be the accent, and in the correction frame the accent was simultaneously the
+ * focus box, the strike and the button that commits. On a field with no box, that red rectangle
+ * read as "this field is wrong" — the same red as the error state. Ink keeps the three meanings
+ * apart: red is what was replaced, what commits and what failed; ink is where the keyboard is.
+ */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-text);
   outline-offset: 2px;
 }
 

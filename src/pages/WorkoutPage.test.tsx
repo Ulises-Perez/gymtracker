@@ -8,7 +8,7 @@ import { installSaveSync } from '../lib/save-sync.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { formatIsoDate } from '../lib/utils.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
-import { createFakeSupabase } from '../testing/fake-supabase.ts';
+import { createFakeSupabase, fakeSession } from '../testing/fake-supabase.ts';
 import { WorkoutPage } from './WorkoutPage.tsx';
 
 vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
@@ -55,12 +55,35 @@ async function addPressBanca() {
   fireEvent.click(await screen.findByRole('button', { name: 'Press Banca' }));
 }
 
+/**
+ * Writes one real set into the first card.
+ *
+ * The screen refuses to finish a session with nothing recorded, so a test that wants the
+ * finalize path has to record something first — the same thing the person does.
+ */
+function addRecordedSet() {
+  const cardId = draft()?.exercises[0]?.id ?? '';
+
+  useWorkoutStore.getState().addSet(cardId, { reps: 5, weightKg: 100 });
+}
+
+/**
+ * The store write above is not a render. Wait for the row to be on screen before
+ * clicking a control whose enabled state is derived from it — otherwise the click
+ * lands on the previous render, where "Finalizar" is still disabled.
+ */
+async function addRecordedSetAndWait() {
+  addRecordedSet();
+
+  expect(await screen.findByLabelText('Reps serie 1')).toHaveValue('5');
+}
+
 beforeEach(() => {
   // `hydrated` is what the screen waits on, and the store reads it asynchronously.
   // A test that does not care about the wait starts from a read that already happened.
   useWorkoutStore.setState({ draft: null, hydrated: true });
 
-  fake = createFakeSupabase();
+  fake = createFakeSupabase(fakeSession());
   vi.mocked(getSupabase).mockResolvedValue(fake.client);
 
   fake.setTableResult('exercises', { data: [PRESS_BANCA], error: null });
@@ -159,6 +182,7 @@ describe('WorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Empuje' } });
     await addPressBanca();
+    await addRecordedSetAndWait();
 
     // Read before finishing, because a successful write clears the draft: reading it back
     // afterwards would compare the payload against nothing.
@@ -173,7 +197,12 @@ describe('WorkoutPage', () => {
         payload: expect.objectContaining({
           id: workoutId,
           title: 'Empuje',
-          exercises: [expect.objectContaining({ exercise_id: PRESS_BANCA.id, sets: [] })],
+          exercises: [
+            expect.objectContaining({
+              exercise_id: PRESS_BANCA.id,
+              sets: [expect.objectContaining({ reps: 5, weight_kg: 100 })],
+            }),
+          ],
           // Zero rather than null is the proof the payload came from the frozen draft:
           // `finish()` is what sets `endedAt`, and the duration is measured from it.
           duration_minutes: 0,
@@ -208,7 +237,7 @@ describe('WorkoutPage', () => {
     // Told which field it is, by the card's name and the row it is in, and why.
     expect(screen.getByRole('alert')).toHaveTextContent('«Press Banca», serie 1');
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Las reps tienen que ser un número entero mayor que cero.',
+      'Las reps tienen que ser un número entero entre 1 y 1000.',
     );
 
     // Nothing was frozen and nothing was sent: the draft is still the one being edited.
@@ -255,20 +284,68 @@ describe('WorkoutPage', () => {
     });
   });
 
-  it('counts a rest down when one is asked for', () => {
+  it('counts a rest down when one is asked for, and lets it be stopped', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Descanso' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Descanso/ }));
 
     // Anchored on the colon so it is the countdown and not the button that matched.
     expect(screen.getByText(/^Descanso: /)).toBeInTheDocument();
+
+    // The button says how long the rest is, and the same control takes it back.
+    fireEvent.click(screen.getByRole('button', { name: 'Detener descanso' }));
+
+    expect(screen.queryByText(/^Descanso: /)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Descanso/ })).toBeInTheDocument();
+  });
+
+  /**
+   * An accidental "+ Nuevo workout" used to be escapable only by finishing it, and finishing
+   * it wrote a workout with no cards. The Inicio counts days by that row, so a mis-tap raised
+   * the streak and painted the week. The button stays visible and disabled, and says why.
+   */
+  it('does not let an empty session be finished', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+
+    expect(screen.getByRole('button', { name: 'Finalizar' })).toBeDisabled();
+    expect(
+      screen.getByText('Agregá una serie con reps o kg para finalizar el entrenamiento.'),
+    ).toBeInTheDocument();
+  });
+
+  it('discards an empty draft without asking, because there is nothing to lose', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar entrenamiento' }));
+
+    expect(screen.queryByLabelText('Título')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nuevo workout' })).toBeInTheDocument();
+  });
+
+  it('asks before discarding a session that has a set in it', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
+    await addPressBanca();
+    await addRecordedSetAndWait();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar entrenamiento' }));
+
+    expect(screen.getByText('¿Descartar este entrenamiento? Se va a perder.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sí, descartarlo' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.getByLabelText('Título')).toBeInTheDocument();
   });
 
   it('celebrates the records the server found', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
     await addPressBanca();
+    await addRecordedSetAndWait();
 
     // Stubbed once the draft exists so the result carries the id of the workout that is
     // really sent: the screen shows a result only when it belongs to this session.
@@ -284,7 +361,7 @@ describe('WorkoutPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
-    expect(await screen.findByText('antes 110.0 kg → 116.7 kg de 1RM')).toBeInTheDocument();
+    expect(await screen.findByText('antes 110,0 kg → 116,7 kg de 1RM')).toBeInTheDocument();
     expect(screen.getByText('Press Banca')).toBeInTheDocument();
   });
 
@@ -292,6 +369,7 @@ describe('WorkoutPage', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
     await addPressBanca();
+    await addRecordedSetAndWait();
 
     fake.rpc.mockResolvedValue({
       data: { workout_id: draft()?.workoutId, new_prs: [] },
@@ -321,6 +399,7 @@ describe('WorkoutPage', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
     await addPressBanca();
+    await addRecordedSetAndWait();
     // The second card goes in through the store, which is the same write the picker makes, and keeps
     // the test about what the confirmation counts instead of about finding a name twice in the sheet.
     useWorkoutStore.getState().addExercise(PRESS_BANCA.id);
@@ -357,6 +436,7 @@ describe('WorkoutPage', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
     await addPressBanca();
+    await addRecordedSetAndWait();
 
     const savedDate = formatIsoDate(draft()?.date ?? '');
 
@@ -420,6 +500,7 @@ describe('WorkoutPage', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo workout' }));
     await addPressBanca();
+    await addRecordedSetAndWait();
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 

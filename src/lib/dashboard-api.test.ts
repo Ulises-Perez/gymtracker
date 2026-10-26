@@ -38,12 +38,20 @@ beforeEach(() => {
 });
 
 describe('fetchDashboardSummary', () => {
-  it('asks the database for the whole thing in one call', async () => {
-    await fetchDashboardSummary();
+  it('asks the database for the whole thing in one call, with the local day', async () => {
+    await fetchDashboardSummary('2026-10-18');
 
     // One call and not five: the summary is the database's, and this asserts the screen is not
     // quietly assembling it from separate reads that can disagree.
-    expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary');
+    expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary', { p_today: '2026-10-18' });
+  });
+
+  it('defaults to the local day when the caller does not pass one', async () => {
+    await fetchDashboardSummary();
+
+    expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary', {
+      p_today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    });
   });
 
   it('turns the aggregated decimals into numbers', async () => {

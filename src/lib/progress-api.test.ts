@@ -58,7 +58,7 @@ describe('fetchExerciseProgress', () => {
     });
   });
 
-  it('reads a day with nothing recorded as zero and not as a missing point', async () => {
+  it('keeps a day with no weight as a gap instead of a zero', async () => {
     fake.rpc.mockResolvedValue({
       data: [
         {
@@ -66,13 +66,15 @@ describe('fetchExerciseProgress', () => {
           max_weight: null,
           total_volume: null,
           best_set_1rm: null,
-          total_sets: 0,
+          total_sets: 1,
         },
       ],
       error: null,
     });
 
-    expect((await fetchExerciseProgress(EXERCISE_ID))[0]?.maxWeight).toBe(0);
+    // A bodyweight set is a real set. Zero was a claim that the person lifted
+    // nothing, and it dragged the line to the floor.
+    expect((await fetchExerciseProgress(EXERCISE_ID))[0]?.maxWeight).toBeNull();
   });
 
   it('throws the error whole instead of plotting an empty chart', async () => {
@@ -112,6 +114,16 @@ describe('buildChartSeries', () => {
   it('returns empty axes for an exercise never trained, instead of failing', () => {
     // A brand new exercise is a real state: the screen says so rather than showing a broken chart.
     expect(buildChartSeries([], 'maxWeight', 'kg')).toEqual({ x: [], y: [] });
+  });
+
+  it('leaves a missing reading as a gap instead of plotting zero', () => {
+    const bodyweight = [
+      { date: '2026-10-13', maxWeight: null, volume: null, oneRm: null, sets: 1 },
+    ];
+
+    expect(buildChartSeries(bodyweight, 'maxWeight', 'kg').y).toEqual([null]);
+    expect(buildChartSeries(bodyweight, 'volume', 'kg').y).toEqual([null]);
+    expect(buildChartSeries(bodyweight, 'oneRm', 'kg').y).toEqual([null]);
   });
 
   /**

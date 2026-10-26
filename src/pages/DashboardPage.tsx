@@ -152,7 +152,7 @@ export function DashboardPage() {
        * the pair -- which is why the button overhung the text by exactly the padding it was missing.
        * Measured in the DOM, not estimated from a screenshot.
        */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30">
+      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-30">
         <div className="mx-auto flex w-full max-w-lg justify-end px-8">
           <Link
             to="/workout"
@@ -182,11 +182,17 @@ function WeekStrip({ weekDays }: { weekDays: string[] }) {
     <ul aria-label="Esta semana" className="mt-4 flex gap-1">
       {days.map((day) => {
         const didTrain = trained.has(day);
+        const label = weekdayLabel(day);
 
         return (
           <li
             key={day}
-            aria-label={didTrain ? 'entrenado' : 'sin entrenar'}
+            /*
+             * The weekday is part of the name, not only the state. Seven squares that all announce
+             * "entrenado" or "sin entrenar" tell a screen-reader user nothing about *which* day was
+             * trained, and this strip is the only weekly view the Inicio has.
+             */
+            aria-label={`${label}, ${didTrain ? 'entrenado' : 'sin entrenar'}`}
             /*
              * Ink for a day that was trained, an empty ruled box for one that was not. This is a
              * mark on the page, not a press, so the accent stays out of it -- the red means what was
@@ -212,6 +218,21 @@ function currentWeek(now: Date): string[] {
 
     return localIsoDate(day);
   });
+}
+
+/**
+ * "lunes, 12 de octubre" for one of the strip's ISO dates.
+ *
+ * Built from the local components of the date, like every other date in the app: the
+ * string is already the day the person is living in, and parsing it as UTC would slide
+ * it a day for anyone west of Greenwich.
+ */
+function weekdayLabel(isoDate: string): string {
+  return new Intl.DateTimeFormat('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(`${isoDate}T00:00:00`));
 }
 
 /**

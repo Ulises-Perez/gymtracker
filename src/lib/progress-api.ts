@@ -17,9 +17,18 @@ export type ProgressMetric = 'maxWeight' | 'volume' | 'oneRm';
 export type ExerciseProgressPoint = {
   /** `YYYY-MM-DD`, exactly as the column returns it. */
   date: string;
-  maxWeight: number;
-  volume: number;
-  oneRm: number;
+  /**
+   * The heaviest set of the day, or `null` when none of its sets recorded a weight.
+   *
+   * A bodyweight set is a real set: "Dominadas, 12 reps" is stored with `weight_kg = null`.
+   * Turning that into zero is a claim nobody made — the person did not lift 0 kg — and it
+   * drags the progress line to the floor. The chart leaves a gap and the row prints "—".
+   */
+  maxWeight: number | null;
+  /** `SUM(weight_kg * reps)`; `null` when no set of the day recorded a weight. */
+  volume: number | null;
+  /** The best Epley estimate of the day, or `null` when no set recorded both numbers. */
+  oneRm: number | null;
   sets: number;
 };
 
@@ -48,11 +57,12 @@ export async function fetchExerciseProgress(exerciseId: string): Promise<Exercis
    */
   return (data as unknown as ProgressRow[]).map((row) => ({
     date: row.workout_date,
-    // A5: the aggregated columns are DECIMAL and reach the client as strings. They become numbers
-    // here, once, because a chart that receives "70.00" plots nothing.
-    maxWeight: row.max_weight === null ? 0 : toNumber(row.max_weight),
-    volume: row.total_volume === null ? 0 : toNumber(row.total_volume),
-    oneRm: row.best_set_1rm === null ? 0 : toNumber(row.best_set_1rm),
+    // A5: the aggregated columns are DECIMAL and reach the client as strings. They become
+    // numbers here, once, because a chart that receives "70.00" plots nothing. A null stays
+    // null: it is the difference between "did not record a weight" and "lifted zero".
+    maxWeight: row.max_weight === null ? null : toNumber(row.max_weight),
+    volume: row.total_volume === null ? null : toNumber(row.total_volume),
+    oneRm: row.best_set_1rm === null ? null : toNumber(row.best_set_1rm),
     sets: row.total_sets ?? 0,
   }));
 }
@@ -109,7 +119,8 @@ export function dayIncrements(): number[] {
 export type ChartSeries = {
   /** The x axis, in seconds. */
   x: number[];
-  y: number[];
+  /** The y values; `null` is a day without that reading, and uPlot draws a gap for it. */
+  y: (number | null)[];
 };
 
 export function buildChartSeries(
@@ -129,13 +140,14 @@ export function buildChartSeries(
      * The values are stored in kilos and the maths here stay in kilos: picking the metric is the
      * whole computation, and the conversion to the preferred unit happens once, at the very end of
      * this map, which is the edge of reading. That is why the unit is an argument here and not an
-     * arithmetic step inside the chart component.
+     * arithmetic step inside the chart component. A missing reading stays `null` instead of
+     * becoming a zero the person never lifted.
      */
-    y: points.map((point) =>
-      toDisplayWeight(
-        point[metric === 'volume' ? 'volume' : metric === 'oneRm' ? 'oneRm' : 'maxWeight'],
-        unit,
-      ),
-    ),
+    y: points.map((point) => {
+      const value =
+        point[metric === 'volume' ? 'volume' : metric === 'oneRm' ? 'oneRm' : 'maxWeight'];
+
+      return value === null ? null : toDisplayWeight(value, unit);
+    }),
   };
 }

@@ -69,19 +69,24 @@ export type CsvWorkout = {
 /**
  * Quotes a field only when it has to be quoted, and doubles the quotes inside.
  *
- * RFC 4180: a field carrying the separator, a quote or a line break is wrapped in quotes, and a quote
- * inside it is escaped by doubling. The separator here is `;`, so a comma in a title is free and a
- * semicolon is not — the reverse of the English convention, and the reason this is a rule and not an
- * accident.
+ * RFC 4180: a field carrying the separator, a quote or a line break is wrapped in quotes, and a
+ * quote inside it is escaped by doubling. The separator here is `;`, so a comma in a title is free
+ * and a semicolon is not — the reverse of the English convention, and the reason this is a rule and
+ * not an accident.
+ *
+ * A leading `=`, `+`, `-`, `@`, TAB or CR is neutralised with an apostrophe before quoting. In a
+ * spreadsheet those characters start a formula, and the file is data the user may open — or send to
+ * someone else. The apostrophe is the spreadsheet's own "this is text" marker and is not displayed.
  */
 export function escapeCsvField(value: string): string {
+  const neutralized = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   const mustQuote =
-    value.includes(CSV_SEPARATOR) ||
-    value.includes('"') ||
-    value.includes('\n') ||
-    value.includes('\r');
+    neutralized.includes(CSV_SEPARATOR) ||
+    neutralized.includes('"') ||
+    neutralized.includes('\n') ||
+    neutralized.includes('\r');
 
-  return mustQuote ? `"${value.replaceAll('"', '""')}"` : value;
+  return mustQuote ? `"${neutralized.replaceAll('"', '""')}"` : neutralized;
 }
 
 /** A number as written in the file: plain, with a dot, or empty when there is nothing to write. */

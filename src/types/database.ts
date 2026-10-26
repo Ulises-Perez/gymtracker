@@ -350,7 +350,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      dashboard_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      dashboard_summary: { Args: { p_today?: string }; Returns: Json };
       exercise_progress: {
         Args: { p_exercise_id: string };
         Returns: {

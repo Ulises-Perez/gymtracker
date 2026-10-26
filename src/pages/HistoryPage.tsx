@@ -55,6 +55,9 @@ export function HistoryPage() {
                   <p className="text-muted mt-0.5 text-sm">
                     {workout.title ?? 'Entrenamiento'}
                     {workout.durationMinutes !== null ? ` · ${workout.durationMinutes} min` : ''}
+                    {workout.exerciseCount !== null
+                      ? ` · ${counted(workout.exerciseCount, 'ejercicio', 'ejercicios')}`
+                      : ''}
                   </p>
                 </Link>
               </li>
@@ -80,4 +83,9 @@ export function HistoryPage() {
       ) : null}
     </div>
   );
+}
+
+/** One of a thing, so the row does not say "1 ejercicios". */
+function counted(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
 }

@@ -19,9 +19,25 @@ import { getSupabase } from './supabase.ts';
 export async function saveWorkout(variables: unknown): Promise<SaveWorkoutResult> {
   // Parsed, not cast. This is the boundary where a payload that survived
   // serialisation — or predates the current schema — gets stopped.
-  const { payload } = saveWorkoutVariablesSchema.parse(variables);
+  const { payload, ownerId } = saveWorkoutVariablesSchema.parse(variables);
 
   const supabase = await getSupabase();
+
+  /*
+   * The queue is device-global and the session is not. Before this check, a
+   * paused write made by A and resumed after B signed in was sent with B's JWT
+   * — and `save_workout` writes under `auth.uid()`, so A's session landed in B's
+   * account. The owner travels with the variables precisely so this can be
+   * refused here, before the network, even if the sign-out cleanup did not run.
+   */
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.user.id !== ownerId) {
+    throw new Error('El entrenamiento pertenece a otra cuenta.');
+  }
+
   const { data, error } = await supabase.rpc('save_workout', { payload });
 
   if (error) {

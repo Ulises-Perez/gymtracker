@@ -174,10 +174,17 @@ describe('workoutNumberRefusal', () => {
     // "10,5" is what a thumb types when it means 10 and slips a decimal separator: the column is an
     // `INT`, and half a rep is not a rep.
     expect(workoutNumberRefusal('reps', 10.5)).toBe(
-      'Las reps tienen que ser un número entero mayor que cero.',
+      'Las reps tienen que ser un número entero entre 1 y 1000.',
     );
     expect(workoutNumberRefusal('reps', 0)).toBe(
-      'Las reps tienen que ser un número entero mayor que cero.',
+      'Las reps tienen que ser un número entero entre 1 y 1000.',
+    );
+  });
+
+  it('refuses the reps the database cannot hold instead of freezing the session later', () => {
+    expect(workoutNumberRefusal('reps', 1000)).toBeNull();
+    expect(workoutNumberRefusal('reps', 1001)).toBe(
+      'Las reps tienen que ser un número entero entre 1 y 1000.',
     );
   });
 
@@ -187,7 +194,16 @@ describe('workoutNumberRefusal', () => {
   });
 
   it('refuses a negative weight', () => {
-    expect(workoutNumberRefusal('weightKg', -5)).toBe('El peso no puede ser negativo.');
+    expect(workoutNumberRefusal('weightKg', -5)).toBe(
+      'El peso tiene que estar entre 0 y 9999,99 kg.',
+    );
+  });
+
+  it('refuses a weight wider than the DECIMAL(6,2) column', () => {
+    expect(workoutNumberRefusal('weightKg', 9999.99)).toBeNull();
+    expect(workoutNumberRefusal('weightKg', 10000)).toBe(
+      'El peso tiene que estar entre 0 y 9999,99 kg.',
+    );
   });
 
   it('takes "not said" for both, because every one of these fields is optional', () => {

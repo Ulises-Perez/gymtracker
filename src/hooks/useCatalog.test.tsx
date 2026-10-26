@@ -131,7 +131,7 @@ describe('useLastSets', () => {
       error: null,
     });
 
-    const { result } = renderHook(() => useLastSets('exercise-1'), { wrapper });
+    const { result } = renderHook(() => useLastSets(USER_ID, 'exercise-1'), { wrapper });
 
     await waitFor(() => {
       expect(result.current.data).toEqual([{ setNumber: 1, reps: 10, weightKg: 72.5 }]);
@@ -141,10 +141,50 @@ describe('useLastSets', () => {
   it('stays quiet with no exercise to look up', async () => {
     // A card added a moment ago has no id yet; a request per keystroke would be
     // noise, so the query is disabled instead of sent with an empty id.
-    renderHook(() => useLastSets(''), { wrapper });
+    renderHook(() => useLastSets('', ''), { wrapper });
 
     await Promise.resolve();
 
     expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The exercise id is global, so the same exercise is the same id for every
+   * account. Without the owner in the key, the second account on a shared device
+   * would be served the first account's last weights — the persisted cache
+   * outlives the session — and the next set would seed from them.
+   */
+  it('keeps one entry per user for the same exercise', async () => {
+    fake.rpc.mockResolvedValue({
+      data: [{ set_number: 1, reps: 10, weight_kg: '72.50' }],
+      error: null,
+    });
+
+    const first = renderHook(({ userId }) => useLastSets(userId, 'exercise-1'), {
+      wrapper,
+      initialProps: { userId: USER_ID },
+    });
+
+    await waitFor(() => {
+      expect(first.result.current.data).toBeTruthy();
+    });
+
+    first.rerender({ userId: OTHER_USER_ID });
+
+    await waitFor(() => {
+      expect(client.getQueryCache().getAll()).toHaveLength(2);
+    });
+
+    expect(
+      client
+        .getQueryCache()
+        .getAll()
+        .map((query) => query.queryKey),
+    ).toEqual(
+      expect.arrayContaining([
+        ['last-sets', USER_ID, 'exercise-1'],
+        ['last-sets', OTHER_USER_ID, 'exercise-1'],
+      ]),
+    );
   });
 });

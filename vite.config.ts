@@ -33,6 +33,10 @@ export default defineConfig({
           '**/inter-cyrillic*',
           '**/inter-greek*',
           '**/inter-vietnamese*',
+          // The same rule for the display face: Spanish never matches the
+          // Vietnamese subset, and precaching it spends first install on text
+          // the app cannot show.
+          '**/archivo-vietnamese*',
         ],
       },
       // The manifest lives in scripts/pwa-assets.mjs next to the icon specs it references, so the

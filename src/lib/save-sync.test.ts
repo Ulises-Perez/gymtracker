@@ -2,7 +2,7 @@ import { MutationObserver, onlineManager } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useWorkoutStore } from '../stores/workout-store.ts';
-import { createFakeSupabase } from '../testing/fake-supabase.ts';
+import { createFakeSupabase, fakeSession } from '../testing/fake-supabase.ts';
 import { queuedSaveWorkout } from '../testing/workout-fixtures.ts';
 import type { QueuedMutationVariables } from './queued-mutations.ts';
 import { SAVE_WORKOUT_MUTATION_KEY } from './queued-mutations.ts';
@@ -72,7 +72,7 @@ async function save(workoutId: string): Promise<void> {
 beforeEach(() => {
   useWorkoutStore.setState({ draft: null });
 
-  fake = createFakeSupabase();
+  fake = createFakeSupabase(fakeSession());
   vi.mocked(getSupabase).mockResolvedValue(fake.client);
   fake.rpc.mockResolvedValue({ data: { workout_id: OTHER_WORKOUT, new_prs: [] }, error: null });
 

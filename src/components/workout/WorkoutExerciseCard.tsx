@@ -32,6 +32,8 @@ import type {
 const SET_COLUMNS = 'grid-cols-[1.25rem_1fr_1fr_2.75rem]';
 
 type WorkoutExerciseCardProps = {
+  /** The account the cache belongs to; the card reads the last session under it. */
+  userId: string;
   name: string;
   card: WorkoutExerciseDraft;
   onAddSet: (seed?: WorkoutSetPatch) => void;
@@ -41,6 +43,7 @@ type WorkoutExerciseCardProps = {
 };
 
 export function WorkoutExerciseCard({
+  userId,
   name,
   card,
   onAddSet,
@@ -48,7 +51,7 @@ export function WorkoutExerciseCard({
   onRemoveSet,
   onRemoveExercise,
 }: WorkoutExerciseCardProps) {
-  const lastSets = useLastSets(card.exerciseId);
+  const lastSets = useLastSets(userId, card.exerciseId);
   const history = lastSets.data ?? [];
 
   /**
@@ -199,10 +202,10 @@ function SetRow({
      * fields inside print none of their own, because a second line a few pixels above this one would
      * double it under the only place the eye is looking. What a field's own rule did for it before is
      * done here: the row takes the accent while the row has the focus, which is the same promise the
-     * field's `focus:border-primary` makes everywhere else in the app.
+     * field's `focus:border-text` makes everywhere else in the app.
      */
     <li
-      className={`border-rule focus-within:border-primary grid items-end gap-2 border-b ${SET_COLUMNS}`}
+      className={`border-rule focus-within:border-text grid items-end gap-2 border-b ${SET_COLUMNS}`}
     >
       {/* The margin's number, which is where a notebook writes it. The set is already named in
           every label of the row, so this one is decoration for assistive technology. Tabular, like

@@ -39,7 +39,7 @@ describe('Input', () => {
       'rounded-none',
       'bg-transparent',
       'placeholder:text-muted',
-      'focus:border-primary',
+      'focus:border-text',
     );
   });
 

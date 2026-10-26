@@ -17,6 +17,7 @@ function columnsOf(element: HTMLElement): string | undefined {
 vi.mock('../../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 
 const EXERCISE_ID = '01920000-0000-7000-8000-000000000010';
+const USER_ID = '00000000-0000-4000-a000-000000000001';
 
 /** The last session: 10 reps at 70 kg, then 8 at 75. */
 const LAST_SESSION = [
@@ -57,7 +58,7 @@ function renderCard(card: WorkoutExerciseDraft, name = 'Press Banca') {
 
   render(
     <QueryClientProvider client={client}>
-      <WorkoutExerciseCard name={name} card={card} {...handlers} />
+      <WorkoutExerciseCard userId={USER_ID} name={name} card={card} {...handlers} />
     </QueryClientProvider>,
   );
 
@@ -233,7 +234,7 @@ describe('WorkoutExerciseCard', () => {
     expect(onUpdateSet).not.toHaveBeenCalled();
     // Not only colour: the words, and the wiring that announces them, like every field's error.
     expect(reps).toHaveAccessibleDescription(
-      'Las reps tienen que ser un número entero mayor que cero.',
+      'Las reps tienen que ser un número entero entre 1 y 1000.',
     );
     expect(reps).toHaveAttribute('aria-invalid', 'true');
     expect(reps).toHaveValue('10,5');
@@ -250,7 +251,7 @@ describe('WorkoutExerciseCard', () => {
     fireEvent.change(weight, { target: { value: '-5' } });
 
     expect(onUpdateSet).not.toHaveBeenCalled();
-    expect(weight).toHaveAccessibleDescription('El peso no puede ser negativo.');
+    expect(weight).toHaveAccessibleDescription('El peso tiene que estar entre 0 y 9999,99 kg.');
     expect(weight).toHaveValue('-5');
   });
 

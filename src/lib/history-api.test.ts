@@ -69,7 +69,19 @@ describe('fetchWorkoutPage', () => {
       date: '2026-10-13',
       title: 'Entrenamiento 1',
       durationMinutes: 50,
+      exerciseCount: null,
     });
+  });
+
+  it('carries the card count the history row shows', async () => {
+    fake.setTableResult('workouts', {
+      data: [{ ...row(1), workout_exercises: [{ count: 2 }] }],
+      error: null,
+    });
+
+    const page = await fetchWorkoutPage(USER_ID, null);
+
+    expect(page.workouts[0]?.exerciseCount).toBe(2);
   });
 
   it('returns a cursor built from the last row when the page came back full', async () => {

@@ -540,8 +540,9 @@ export const useWorkoutStore = create<WorkoutStore>()(
        * `migrate` throwing means the bytes on disk are a workout this build cannot read — not that
        * there was no workout — and zustand hands that error here. Swallowing it and setting
        * `hydrated` anyway would report the failed read as a good one, and the session would simply
-       * look like it had never existed. The error is logged with context instead, and the flag is
-       * left false for the failure to own, rather than being papered over.
+       * look like it had never existed. The error is logged with context instead, and then the flag
+       * is set to true: leaving it false keeps the workout screen on a skeleton for ever, which is
+       * worse than a draft that could not be restored.
        */
       onRehydrateStorage: () => (_state, error) => {
         /*

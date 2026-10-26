@@ -138,17 +138,19 @@ type WorkoutNumberRule = {
  * only one there is: the payload schema is *derived* from this table, so the contract and the fields
  * cannot disagree about a number, which is exactly the drift that froze a session for good.
  *
- * Both bounds are the database's own: `reps` is an `INT` and a set of zero reps is not a set, while a
- * weight is a `DECIMAL` that a person wrote down — fractional, never negative.
+ * Both bounds are the database's own: `reps` is an `INT` and a set of zero reps is not a set, while
+ * `weight_kg` is a `DECIMAL(6,2)` and 9999.99 is the largest value the column holds. The upper bounds
+ * are not decoration: a missing decimal separator (`12345` for 123.45) used to pass this rule, freeze
+ * the session and then fail on every retry with a numeric overflow, and a frozen draft takes no edits.
  */
 export const workoutNumberRules: Record<WorkoutNumberField, WorkoutNumberRule> = {
   reps: {
-    refuses: 'Las reps tienen que ser un número entero mayor que cero.',
-    accepts: (value) => Number.isInteger(value) && value > 0,
+    refuses: 'Las reps tienen que ser un número entero entre 1 y 1000.',
+    accepts: (value) => Number.isInteger(value) && value > 0 && value <= 1000,
   },
   weightKg: {
-    refuses: 'El peso no puede ser negativo.',
-    accepts: (value) => value >= 0,
+    refuses: 'El peso tiene que estar entre 0 y 9999,99 kg.',
+    accepts: (value) => value >= 0 && value <= 9999.99,
   },
 };
 

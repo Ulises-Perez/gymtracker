@@ -123,7 +123,7 @@ describe('ExerciseDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('grafica')).toHaveAttribute('data-label', 'lb');
     });
-    expect(await screen.findByText(/154\.3 lb máx/)).toBeInTheDocument();
+    expect(await screen.findByText(/154,3 lb máx/)).toBeInTheDocument();
   });
 
   it('starts on the max weight and changes metric when asked', async () => {
@@ -188,7 +188,7 @@ describe('the way back to the history', () => {
   it('is underlined with the shared link class, not the separator rule', () => {
     renderPage();
 
-    const back = screen.getByRole('link', { name: '← Historial' });
+    const back = screen.getByRole('link', { name: 'Historial' });
 
     expect(back).toHaveClass('link-ruled');
     expect(back).not.toHaveClass('decoration-rule');

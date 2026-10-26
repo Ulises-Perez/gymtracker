@@ -40,7 +40,7 @@ export function Input({ label, error, id, className, ...rest }: InputProps) {
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={`border-rule placeholder:text-muted focus:border-primary min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 pt-5 text-base ${className ?? ''}`.trim()}
+        className={`border-rule placeholder:text-muted focus:border-text min-h-12 w-full rounded-none border-0 border-b bg-transparent px-1 pt-5 text-base ${className ?? ''}`.trim()}
         {...rest}
       />
       {error ? (

@@ -182,9 +182,20 @@ export const saveWorkoutPayloadSchema = z.union([
   legacySaveWorkoutPayloadSchema,
 ]);
 
-/** A queued `save-workout` entry: the routing `kind` plus the payload. */
+/** A queued `save-workout` entry: the routing `kind`, its owner and the payload. */
 export const saveWorkoutVariablesSchema = z.object({
   kind: z.literal('save-workout'),
+  /**
+   * The account that queued the write, not the one that happens to be signed in
+   * when it is resumed.
+   *
+   * The payload is built at `finish()`, and it can be resumed minutes later after
+   * a reload. Between those two moments the browser may have changed hands. The
+   * RPC writes under `auth.uid()`, so without this field the subject of the write
+   * is decided by whoever holds the token at resume time — and A's workout lands
+   * in B's account. `saveWorkout` refuses a mismatch before the request is sent.
+   */
+  ownerId: z.uuid(),
   payload: saveWorkoutPayloadSchema,
 });
 

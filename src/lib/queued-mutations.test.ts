@@ -1,7 +1,7 @@
 import { MutationObserver, onlineManager } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createFakeSupabase } from '../testing/fake-supabase.ts';
+import { createFakeSupabase, fakeSession } from '../testing/fake-supabase.ts';
 import { queuedSaveWorkout, saveWorkoutPayloadFixture } from '../testing/workout-fixtures.ts';
 import type { QueuedMutationVariables } from './queued-mutations.ts';
 import { dispatchQueuedMutation, UnknownQueuedMutationError } from './queued-mutations.ts';
@@ -24,7 +24,7 @@ let fake: ReturnType<typeof createFakeSupabase>;
 let mounted = false;
 
 beforeEach(() => {
-  fake = createFakeSupabase();
+  fake = createFakeSupabase(fakeSession());
 
   vi.mocked(getSupabase).mockResolvedValue(fake.client);
 
@@ -79,7 +79,11 @@ describe('the queued mutation dispatcher', () => {
     // in its own chunk. It still has to happen: an invalid entry must fail loudly
     // rather than reach the database as a partial write.
     await expect(
-      dispatchQueuedMutation({ kind: 'save-workout', payload: { id: 'not-a-uuid' } }),
+      dispatchQueuedMutation({
+        kind: 'save-workout',
+        ownerId: '00000000-0000-4000-a000-000000000001',
+        payload: { id: 'not-a-uuid' },
+      }),
     ).rejects.toThrow();
 
     expect(fake.rpc).not.toHaveBeenCalled();

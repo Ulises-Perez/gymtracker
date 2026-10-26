@@ -60,10 +60,12 @@ export function ProgressChart({
 
     const series = buildChartSeries(points, metric, label);
 
+    const height = 220;
+
     const plot = new uPlot(
       {
         width: element.clientWidth || 320,
-        height: 220,
+        height,
         /*
          * No legend. uPlot draws its own, and it arrived with the library's markup and a pair of
          * bare dashes into a world of paper and rules — the one screen that read as scaffolding. The
@@ -111,14 +113,45 @@ export function ProgressChart({
             incrs: dayIncrements(),
             ...chartLines(),
           },
-          chartLines(),
+          {
+            ...chartLines(),
+            /*
+             * The y values are numbers a person reads, so they carry the comma the rest of
+             * the app writes. uPlot's default formatter prints `72.5`; the set card and the
+             * rows print `72,5`, and one datum cannot have two separators.
+             */
+            values: (_self: unknown, ticks: number[]) =>
+              ticks.map((tick) => String(tick).replace('.', ',')),
+          },
         ],
       },
       [series.x, series.y],
       element,
     );
 
-    return () => plot.destroy();
+    /*
+     * The canvas is created at the width the column has **at mount**, and a rotation or a
+     * window resize does not re-run this effect. uPlot 1.6 has no observer of its own, so
+     * without this the chart keeps its old width and hangs out of the page (or short of it)
+     * after a rotation. The observer is the instance's own and disconnects with it.
+     */
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            const width = element.clientWidth;
+
+            if (width > 0) {
+              plot.setSize({ width, height });
+            }
+          });
+
+    observer?.observe(element);
+
+    return () => {
+      observer?.disconnect();
+      plot.destroy();
+    };
   }, [points, metric, label]);
 
   return <div ref={host} className="mt-3" />;

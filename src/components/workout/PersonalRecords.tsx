@@ -86,9 +86,9 @@ function comparison(record: NewPersonalRecord): string {
 }
 
 /**
- * One decimal: that is what the column holds, and it is the smallest change a pair of
- * plates can actually make.
+ * One decimal, with the comma the rest of the app writes: the same datum printed by
+ * `formatWeight` on the reading screens cannot come out with two separators here.
  */
 function kg(value: number): string {
-  return `${value.toFixed(1)} kg`;
+  return `${value.toFixed(1).replace('.', ',')} kg`;
 }

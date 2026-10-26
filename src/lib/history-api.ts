@@ -13,6 +13,14 @@ export type WorkoutSummary = {
   date: string;
   title: string | null;
   durationMinutes: number | null;
+  /**
+   * How many cards the session had.
+   *
+   * The Inicio already shows this number for the last workout, and the history is the
+   * screen where comparing sessions without opening each one matters. `null` means the
+   * read did not ask for it (the detail screen does not need it), not zero.
+   */
+  exerciseCount: number | null;
 };
 
 /**
@@ -46,6 +54,7 @@ type WorkoutRow = {
   date: string;
   title: string | null;
   duration_minutes: number | null;
+  workout_exercises?: { count: number }[] | null;
 };
 
 export function toWorkoutSummary(row: WorkoutRow): WorkoutSummary {
@@ -54,6 +63,8 @@ export function toWorkoutSummary(row: WorkoutRow): WorkoutSummary {
     date: row.date,
     title: row.title,
     durationMinutes: row.duration_minutes,
+    // PostgREST returns an aggregate as a one-row array: `[{ count: 3 }]`.
+    exerciseCount: row.workout_exercises?.[0]?.count ?? null,
   };
 }
 
@@ -123,37 +134,43 @@ type WorkoutExerciseRow = {
 export async function fetchWorkoutDetail(workoutId: string): Promise<WorkoutDetail> {
   const supabase = await getSupabase();
 
-  const workout = await supabase
-    .from('workouts')
-    .select('id, date, title, duration_minutes')
-    .eq('id', workoutId)
-    .is('deleted_at', null)
-    // Ordered because a query has to end somewhere, and ending on a defined order is what makes the
-    // result deterministic instead of merely usually right.
-    .order('date');
+  /*
+   * The three reads are independent and all keyed by the same workout id, so they
+   * run together. Awaiting them one after the other made opening a workout cost up
+   * to three round trips on the connection this app is built for — a phone with a
+   * bad signal, which is the one place the extra seconds are felt.
+   */
+  const [workout, sets, exercises] = await Promise.all([
+    supabase
+      .from('workouts')
+      .select('id, date, title, duration_minutes')
+      .eq('id', workoutId)
+      .is('deleted_at', null)
+      // Ordered because a query has to end somewhere, and ending on a defined order is what makes
+      // the result deterministic instead of merely usually right.
+      .order('date'),
+    supabase
+      .from('workout_sets')
+      .select('id, exercise_id, workout_exercise_id, set_number, reps, weight_kg, is_warmup')
+      .eq('workout_id', workoutId)
+      .is('deleted_at', null)
+      .order('set_number'),
+    supabase
+      .from('workout_exercises')
+      .select('id, exercise_id, position')
+      .eq('workout_id', workoutId)
+      // The order is the point of reading this table: `position` is the place the card had in the
+      // session, and it is what the screen shows the cards in.
+      .order('position'),
+  ]);
 
   if (workout.error) {
     throw workout.error;
   }
 
-  const sets = await supabase
-    .from('workout_sets')
-    .select('id, exercise_id, workout_exercise_id, set_number, reps, weight_kg, is_warmup')
-    .eq('workout_id', workoutId)
-    .is('deleted_at', null)
-    .order('set_number');
-
   if (sets.error) {
     throw sets.error;
   }
-
-  const exercises = await supabase
-    .from('workout_exercises')
-    .select('id, exercise_id, position')
-    .eq('workout_id', workoutId)
-    // The order is the point of reading this table: `position` is the place the card had in the
-    // session, and it is what the screen shows the cards in.
-    .order('position');
 
   if (exercises.error) {
     throw exercises.error;
@@ -219,7 +236,7 @@ export async function fetchWorkoutPage(
 
   let query = supabase
     .from('workouts')
-    .select('id, date, title, duration_minutes')
+    .select('id, date, title, duration_minutes, workout_exercises(count)')
     // Soft delete is the client's job; RLS does not filter it (PLAN section 4.1).
     .is('deleted_at', null)
     .eq('user_id', userId)

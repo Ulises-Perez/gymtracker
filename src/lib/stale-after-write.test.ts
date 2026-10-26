@@ -27,10 +27,10 @@ beforeEach(() => {
 function seedReads() {
   client.setQueryData(['dashboard', USER_ID], { streak: 1 });
   client.setQueryData(['profile-stats', USER_ID], { totalPrs: 1 });
-  client.setQueryData(['workout', WORKOUT_ID], { id: WORKOUT_ID });
+  client.setQueryData(['workout', USER_ID, WORKOUT_ID], { id: WORKOUT_ID });
   client.setQueryData(['history', USER_ID], { items: [] });
-  client.setQueryData(['progress', 'exercise'], { series: [] });
-  client.setQueryData(['last-sets', 'exercise'], { sets: [] });
+  client.setQueryData(['progress', USER_ID, 'exercise'], { series: [] });
+  client.setQueryData(['last-sets', USER_ID, 'exercise'], { sets: [] });
   client.setQueryData(['catalog', USER_ID], { exercises: [] });
 }
 
@@ -46,10 +46,10 @@ describe('markStaleAfterSave', () => {
 
     expect(invalidated(['dashboard', USER_ID])).toBe(true);
     expect(invalidated(['profile-stats', USER_ID])).toBe(true);
-    expect(invalidated(['workout', WORKOUT_ID])).toBe(true);
+    expect(invalidated(['workout', USER_ID, WORKOUT_ID])).toBe(true);
     expect(invalidated(['history', USER_ID])).toBe(true);
-    expect(invalidated(['progress', 'exercise'])).toBe(true);
-    expect(invalidated(['last-sets', 'exercise'])).toBe(true);
+    expect(invalidated(['progress', USER_ID, 'exercise'])).toBe(true);
+    expect(invalidated(['last-sets', USER_ID, 'exercise'])).toBe(true);
     expect(invalidated(['catalog', USER_ID])).toBe(true);
   });
 });
@@ -62,9 +62,9 @@ describe('markStaleAfterDelete', () => {
 
     expect(invalidated(['dashboard', USER_ID])).toBe(true);
     expect(invalidated(['profile-stats', USER_ID])).toBe(true);
-    expect(invalidated(['workout', WORKOUT_ID])).toBe(true);
+    expect(invalidated(['workout', USER_ID, WORKOUT_ID])).toBe(true);
     expect(invalidated(['history', USER_ID])).toBe(true);
-    expect(invalidated(['progress', 'exercise'])).toBe(true);
-    expect(invalidated(['last-sets', 'exercise'])).toBe(true);
+    expect(invalidated(['progress', USER_ID, 'exercise'])).toBe(true);
+    expect(invalidated(['last-sets', USER_ID, 'exercise'])).toBe(true);
   });
 });

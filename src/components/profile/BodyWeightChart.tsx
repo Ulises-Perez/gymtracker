@@ -57,12 +57,20 @@ export function BodyWeightChart({
 
     const series = buildBodyWeightSeries(points, label);
 
+    const height = 160;
+
     const plot = new uPlot(
       {
         width: element.clientWidth || 320,
         // A mini-chart: shorter than the progress chart because it shares the screen with the input
         // and the figures above it.
-        height: 160,
+        height,
+        /*
+         * No legend. uPlot draws its own, and it arrives with the library's markup, the English
+         * word "Time" and a pair of bare dashes — scaffolding in a world of paper and rules. The
+         * unit reads on the section's own copy, and on the axis, which is where a number is read.
+         */
+        legend: { show: false },
         series: [{}, { label, stroke: CHART_INK, width: 2, points: { show: true } }],
         /*
          * The span comes from the readings and **not from the two numbers uPlot passes**, which is
@@ -105,14 +113,43 @@ export function BodyWeightChart({
             incrs: dayIncrements(),
             ...chartLines(),
           },
-          chartLines(),
+          {
+            ...chartLines(),
+            /*
+             * The weights are read as numbers, so they carry the comma the rest of the app
+             * writes. uPlot's default formatter prints `72.5`; the profile shows `72,5`.
+             */
+            values: (_self: unknown, ticks: number[]) =>
+              ticks.map((tick) => String(tick).replace('.', ',')),
+          },
         ],
       },
       [series.x, series.y],
       element,
     );
 
-    return () => plot.destroy();
+    /*
+     * The same resize the progress chart now has. The width is measured once, at mount, and
+     * a phone can be rotated or a window narrowed while the profile is open; without the
+     * observer the canvas keeps the old width and overflows the column.
+     */
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            const width = element.clientWidth;
+
+            if (width > 0) {
+              plot.setSize({ width, height });
+            }
+          });
+
+    observer?.observe(element);
+
+    return () => {
+      observer?.disconnect();
+      plot.destroy();
+    };
   }, [points, label]);
 
   return <div ref={host} className="mt-3" />;

@@ -362,9 +362,9 @@
     ],
     "dos": [
       "**Do** abrir un bloque con el filete de tinta de 2 px (`border-t-2` en `border-text`) y separar filas con el filete de regla de 1 px (`border-b` en `border-rule`).",
-      "**Do** reservar el acento (#c7342a) para el relleno de un botón que avanza o confirma, el margen de los récords nuevos, el trazo del tachado (`decoration-primary`), la selección de texto, el caret y el outline de foco.",
+      "**Do** reservar el acento (#c7342a) para el relleno de un botón que avanza o confirma, el margen de los récords nuevos, el trazo del tachado (`decoration-primary`), la selección de texto y el caret.",
       "**Do** llevar los títulos a la cara de despliegue en su propio peso (`font-display` con `font-black` o `font-extrabold`).",
-      "**Do** dejar el foco en la declaración única de `src/index.css` (`:focus-visible` con outline de acento de 2 px y 2 px de offset): ningún componente pinta su anillo.",
+      "**Do** dejar el foco en la declaración única de `src/index.css` (`:focus-visible` con outline de tinta de 2 px y 2 px de offset): ningún componente pinta su anillo.",
       "**Do** dar 48 px (`min-h-12`) a todo control que se toca con el dedo y `.tabular` a toda cifra que se alinea en columna o se escribe.",
       "**Do** reforzar cada estado con algo además del color: la barrita del nav, `aria-pressed` en el chip, palabras de error más `role=\"alert\"`, y el `Valor anterior:` del tachado.",
       "**Do** nombrar la pantalla con un landmark estable (`role=\"region\"` + `aria-label`) cuando el encabezado es la fecha de hoy."

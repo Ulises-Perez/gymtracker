@@ -31,7 +31,13 @@ export function toStoredKg(value: number, unit: WeightUnit): number {
   return unit === 'kg' ? value : value * KG_PER_POUND;
 }
 
-/** "72.5 kg" / "160.0 lb", with the unit spelled out so a number is never ambiguous. */
+/**
+ * "72,5 kg" / "160,0 lb", with the unit spelled out so a number is never ambiguous.
+ *
+ * The comma is the Rioplatense decimal separator, and it is not decoration: the set card
+ * already writes `72,5` in the field, and the reading screens used to print `72.5 kg` for
+ * the same datum. One formatter, one separator, one place to change it.
+ */
 export function formatWeight(kg: number, unit: WeightUnit): string {
-  return `${toDisplayWeight(kg, unit).toFixed(1)} ${unit}`;
+  return `${toDisplayWeight(kg, unit).toFixed(1).replace('.', ',')} ${unit}`;
 }

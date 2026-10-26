@@ -51,8 +51,16 @@ export function useSaveWorkout() {
    * sets `endedAt`, and the payload's duration is measured between the two timestamps —
    * so a payload built from the draft the screen is holding would carry the length of the
    * session as it was before the freeze, and never include the last set.
+   *
+   * The owner is an argument and not read from a hook: this module is reachable from the
+   * initial bundle through the query client, and the queue entry has to name the account
+   * that built it so a resume under another account can be refused.
    */
-  function finishAndQueue(): void {
+  function finishAndQueue(ownerId: string): void {
+    if (ownerId === '') {
+      return;
+    }
+
     if (useWorkoutStore.getState().draft?.status !== 'draft') {
       /*
        * Nothing open. Guarded here as well as inside `finish()` because a second tap
@@ -72,7 +80,7 @@ export function useSaveWorkout() {
       return;
     }
 
-    mutation.mutate({ kind: 'save-workout', payload: toSaveWorkoutPayload(finished) });
+    mutation.mutate({ kind: 'save-workout', ownerId, payload: toSaveWorkoutPayload(finished) });
   }
 
   return {

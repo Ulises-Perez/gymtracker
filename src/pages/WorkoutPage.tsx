@@ -73,10 +73,12 @@ export function WorkoutPage() {
   const addSet = useWorkoutStore((state) => state.addSet);
   const updateSet = useWorkoutStore((state) => state.updateSet);
   const removeSet = useWorkoutStore((state) => state.removeSet);
+  const discard = useWorkoutStore((state) => state.discard);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dismissedSave, setDismissedSave] = useState<string | null>(null);
   const [confirmingRestart, setConfirmingRestart] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   /*
    * Whether finishing was asked for and refused. Derived from the draft and not from the problem
    * itself: correcting the field is what clears it, so a copy in state would have to be cleared by
@@ -99,6 +101,22 @@ export function WorkoutPage() {
    * makes it disappear is the correction itself.
    */
   const numberProblem = useMemo(() => (draft ? findWorkoutNumberProblem(draft) : null), [draft]);
+
+  /**
+   * Whether the session has anything worth saving.
+   *
+   * A card with no series is a real card — someone added it and did not get to write anything
+   * down — but a session with no card and no series is not a workout. Finishing one used to write
+   * a workout row with no cards; the Inicio counts days by that row, so an accidental tap raised
+   * the streak and painted the week. This is the UI half of the guard; the payload contract and
+   * `save_workout` still take an empty session, because a queued write from an older build must
+   * remain replayable.
+   */
+  const hasRecordedSet = draft
+    ? draft.exercises.some((card) =>
+        card.sets.some((set) => set.reps !== null || set.weightKg !== null),
+      )
+    : false;
 
   /*
    * How many writes are queued and not yet on the server.
@@ -144,9 +162,16 @@ export function WorkoutPage() {
    *
    * Read from the result and not from `records` above: putting the celebration down is not news that
    * the session was not saved, so dismissing the panel must not edit the receipt.
+   *
+   * The count is **distinct exercises**, not entries: `new_prs` can hold one entry per improving set,
+   * and `personal_records` holds one row per exercise. Saying "3 récords nuevos" for one exercise
+   * whose three sets improved was a number the profile could contradict.
    */
+  const distinctRecordExercises = new Set(
+    (save.data?.new_prs ?? []).map((record) => record.exercise_id),
+  ).size;
   const savedLine =
-    savedPayload === null ? null : savedSessionLine(savedPayload, save.data?.new_prs.length ?? 0);
+    savedPayload === null ? null : savedSessionLine(savedPayload, distinctRecordExercises);
 
   // Held while a workout is open: the phone locking mid-set is the thing this exists for.
   useWakeLock(isOpen === true);
@@ -199,13 +224,21 @@ export function WorkoutPage() {
    * to them.
    */
   function retrySave(): void {
+    if (save.status === 'pending' || !user) {
+      return;
+    }
+
     const finished = useWorkoutStore.getState().draft;
 
     if (!finished) {
       return;
     }
 
-    save.mutate({ kind: 'save-workout', payload: toSaveWorkoutPayload(finished) });
+    save.mutate({
+      kind: 'save-workout',
+      ownerId: user.id,
+      payload: toSaveWorkoutPayload(finished),
+    });
   }
 
   /**
@@ -218,6 +251,12 @@ export function WorkoutPage() {
    * by a caller that forgets to ask.
    */
   function finishOrExplain(): void {
+    if (!hasRecordedSet) {
+      setRefusedFinish(false);
+
+      return;
+    }
+
     if (numberProblem) {
       setRefusedFinish(true);
 
@@ -225,7 +264,14 @@ export function WorkoutPage() {
     }
 
     setRefusedFinish(false);
-    save.finishAndQueue();
+    save.finishAndQueue(user?.id ?? '');
+  }
+
+  /** Puts the draft down, with a question only when it has something to lose. */
+  function discardDraft(): void {
+    setConfirmingDiscard(false);
+    setRefusedFinish(false);
+    discard();
   }
 
   /**
@@ -237,6 +283,7 @@ export function WorkoutPage() {
    */
   function startNew(): void {
     setConfirmingRestart(false);
+    setConfirmingDiscard(false);
     // The refusal belonged to the draft that was just replaced; a new one is not refused yet.
     setRefusedFinish(false);
     start();
@@ -322,7 +369,8 @@ export function WorkoutPage() {
             <button
               type="button"
               onClick={retrySave}
-              className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4"
+              disabled={save.status === 'pending'}
+              className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4 disabled:opacity-50"
             >
               Reintentar
             </button>
@@ -396,6 +444,7 @@ export function WorkoutPage() {
       ) : (
         <Suspense fallback={<ExerciseListSkeleton />}>
           <SortableExerciseList
+            userId={user?.id ?? ''}
             cards={draft.exercises}
             names={names}
             /*
@@ -421,10 +470,13 @@ export function WorkoutPage() {
         </button>
         <button
           type="button"
-          onClick={rest.start}
+          onClick={rest.isRunning ? rest.stop : rest.start}
+          aria-pressed={rest.isRunning}
           className="border-rule hover:bg-surface min-h-12 rounded-sm border px-4"
         >
-          Descanso
+          {rest.isRunning
+            ? 'Detener descanso'
+            : `Descanso · ${formatRemaining(REST_SECONDS * 1000)}`}
         </button>
       </div>
 
@@ -448,11 +500,49 @@ export function WorkoutPage() {
       <button
         type="button"
         onClick={finishOrExplain}
-        disabled={save.status === 'pending'}
+        disabled={save.status === 'pending' || !hasRecordedSet}
         className="bg-primary mt-6 min-h-12 w-full rounded-sm px-4 font-medium text-white disabled:opacity-50"
       >
         Finalizar
       </button>
+
+      {!hasRecordedSet ? (
+        <p className="text-muted mt-2 text-xs">
+          Agregá una serie con reps o kg para finalizar el entrenamiento.
+        </p>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => (hasRecordedSet ? setConfirmingDiscard(true) : discardDraft())}
+        className="border-rule hover:bg-surface mt-3 min-h-12 w-full rounded-sm border px-4"
+      >
+        Descartar entrenamiento
+      </button>
+
+      {confirmingDiscard ? (
+        <div className="mt-3 space-y-2">
+          <p role="alert" className="text-sm">
+            ¿Descartar este entrenamiento? Se va a perder.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="bg-primary min-h-12 flex-1 rounded-sm px-4 font-medium text-white"
+            >
+              Sí, descartarlo
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDiscard(false)}
+              className="border-rule hover:bg-surface min-h-12 flex-1 rounded-sm border px-4"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <ExercisePickerDialog
         open={pickerOpen}

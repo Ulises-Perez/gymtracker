@@ -310,7 +310,7 @@ describe('finding the number that keeps a draft open', () => {
       exerciseId: OTHER_EXERCISE_ID,
       setNumber: 1,
       field: 'reps',
-      refusal: 'Las reps tienen que ser un número entero mayor que cero.',
+      refusal: 'Las reps tienen que ser un número entero entre 1 y 1000.',
     });
   });
 
@@ -648,7 +648,11 @@ describe('a session frozen by an older build', () => {
     expect(restored.exercises[0]?.sets[1]?.weightKg).toBe(80);
 
     // And the session is savable: the payload of the restored draft is one the contract accepts.
-    const variables = { kind: 'save-workout' as const, payload: toSaveWorkoutPayload(restored) };
+    const variables = {
+      kind: 'save-workout' as const,
+      ownerId: '00000000-0000-4000-a000-000000000001',
+      payload: toSaveWorkoutPayload(restored),
+    };
 
     expect(saveWorkoutVariablesSchema.safeParse(variables).success).toBe(true);
   });
@@ -706,7 +710,11 @@ describe('a session frozen by an older build', () => {
 
     expect(restored.exercises[0]?.sets[0]?.reps).toBeNull();
 
-    const variables = { kind: 'save-workout' as const, payload: toSaveWorkoutPayload(restored) };
+    const variables = {
+      kind: 'save-workout' as const,
+      ownerId: '00000000-0000-4000-a000-000000000001',
+      payload: toSaveWorkoutPayload(restored),
+    };
 
     expect(saveWorkoutVariablesSchema.safeParse(variables).success).toBe(true);
   });

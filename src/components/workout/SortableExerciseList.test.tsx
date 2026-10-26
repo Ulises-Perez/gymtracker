@@ -53,7 +53,12 @@ function renderList() {
 
   render(
     <QueryClientProvider client={client}>
-      <SortableExerciseList cards={CARDS} names={names} {...handlers} />
+      <SortableExerciseList
+        userId="00000000-0000-4000-a000-000000000001"
+        cards={CARDS}
+        names={names}
+        {...handlers}
+      />
     </QueryClientProvider>,
   );
 

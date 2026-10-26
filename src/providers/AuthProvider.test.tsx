@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAuth } from '../hooks/useAuth.ts';
+import { queryClient } from '../lib/queryClient.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import type { FakeSupabase } from '../testing/fake-supabase.ts';
 import { createFakeSupabase, fakeSession, fakeUser } from '../testing/fake-supabase.ts';
@@ -53,6 +54,29 @@ describe('useAuth', () => {
 });
 
 describe('AuthProvider', () => {
+  /**
+   * The SDK removes the session even when the sign-out request cannot reach the
+   * server, so SIGNED_OUT is the moment the account leaves this device. If the
+   * cache were left behind, the next account would read A's dashboard, and a
+   * paused write would resume with B's JWT.
+   */
+  it('clears the device data when the session ends', async () => {
+    fake = createFakeSupabase(fakeSession());
+    vi.mocked(getSupabase).mockResolvedValue(fake.client);
+
+    await renderResolvedAuth();
+
+    queryClient.setQueryData(['dashboard', fakeSession().user.id], { streak: 7 });
+
+    act(() => {
+      fake.emit('SIGNED_OUT', null);
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(['dashboard', fakeSession().user.id])).toBeUndefined();
+    });
+  });
+
   it('waits for the SDK when the browser holds a session', () => {
     // The browser holds a session, so only the SDK can say whether it is still
     // valid: a read that never settles is the only honest way to observe the

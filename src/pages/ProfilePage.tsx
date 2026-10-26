@@ -116,6 +116,14 @@ export function ProfilePage() {
   // kilos, so that is the honest default rather than a blank state.
   const unit = profile.data?.weightUnit ?? 'kg';
   const weightPoints = bodyWeights.data ?? [];
+  /*
+   * A failed profile read is not "kilos by default": it is "we do not know which
+   * unit this person reads in". Writing with the fallback would store a weight
+   * typed in pounds as kilograms — 150 lb saved as 150 kg — and the unit chips
+   * would write a preference the person never chose. The reads above stay what
+   * they are; the writes wait for the profile.
+   */
+  const canWritePreferences = profile.isSuccess;
 
   /**
    * Logs today's weight.
@@ -126,6 +134,10 @@ export function ProfilePage() {
    */
   const onSaveWeight = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!canWritePreferences) {
+      return;
+    }
 
     const typed = parseDecimalInput(weightInput);
 
@@ -205,6 +217,18 @@ export function ProfilePage() {
        * screen; the screen is now filled, so that sentence is gone with it.
        */}
       <h1 className="font-display text-3xl font-black tracking-tight">Perfil</h1>
+
+      {/*
+       * The read that failed is said out loud, and it is what disables the two
+       * writes that depend on the unit below. Without this, the screen showed
+       * "kg" as if it were the stored preference and accepted a weight typed in
+       * pounds as kilos.
+       */}
+      {profile.isError ? (
+        <p role="alert" className="text-danger mt-2 text-sm">
+          No pudimos cargar tu perfil. Revisá tu conexión e intentá de nuevo.
+        </p>
+      ) : null}
 
       {/*
        * The name and the photo, in one section, because they answer one question: which account this
@@ -332,7 +356,7 @@ export function ProfilePage() {
               key={option}
               type="button"
               aria-pressed={unit === option}
-              disabled={updateUnit.isPending}
+              disabled={updateUnit.isPending || !canWritePreferences}
               onClick={() => updateUnit.mutate(option)}
               className={`border-rule min-h-12 rounded-sm border px-3 text-sm transition-colors motion-reduce:transition-none disabled:opacity-50 ${
                 unit === option ? 'bg-text border-text text-bg' : 'text-muted hover:text-text'
@@ -406,7 +430,7 @@ export function ProfilePage() {
           </div>
           <button
             type="submit"
-            disabled={saveWeight.isPending || weightInput.trim() === ''}
+            disabled={saveWeight.isPending || weightInput.trim() === '' || !canWritePreferences}
             aria-busy={saveWeight.isPending || undefined}
             className="border-rule hover:bg-surface min-h-12 rounded-sm border px-4 disabled:opacity-50"
           >
@@ -422,7 +446,11 @@ export function ProfilePage() {
           </p>
         ) : null}
 
-        {weightPoints.length > 0 ? (
+        {bodyWeights.isPending ? (
+          // A read in flight is not "no weight logged": the empty sentence below is a claim
+          // about the person's data, and it used to be made before the data arrived.
+          <Skeleton className="mt-3 h-[160px] w-full" />
+        ) : weightPoints.length > 0 ? (
           <Suspense fallback={<Skeleton className="mt-3 h-[160px] w-full" />}>
             {/* The label is the unit itself, so the axis legend cannot disagree with the plotted
                 values: `buildBodyWeightSeries` converts the stored kilos to it. */}

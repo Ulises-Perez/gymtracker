@@ -7,11 +7,12 @@ import { createQueryClient } from '../lib/queryClient.ts';
 import { SAVE_WORKOUT_MUTATION_KEY } from '../lib/queued-mutations.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { useWorkoutStore } from '../stores/workout-store.ts';
-import { createFakeSupabase } from '../testing/fake-supabase.ts';
+import { createFakeSupabase, fakeSession, fakeUser } from '../testing/fake-supabase.ts';
 import { useSaveWorkout } from './useSaveWorkout.ts';
 
 vi.mock('../lib/supabase.ts', () => ({ getSupabase: vi.fn() }));
 
+const OWNER_ID = '00000000-0000-4000-a000-000000000001';
 const PRESS_BANCA = '01920000-0000-7000-8000-0000000000a1';
 const WORKOUT_ID = '01920000-0000-7000-8000-000000000001';
 
@@ -40,7 +41,7 @@ function firstCardId(): string {
 beforeEach(() => {
   useWorkoutStore.setState({ draft: null });
 
-  fake = createFakeSupabase();
+  fake = createFakeSupabase(fakeSession(fakeUser({ id: OWNER_ID })));
   vi.mocked(getSupabase).mockResolvedValue(fake.client);
 
   fake.rpc.mockResolvedValue({
@@ -61,7 +62,7 @@ describe('finishing a workout', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     expect(useWorkoutStore.getState().draft?.status).toBe('finished');
     expect(useWorkoutStore.getState().draft?.endedAt).not.toBeNull();
@@ -110,8 +111,8 @@ describe('finishing a workout', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
+    result.current.finishAndQueue(OWNER_ID);
 
     await waitFor(() => {
       expect(fake.rpc).toHaveBeenCalledTimes(1);
@@ -128,7 +129,7 @@ describe('finishing a workout', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     await waitFor(() => {
       expect(queued()).toHaveLength(1);
@@ -142,7 +143,7 @@ describe('finishing a workout', () => {
   it('does nothing when no workout is open', () => {
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     expect(queued()).toHaveLength(0);
     expect(fake.rpc).not.toHaveBeenCalled();
@@ -156,7 +157,7 @@ describe('finishing a workout', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     // `finish()` refuses the second call, and so does this: a finished draft is one the
     // payload has already been built from.
@@ -183,7 +184,7 @@ describe('what a finished save changes', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     await waitFor(() => {
       expect(client.getQueryState(['catalog', 'user-1'])?.isInvalidated).toBe(true);
@@ -204,7 +205,7 @@ describe('what a finished save changes', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     await waitFor(() => {
       expect(queued()).toHaveLength(1);
@@ -232,8 +233,8 @@ describe('what a finished save changes', () => {
       ['catalog', 'user-1'],
       ['history', 'user-1'],
       ['dashboard', 'user-1'],
-      ['progress', PRESS_BANCA],
-      ['last-sets', PRESS_BANCA],
+      ['progress', 'user-1', PRESS_BANCA],
+      ['last-sets', 'user-1', PRESS_BANCA],
     ];
 
     for (const key of keys) {
@@ -242,7 +243,7 @@ describe('what a finished save changes', () => {
 
     const { result } = renderHook(() => useSaveWorkout(), { wrapper });
 
-    result.current.finishAndQueue();
+    result.current.finishAndQueue(OWNER_ID);
 
     await waitFor(() => {
       expect(client.getQueryState(['history', 'user-1'])?.isInvalidated).toBe(true);

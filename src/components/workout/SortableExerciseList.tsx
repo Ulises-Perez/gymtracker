@@ -34,6 +34,8 @@ import { WorkoutExerciseCard } from './WorkoutExerciseCard.tsx';
  */
 
 type SortableExerciseListProps = {
+  /** The account the cards read their last session under. */
+  userId: string;
   cards: WorkoutExerciseDraft[];
   /** What each exercise is called, by id. The draft holds ids, as everywhere else. */
   names: Map<string, string>;
@@ -45,6 +47,7 @@ type SortableExerciseListProps = {
 };
 
 export function SortableExerciseList({
+  userId,
   cards,
   names,
   onReorder,
@@ -98,6 +101,7 @@ export function SortableExerciseList({
               onSwipeAway={() => onRemoveExercise(card.id)}
             >
               <WorkoutExerciseCard
+                userId={userId}
                 name={nameOf(card)}
                 card={card}
                 onAddSet={(seed) => onAddSet(card.id, seed)}

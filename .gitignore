@@ -9,7 +9,8 @@ dev-dist/
 # Vercel: the link to the project (project id and org), per clone
 .vercel/
 
-# Bundle analysis report (rollup-plugin-visualizer)
+# Local analysis and audit artifacts (bundle report, screenshots, credential dumps).
+# Never commit anything from here: `stats/audit` held a Supabase PAT on 2026-10-21.
 stats/
 
 # Environment
@@ -36,6 +37,10 @@ Thumbs.db
 
 # Local agent runtime state
 .atl/
+.commandcode/
+
+# Local code graph index (CodeGraph)
+.codegraph/
 
 # Estado local de la skill de diseño: lo que se genera y se descarta.
 # Los briefs de superficie NO se ignoran: son el contrato de direccion, y la skill los define

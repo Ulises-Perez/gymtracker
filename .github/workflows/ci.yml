@@ -72,10 +72,20 @@ jobs:
       - name: Set up the Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned instead of `latest`: the pipeline's database suite depends on the
+          # Postgres major version this version ships, and a new release should be a
+          # deliberate change, not something a push discovers.
+          version: 2.120.0
 
       - name: Start the local stack
         run: supabase start
+
+      # The RLS/pgTAP suite is the only test of the security boundary the architecture
+      # relies on: that A cannot read B's rows and that `anon` has no table privileges.
+      # Leaving it out of CI meant it ran only when somebody remembered the manual command,
+      # against the hosted project — which is not where a schema is tested.
+      - name: Database suite (RLS and RPCs)
+        run: supabase test db
 
       - name: Install the browser
         run: npx playwright install --with-deps chromium

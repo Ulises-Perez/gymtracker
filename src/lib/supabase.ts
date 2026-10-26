@@ -47,8 +47,14 @@ async function createSupabaseClient(): Promise<Supabase> {
       // keeping this storage synchronous keeps auth simple.
       persistSession: true,
       autoRefreshToken: true,
-      // Confirmation and password-recovery emails come back with the tokens in
-      // the URL fragment, so the client has to read them.
+      // Confirmation and password-recovery emails come back with a one-time code
+      // bound to this browser, so the client has to read it. PKCE is not the
+      // default: `implicit` accepts a fragment with any valid access/refresh pair,
+      // which lets an attacker send a victim a link that silently signs them into
+      // the attacker's account. With PKCE, the code only exchanges against the
+      // verifier this browser stored when it asked for the email — so a recovery
+      // link has to be opened in the same browser that requested it.
+      flowType: 'pkce',
       detectSessionInUrl: true,
     },
   });

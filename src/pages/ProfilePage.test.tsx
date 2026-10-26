@@ -198,6 +198,27 @@ describe('ProfilePage', () => {
  * preference.
  */
 describe('the unit preference', () => {
+  /**
+   * A failed profile read is not "kilos by default". The screen cannot know which
+   * unit the person reads in, so it must not accept a weight typed in pounds and
+   * store it as kilograms, and it must not write a unit preference nobody chose.
+   */
+  it('does not write a unit or a weight when the profile could not be read', async () => {
+    fake.setTableResult('profiles', { data: null, error: { message: 'permission denied' } });
+
+    renderProfile();
+
+    expect(
+      await screen.findByText(
+        'No pudimos cargar tu perfil. Revisá tu conexión e intentá de nuevo.',
+      ),
+    ).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'kg' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'lb' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+  });
+
   it('reflects the stored unit and writes the chosen one, and writes no weight', async () => {
     fake.setTableResult('profiles', { data: [profileRow('lb')], error: null });
 
@@ -635,6 +656,7 @@ describe('the entry screen', () => {
         <UnitProbe />
         <div data-testid="tarjeta">
           <WorkoutExerciseCard
+            userId={USER_ID}
             name="Press Banca"
             card={CARD}
             onAddSet={vi.fn()}

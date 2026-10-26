@@ -51,6 +51,22 @@ describe('escapeCsvField', () => {
     expect(escapeCsvField('Piernas')).toBe('Piernas');
     expect(escapeCsvField('')).toBe('');
   });
+
+  /**
+   * A cell that starts with a formula character is a program to a spreadsheet. The file is
+   * data, and it can be opened by someone who never typed the string — the title travels
+   * through the session, and a shared device is one of the app's own scenarios.
+   */
+  it('neutralises a cell a spreadsheet would run as a formula', () => {
+    expect(escapeCsvField('=1+1')).toBe("'=1+1");
+    expect(escapeCsvField('+SUM(A1:A2)')).toBe("'+SUM(A1:A2)");
+    expect(escapeCsvField('-1+1')).toBe("'-1+1");
+    expect(escapeCsvField('@SUM(A1:A2)')).toBe("'@SUM(A1:A2)");
+  });
+
+  it('keeps the neutralising apostrophe inside the quotes when the field also needs them', () => {
+    expect(escapeCsvField('=1+1;echo')).toBe('"\'=1+1;echo"');
+  });
 });
 
 describe('toCsv', () => {

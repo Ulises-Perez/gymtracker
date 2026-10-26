@@ -52,3 +52,13 @@ export function ProfileIcon(props: SVGProps<SVGSVGElement>) {
     </IconBase>
   );
 }
+
+/** The way back. Drawn, because a `←` is a glyph that renders differently on every platform. */
+export function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M19 12H5" />
+      <path d="m11 18-6-6 6-6" />
+    </IconBase>
+  );
+}

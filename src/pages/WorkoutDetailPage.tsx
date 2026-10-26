@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
+import { ArrowLeftIcon } from '../components/icons.tsx';
 import { PageSkeleton } from '../components/ui/PageSkeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
@@ -34,7 +35,7 @@ export function WorkoutDetailPage() {
   const [confirmingRepeat, setConfirmingRepeat] = useState(false);
   const hydrated = useWorkoutStore((state) => state.hydrated);
   const repeatFrom = useWorkoutStore((state) => state.repeatFrom);
-  const detail = useWorkoutDetail(workoutId);
+  const detail = useWorkoutDetail(user?.id ?? '', workoutId);
   const catalog = useCatalog(user?.id ?? '');
   // This screen's subject is reading, so it speaks the unit the user prefers. The stored kilos are
   // converted at the line below and nowhere else.
@@ -112,8 +113,9 @@ export function WorkoutDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
-      <Link to="/history" className="text-text link-ruled text-sm">
-        ← Historial
+      <Link to="/history" className="text-text link-ruled inline-flex items-center gap-1 text-sm">
+        <ArrowLeftIcon className="size-4" />
+        Historial
       </Link>
 
       <h1 className="font-display mt-2 text-3xl font-black tracking-tight">

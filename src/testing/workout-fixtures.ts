@@ -29,11 +29,15 @@ export const saveWorkoutPayloadFixture: SaveWorkoutPayload = {
   ],
 };
 
+/** The account every fixture belongs to; the queue entry names its owner. */
+export const FIXTURE_OWNER_ID = '00000000-0000-4000-a000-000000000001';
+
 export function queuedSaveWorkout(
   payload: Partial<SaveWorkoutPayload> = {},
 ): QueuedMutationVariables {
   return {
     kind: 'save-workout',
+    ownerId: FIXTURE_OWNER_ID,
     payload: { ...saveWorkoutPayloadFixture, ...payload },
   };
 }

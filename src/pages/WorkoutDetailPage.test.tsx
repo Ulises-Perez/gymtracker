@@ -135,8 +135,8 @@ describe('WorkoutDetailPage', () => {
      * single weight formatter, so a kilo and a pound read the same way. The assertion is stronger
      * for it -- it now pins the formatter and not a coincidence of the stored value.
      */
-    expect(screen.getByText(/1ª · 10 × 70\.0 kg/)).toBeInTheDocument();
-    expect(screen.getByText(/2ª · 8 × 75\.0 kg/)).toBeInTheDocument();
+    expect(screen.getByText(/1ª · 10 × 70,0 kg/)).toBeInTheDocument();
+    expect(screen.getByText(/2ª · 8 × 75,0 kg/)).toBeInTheDocument();
   });
 
   /**
@@ -168,8 +168,8 @@ describe('WorkoutDetailPage', () => {
     renderPage();
 
     // 100 kg is 220.5 lb, and the screen shows the pounds and not the kilos it stored.
-    expect(await screen.findByText(/1ª · 10 × 220\.5 lb/)).toBeInTheDocument();
-    expect(screen.queryByText(/100\.0 kg/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/1ª · 10 × 220,5 lb/)).toBeInTheDocument();
+    expect(screen.queryByText(/100,0 kg/)).not.toBeInTheDocument();
   });
 
   it('keeps a missing weight as a dash instead of calling it zero pounds', async () => {
@@ -243,8 +243,8 @@ describe('WorkoutDetailPage', () => {
     const lists = await screen.findAllByRole('list', { name: 'Series de Press Banca' });
 
     expect(lists).toHaveLength(2);
-    expect(lists[0]).toHaveTextContent(/1ª · 10 × 70\.0 kg/);
-    expect(lists[1]).toHaveTextContent(/1ª · 5 × 100\.0 kg/);
+    expect(lists[0]).toHaveTextContent(/1ª · 10 × 70,0 kg/);
+    expect(lists[1]).toHaveTextContent(/1ª · 5 × 100,0 kg/);
   });
 
   it('says the workout may be gone when it cannot be read', async () => {
@@ -262,7 +262,7 @@ describe('WorkoutDetailPage', () => {
   it('keeps a way back to the list while it loads', () => {
     renderPage();
 
-    expect(screen.getByRole('link', { name: '← Historial' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Historial' })).toBeInTheDocument();
   });
 
   it('asks before deleting, and says what deleting means', async () => {
@@ -436,7 +436,7 @@ describe('the links on this page', () => {
   it('underlines the way back and the exercise name with the shared link class', async () => {
     renderPage();
 
-    const back = screen.getByRole('link', { name: '← Historial' });
+    const back = screen.getByRole('link', { name: 'Historial' });
     // Rendered once the catalogue answers with the name of the exercise.
     const toProgress = await screen.findByRole('link', { name: 'Press Banca' });
 

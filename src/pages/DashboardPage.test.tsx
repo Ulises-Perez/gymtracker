@@ -144,7 +144,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Press Banca')).toBeInTheDocument();
 
     // One call, and the assertion is that the screen made no others to build itself.
-    expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary');
+    expect(fake.rpc).toHaveBeenCalledWith('dashboard_summary', {
+      p_today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    });
   });
 
   it('writes the singular when the session had a single exercise', async () => {
@@ -176,7 +178,7 @@ describe('DashboardPage', () => {
 
     // 100 kg is 220.5 lb. The streak and the week strip above are not weights, so they do not
     // convert -- only the records line does.
-    expect(await screen.findByText(/220\.5 lb/)).toBeInTheDocument();
+    expect(await screen.findByText(/220,5 lb/)).toBeInTheDocument();
   });
 
   it('lights up the days of this week that were trained', async () => {
@@ -187,7 +189,14 @@ describe('DashboardPage', () => {
     const strip = screen.getByRole('list', { name: 'Esta semana' });
 
     expect(strip.querySelectorAll('li')).toHaveLength(7);
-    expect(screen.getAllByRole('listitem', { name: 'entrenado' })).toHaveLength(1);
+    expect(screen.getAllByRole('listitem', { name: /entrenado$/ })).toHaveLength(1);
+    // The name carries the day, not only the state: seven identical announcements would
+    // not say *which* square is the trained one.
+    expect(
+      screen.getAllByRole('listitem', {
+        name: /(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i,
+      }),
+    ).toHaveLength(7);
   });
 
   it('welcomes someone who has never trained, instead of showing broken cards', async () => {

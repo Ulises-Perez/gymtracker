@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { afterPaint } from '../lib/after-paint.ts';
+import { clearLocalUserData } from '../lib/session-cleanup.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import { sessionState } from '../lib/stored-session.ts';
 import { AuthContext } from './auth-context.ts';
@@ -36,10 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
           answered = true;
           setSession(nextSession);
           setLoading(false);
+
+          /*
+           * The SDK removes the session even when the sign-out request cannot reach
+           * the server, so SIGNED_OUT is the one event that means "the account on
+           * this device is gone". Everything the app remembered about it goes with
+           * it: the persisted query cache, the in-progress draft and the queue.
+           * Without this, the next account signs in over A's data and a paused save
+           * is resumed with B's JWT.
+           */
+          if (event === 'SIGNED_OUT') {
+            void clearLocalUserData();
+          }
         });
 
         unsubscribe = () => {

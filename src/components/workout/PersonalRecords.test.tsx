@@ -43,7 +43,7 @@ describe('PersonalRecords', () => {
 
     expect(screen.getByRole('status', { name: 'Récords nuevos' })).toBeInTheDocument();
     expect(screen.getByText('Press Banca')).toBeInTheDocument();
-    expect(screen.getByText('antes 110.0 kg → 116.7 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('antes 110,0 kg → 116,7 kg de 1RM')).toBeInTheDocument();
   });
 
   /**
@@ -53,7 +53,7 @@ describe('PersonalRecords', () => {
   it('does not invent a previous mark for a first-ever record', () => {
     renderRecords([record({ old_1rm: null })]);
 
-    expect(screen.getByText('primera marca: 116.7 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('primera marca: 116,7 kg de 1RM')).toBeInTheDocument();
     expect(screen.queryByText(/110\.0/)).not.toBeInTheDocument();
   });
 
@@ -65,7 +65,7 @@ describe('PersonalRecords', () => {
   it('treats a missing previous mark the same as a null one', () => {
     renderRecords([record({ old_1rm: undefined })]);
 
-    expect(screen.getByText('primera marca: 116.7 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('primera marca: 116,7 kg de 1RM')).toBeInTheDocument();
   });
 
   it('lists every record of the session', () => {
@@ -99,9 +99,9 @@ describe('PersonalRecords', () => {
       record({ old_1rm: 116.7, new_1rm: 122.5, weight: 105, reps: 5 }),
     ]);
 
-    expect(screen.getByText('primera marca: 53.3 kg de 1RM')).toBeInTheDocument();
-    expect(screen.getByText('antes 53.3 kg → 116.7 kg de 1RM')).toBeInTheDocument();
-    expect(screen.getByText('antes 116.7 kg → 122.5 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('primera marca: 53,3 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('antes 53,3 kg → 116,7 kg de 1RM')).toBeInTheDocument();
+    expect(screen.getByText('antes 116,7 kg → 122,5 kg de 1RM')).toBeInTheDocument();
   });
 
   it('says nothing when there is nothing to celebrate', () => {

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { ArrowLeftIcon } from '../components/icons.tsx';
 import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { useCatalog } from '../hooks/useCatalog.ts';
@@ -46,9 +47,12 @@ export function ExerciseDetailPage() {
   const unit = useWeightUnit(user?.id ?? '');
 
   const progress = useQuery({
-    queryKey: ['progress', exerciseId],
+    // The exercise id is a global catalogue id, so the owner belongs in the key:
+    // the persisted cache outlives the session and the second account on this
+    // device must not be shown the first account's dated weights.
+    queryKey: ['progress', user?.id ?? '', exerciseId],
     queryFn: () => fetchExerciseProgress(exerciseId),
-    enabled: exerciseId !== '',
+    enabled: (user?.id ?? '') !== '' && exerciseId !== '',
   });
 
   const name = useMemo(
@@ -64,8 +68,9 @@ export function ExerciseDetailPage() {
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-28">
       {/* A printed rule under the words, from the shared `link-ruled` class in `src/index.css`: the
           pale separator rule under it measured 1.30:1, and a link that faint is not a link. */}
-      <Link to="/history" className="text-text link-ruled text-sm">
-        ← Historial
+      <Link to="/history" className="text-text link-ruled inline-flex items-center gap-1 text-sm">
+        <ArrowLeftIcon className="size-4" />
+        Historial
       </Link>
 
       <h1 className="font-display mt-2 text-3xl font-black tracking-tight">{name}</h1>
@@ -112,6 +117,16 @@ export function ExerciseDetailPage() {
             ))}
           </div>
 
+          {/*
+            The one metric whose name is not the thing it measures. Without a line of help, "1RM
+            estimado" asks the person to know a term from a training manual; the formula is the
+            whole answer, and it is short enough to sit under the chips.
+          */}
+          <p className="text-muted mt-2 text-xs">
+            El 1RM estimado es cuánto podrías levantar una sola vez, estimado con la fórmula de
+            Epley: peso × (1 + reps / 30).
+          </p>
+
           <Suspense fallback={<Skeleton className="mt-3 h-[220px] w-full" />}>
             {/* The label is the unit itself, so the plotted values cannot disagree with it:
                 `buildChartSeries` converts the stored kilos to it. The chart draws no legend -- the
@@ -122,12 +137,20 @@ export function ExerciseDetailPage() {
           {/* The sessions as ruled rows, with the figures tabular so the column of numbers holds
               still and the date column does not wobble down the page. */}
           <ul aria-label="Sesiones" className="mt-4">
-            {points.map((point: ExerciseProgressPoint) => (
-              <li key={point.date} className="border-rule tabular text-muted border-b py-1 text-sm">
-                {formatIsoDate(point.date)} · {formatWeight(point.maxWeight, unit)} máx ·{' '}
-                {formatWeight(point.volume, unit)} de volumen
-              </li>
-            ))}
+            {points.map((point: ExerciseProgressPoint) => {
+              const maxWeight =
+                point.maxWeight === null ? '—' : formatWeight(point.maxWeight, unit);
+              const volume = point.volume === null ? '—' : formatWeight(point.volume, unit);
+
+              return (
+                <li
+                  key={point.date}
+                  className="border-rule tabular text-muted border-b py-1 text-sm"
+                >
+                  {formatIsoDate(point.date)} · {maxWeight} máx · {volume} de volumen
+                </li>
+              );
+            })}
           </ul>
         </>
       ) : null}
